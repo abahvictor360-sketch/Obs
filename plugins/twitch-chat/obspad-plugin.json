@@ -3,7 +3,7 @@
   "name": "Twitch Chat",
   "version": "1.0.0",
   "description": "Shows your Twitch chat on stream. Read-only, no login needed.",
-  "author": "OBS Tablet",
+  "author": "ObsPad",
   "main": "main.js",
   "permissions": ["network"],
   "sources": [

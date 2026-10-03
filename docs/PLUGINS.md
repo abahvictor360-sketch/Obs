@@ -1,6 +1,6 @@
-# Writing OBS Tablet plugins
+# Writing ObsPad plugins
 
-OBS Tablet plugins are small web packages: a manifest, plus JavaScript and HTML that run in a sandbox
+ObsPad plugins are small web packages: a manifest, plus JavaScript and HTML that run in a sandbox
 inside the app. They work on both Android and iPad, and users install them by pasting a GitHub link.
 
 Desktop OBS plugins (C/C++ built against libobs, like DistroAV or Move Transition) can't run on tablets.
@@ -22,7 +22,7 @@ that need native code, like NDI, ship as **built-in plugins** instead.
 
 ```
 my-plugin/
-  obs-tablet-plugin.json   # required
+  obspad-plugin.json   # required
   main.js                  # required if the plugin has sources
   dock.html                # optional, one per dock
   assets/...               # anything else (images, fonts)
@@ -31,7 +31,7 @@ my-plugin/
 The plugin can be the whole repository, or a folder inside one. Users can link to a folder:
 `https://github.com/you/plugins/tree/main/my-plugin`.
 
-## Manifest: `obs-tablet-plugin.json`
+## Manifest: `obspad-plugin.json`
 
 ```json
 {
@@ -114,7 +114,7 @@ await obstablet.control.startStreaming();       // also stopStreaming, startReco
 2. Optionally create a release (tag `v1.0.0`). Installs and updates follow the latest release. A `.zip`
    asset on the release is used if present; otherwise the release's source zip.
 3. Share the link. Users paste it in **Plugins → Get plugins**. To appear in the built-in catalog, add
-   an entry to `plugins/catalog.json` in the OBS Tablet repository (or host your own catalog: the app's
+   an entry to `plugins/catalog.json` in the ObsPad repository (or host your own catalog: the app's
    catalog URL is configurable).
 
 ## Testing in a browser

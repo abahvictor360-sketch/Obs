@@ -1,4 +1,4 @@
-// Plugin manifest: `obs-tablet-plugin.json` at the root of a plugin.
+// Plugin manifest: `obspad-plugin.json` at the root of a plugin.
 //
 // {
 //   "id": "com.example.clock",          // reverse-DNS, unique
@@ -6,7 +6,7 @@
 //   "version": "1.2.0",                 // semver
 //   "description": "A clock overlay",
 //   "author": "Jane",
-//   "homepage": "https://github.com/jane/obs-tablet-clock",
+//   "homepage": "https://github.com/jane/obspad-clock",
 //   "minAppVersion": "1.0.0",
 //   "main": "main.js",                  // runs in the plugin's sandbox
 //   "permissions": ["network", "control"],
@@ -18,7 +18,7 @@
 //   "docks": [{"id": "panel", "name": "Clock panel", "page": "dock.html"}]
 // }
 
-const kManifestFile = 'obs-tablet-plugin.json';
+const kManifestFile = 'obspad-plugin.json';
 const kAppVersion = '1.0.0';
 
 class PluginFormatException implements Exception {
@@ -197,7 +197,7 @@ class PluginManifest {
       final need = Version.tryParse(minApp);
       if (need == null) throw PluginFormatException('minAppVersion must be like 1.2.3');
       if (need > Version.parse(kAppVersion)) {
-        throw PluginFormatException('Needs OBS Tablet $minApp or newer');
+        throw PluginFormatException('Needs ObsPad $minApp or newer');
       }
     }
     final perms = <PluginPermission>{};

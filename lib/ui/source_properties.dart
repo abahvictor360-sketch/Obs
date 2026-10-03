@@ -502,7 +502,7 @@ class _ScreenCaptureSettings extends StatelessWidget {
             const SizedBox(height: 16),
             Text(
               ios
-                  ? 'On iPad, choose "OBS Tablet Screen" in the broadcast sheet and tap Start '
+                  ? 'On iPad, choose "ObsPad Screen" in the broadcast sheet and tap Start '
                       'Broadcast. Then switch to the app or game you want to show; your other '
                       'sources stay on top of it.'
                   : 'Android will ask for permission to capture the screen. Then switch to the '

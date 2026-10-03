@@ -359,7 +359,7 @@ class _GetPluginsTabState extends State<_GetPluginsTab> {
         const SizedBox(height: 24),
         const Text(
           'Plugins run in a sandbox: they can draw sources and docks, and only reach the internet or control '
-          'the studio if you allow it. Writing your own? See docs/PLUGINS.md in the OBS Tablet repository.',
+          'the studio if you allow it. Writing your own? See docs/PLUGINS.md in the ObsPad repository.',
           style: TextStyle(color: ObsColors.textDim, fontSize: 13),
         ),
       ],

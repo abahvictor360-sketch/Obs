@@ -151,7 +151,7 @@ class _TopBar extends StatelessWidget {
                 child: const Icon(Icons.radio_button_checked, size: 20, color: ObsColors.header),
               ),
               const SizedBox(width: 10),
-              const Text('OBS Tablet', style: TextStyle(fontWeight: FontWeight.bold)),
+              const Text('ObsPad', style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(width: 12),
               Flexible(
                 child: Text(

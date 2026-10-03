@@ -1,6 +1,6 @@
 {
-    "name": "obs_tablet",
-    "short_name": "obs_tablet",
+    "name": "ObsPad",
+    "short_name": "ObsPad",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

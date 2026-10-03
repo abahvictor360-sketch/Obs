@@ -17,7 +17,7 @@ import java.util.Locale
 
 /**
  * Writes encoder output to an MP4 with MediaMuxer, then publishes it to the
- * gallery (Movies/OBS Tablet). The muxer is started lazily on the first video
+ * gallery (Movies/ObsPad). The muxer is started lazily on the first video
  * keyframe once the codec formats are known (MediaMuxer needs all tracks up
  * front), and timestamps are rebased so the file starts at 0.
  */
@@ -112,7 +112,7 @@ class Mp4Recorder(
                 val values = ContentValues().apply {
                     put(MediaStore.Video.Media.DISPLAY_NAME, name)
                     put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
-                    put(MediaStore.Video.Media.RELATIVE_PATH, Environment.DIRECTORY_MOVIES + "/OBS Tablet")
+                    put(MediaStore.Video.Media.RELATIVE_PATH, Environment.DIRECTORY_MOVIES + "/ObsPad")
                     put(MediaStore.Video.Media.IS_PENDING, 1)
                 }
                 val resolver = context.contentResolver
@@ -122,7 +122,7 @@ class Mp4Recorder(
                 values.put(MediaStore.Video.Media.IS_PENDING, 0)
                 resolver.update(uri, values, null, null)
                 file.delete()
-                "Movies/OBS Tablet/$name"
+                "Movies/ObsPad/$name"
             } else {
                 MediaScannerConnection.scanFile(context, arrayOf(file.absolutePath), arrayOf("video/mp4"), null)
                 file.absolutePath

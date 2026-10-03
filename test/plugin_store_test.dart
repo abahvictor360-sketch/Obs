@@ -58,7 +58,7 @@ void main() {
       expect(r.repo, 'obs-clock');
       r = GitHubRef.parse('github.com/jane/plugins/tree/main/plugins/clock');
       expect((r.ref, r.subdir), ('main', 'plugins/clock'));
-      r = GitHubRef.parse('https://github.com/jane/plugins/blob/v2/clock/obs-tablet-plugin.json');
+      r = GitHubRef.parse('https://github.com/jane/plugins/blob/v2/clock/obspad-plugin.json');
       expect((r.ref, r.subdir), ('v2', 'clock'));
       r = GitHubRef.parse('https://github.com/jane/obs-clock/releases/tag/v1.2.0');
       expect(r.ref, 'v1.2.0');
@@ -91,7 +91,7 @@ void main() {
       expect(() => PluginManifest.fromJson(withField('main', '../evil.js')), throwsA(isA<PluginFormatException>()));
       expect(() => PluginManifest.fromJson(withField('main', null)), throwsA(isA<PluginFormatException>()));
       expect(() => PluginManifest.fromJson(withField('minAppVersion', '99.0.0')),
-          throwsA(predicate((e) => '$e'.contains('Needs OBS Tablet'))));
+          throwsA(predicate((e) => '$e'.contains('Needs ObsPad'))));
     });
 
     test('version ordering', () {

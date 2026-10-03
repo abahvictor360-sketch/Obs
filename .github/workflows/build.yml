@@ -45,19 +45,19 @@ jobs:
         run: flutter build apk --release
 
       - name: Name the APK
-        run: cp build/app/outputs/flutter-apk/app-release.apk obs-tablet.apk
+        run: cp build/app/outputs/flutter-apk/app-release.apk obspad.apk
 
       - uses: actions/upload-artifact@v4
         with:
-          name: obs-tablet-android-apk
-          path: obs-tablet.apk
+          name: obspad-android-apk
+          path: obspad.apk
 
       - name: Build web preview
         run: flutter build web --release --no-web-resources-cdn
 
       - uses: actions/upload-artifact@v4
         with:
-          name: obs-tablet-web
+          name: obspad-web
           path: build/web
 
   ios:
@@ -87,12 +87,12 @@ jobs:
         run: |
           mkdir -p Payload
           cp -R build/ios/iphoneos/Runner.app Payload/
-          zip -qry obs-tablet-unsigned.ipa Payload
+          zip -qry obspad-unsigned.ipa Payload
 
       - uses: actions/upload-artifact@v4
         with:
-          name: obs-tablet-ios-ipa
-          path: obs-tablet-unsigned.ipa
+          name: obspad-ios-ipa
+          path: obspad-unsigned.ipa
 
   ndi-sdk:
     # Sends frames through the real NDI runtime and receives them back,
@@ -115,7 +115,7 @@ jobs:
 
   release:
     # Publishes each successful build of the default branch, so
-    # https://github.com/<owner>/<repo>/releases/latest/download/obs-tablet.apk
+    # https://github.com/<owner>/<repo>/releases/latest/download/obspad.apk
     # always points at the newest test build.
     needs: [test-and-android, ios]
     if: github.event_name != 'pull_request' && github.ref_name == github.event.repository.default_branch
@@ -132,17 +132,17 @@ jobs:
         with:
           tag_name: build-${{ github.run_number }}
           target_commitish: ${{ github.sha }}
-          name: OBS Tablet test build ${{ github.run_number }}
+          name: ObsPad test build ${{ github.run_number }}
           make_latest: true
           files: |
-            dist/obs-tablet.apk
-            dist/obs-tablet-unsigned.ipa
+            dist/obspad.apk
+            dist/obspad-unsigned.ipa
           body: |
             Test build from ${{ github.sha }}.
 
-            **Android tablet:** download `obs-tablet.apk`, open it, and allow installing from this source when asked.
+            **Android tablet:** download `obspad.apk`, open it, and allow installing from this source when asked.
 
-            **iPad:** `obs-tablet-unsigned.ipa` must be signed with your Apple ID: open it with
+            **iPad:** `obspad-unsigned.ipa` must be signed with your Apple ID: open it with
             [Sideloadly](https://sideloadly.io) or [AltStore](https://altstore.io) on a computer, with the iPad
             connected. Screen capture also needs the App Group set up (see README).
 

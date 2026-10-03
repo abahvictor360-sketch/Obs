@@ -112,7 +112,7 @@ class PluginPackageReader {
       }).firstOrNull;
       if (manifestPath == null) throw PluginFormatException('No $kManifestFile in "$want"');
     } else {
-      if (manifests.isEmpty) throw PluginFormatException('No $kManifestFile found. Is this an OBS Tablet plugin?');
+      if (manifests.isEmpty) throw PluginFormatException('No $kManifestFile found. Is this an ObsPad plugin?');
       manifestPath = manifests.first;
     }
     final root = manifestPath.substring(0, manifestPath.length - kManifestFile.length);

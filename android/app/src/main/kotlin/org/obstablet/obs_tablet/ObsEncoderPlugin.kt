@@ -213,7 +213,7 @@ class ObsEncoderPlugin(private val activity: Activity, messenger: BinaryMessenge
             if (multicastLock == null) {
                 val wifi = activity.applicationContext.getSystemService(android.content.Context.WIFI_SERVICE)
                     as android.net.wifi.WifiManager
-                multicastLock = wifi.createMulticastLock("obs-tablet-ndi").apply {
+                multicastLock = wifi.createMulticastLock("obspad-ndi").apply {
                     setReferenceCounted(false)
                     acquire()
                 }

@@ -20,7 +20,7 @@ class _NdiSettingsPanelState extends State<NdiSettingsPanel> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     final s = AppScope.of(context).plugins.builtinSettings(ndiBuiltin.id);
-    _name ??= TextEditingController(text: s['name'] as String? ?? 'OBS Tablet');
+    _name ??= TextEditingController(text: s['name'] as String? ?? 'ObsPad');
     _groups ??= TextEditingController(text: s['groups'] as String? ?? '');
   }
 

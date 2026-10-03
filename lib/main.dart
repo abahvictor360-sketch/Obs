@@ -93,7 +93,7 @@ class _ObsTabletAppState extends State<ObsTabletApp> with WidgetsBindingObserver
       devices: widget.devices,
       networkVideo: widget.networkVideo,
       child: MaterialApp(
-        title: 'OBS Tablet',
+        title: 'ObsPad',
         debugShowCheckedModeBanner: false,
         theme: buildObsTheme(),
         home: const StudioScreen(),

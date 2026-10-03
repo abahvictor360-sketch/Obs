@@ -1,4 +1,4 @@
-# OBS Tablet
+# ObsPad
 
 A touch-first live streaming and recording studio for **Android tablets and iPads**, modelled on
 [OBS Studio](https://github.com/obsproject/obs-studio). It's built with Flutter: one codebase for both
@@ -56,7 +56,7 @@ _Screenshots are from the browser build, using Chromium's synthetic test camera 
 - Auto-reconnect: up to 10 attempts, 5 s apart.
 - Congestion handling: drops video frames until the next keyframe, like OBS.
 - Streaming and recording can run at the same time and share one hardware encoder.
-- Recording to MP4, saved to the gallery (`Movies/OBS Tablet` on Android, Photos on iPad), or to FLV,
+- Recording to MP4, saved to the gallery (`Movies/ObsPad` on Android, Photos on iPad), or to FLV,
   which is crash-safe like OBS's MKV.
 
 **Screen capture (stream your games)**
@@ -180,7 +180,7 @@ the real NDI runtime and receives them back. Without the runtime, everything els
 shows as unavailable. NDI® is a registered trademark of Vizrt NDI AB.
 
 Every push also builds an installable Android APK in GitHub Actions. Download it from
-**Actions → Build → obs-tablet-android-apk**.
+**Actions → Build → obspad-android-apk**.
 
 ## Testing
 

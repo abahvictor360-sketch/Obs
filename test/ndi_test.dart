@@ -37,7 +37,7 @@ void main() {
 
     final out = FfiNdiOutput();
     expect(out.available, isTrue);
-    const name = 'OBS Tablet Test';
+    const name = 'ObsPad Test';
     await out.start(name: name);
 
     // 64x36, opaque mid-grey with a red band: survives NDI's lossy codec.

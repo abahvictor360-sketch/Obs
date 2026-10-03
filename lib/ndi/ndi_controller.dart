@@ -12,7 +12,7 @@ class NdiController {
   final PluginManager plugins;
   final OutputEngine output;
 
-  static const defaultName = 'OBS Tablet';
+  static const defaultName = 'ObsPad';
 
   String get name {
     final n = (plugins.builtinSettings(ndiBuiltin.id)['name'] as String? ?? '').trim();

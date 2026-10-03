@@ -34,7 +34,7 @@ const kPluginRuntimeJs = r'''
 
   window.obstablet = {
     version: '1.0',
-    /** Register a source type declared in obs-tablet-plugin.json. */
+    /** Register a source type declared in obspad-plugin.json. */
     registerSource: function (type, impl) { types[type] = impl; },
     /** Events: sceneChanged, streamingChanged, recordingChanged. */
     on: function (event, cb) { (listeners[event] = listeners[event] || []).push(cb); },

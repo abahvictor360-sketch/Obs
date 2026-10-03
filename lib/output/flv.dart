@@ -72,7 +72,7 @@ class Flv {
         'audiosamplesize': 16.0,
         'stereo': channels > 1,
         'audiocodecid': 10.0,
-        'encoder': 'OBS Tablet',
+        'encoder': 'ObsPad',
         'filesize': 0.0,
       };
 
