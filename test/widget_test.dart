@@ -39,6 +39,8 @@ class FakeEncoder implements EncoderBackend {
   @override
   Future<void> setMicGain(double gain) async {}
   @override
+  Future<void> setScreenAudioGain(double gain) async {}
+  @override
   Future<String?> startMp4Recording() async => null;
   @override
   Future<String?> stopMp4Recording() async => null;

@@ -39,7 +39,8 @@ enum SourceType {
   bool get isVisual => this != SourceType.audioInput;
 
   /// Whether the source shows up in the audio mixer.
-  bool get hasAudio => this == SourceType.audioInput || this == SourceType.media;
+  /// Screen Capture carries the audio of other apps (games, videos).
+  bool get hasAudio => this == SourceType.audioInput || this == SourceType.media || this == SourceType.screen;
 
   static SourceType fromName(String name) =>
       SourceType.values.firstWhere((t) => t.name == name, orElse: () => SourceType.color);

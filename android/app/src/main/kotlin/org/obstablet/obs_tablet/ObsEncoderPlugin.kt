@@ -2,6 +2,7 @@ package org.obstablet.obs_tablet
 
 import android.Manifest
 import android.app.Activity
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Handler
@@ -36,9 +37,21 @@ class ObsEncoderPlugin(private val activity: Activity, messenger: BinaryMessenge
     private var recorder: Mp4Recorder? = null
     @Volatile private var micGain = 1.0f
 
+    @Volatile private var appAudioGain = 1.0f
+
     init {
         method.setMethodCallHandler(this)
         events.setStreamHandler(this)
+        ScreenCapture.stateListener = { active, w, h, error ->
+            val e = mutableMapOf<String, Any>(
+                "type" to "screen",
+                "state" to if (active) "active" else "stopped",
+                "width" to w,
+                "height" to h,
+            )
+            if (error != null) e["error"] = error
+            emit(e)
+        }
     }
 
     override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
@@ -90,6 +103,38 @@ class ObsEncoderPlugin(private val activity: Activity, messenger: BinaryMessenge
                     audio?.gain = micGain
                     result.success(null)
                 }
+                "setScreenAudioGain" -> {
+                    appAudioGain = (call.argument<Double>("gain") ?: 1.0).toFloat()
+                    audio?.appGain = appAudioGain
+                    result.success(null)
+                }
+                "isScreenCaptureSupported" -> result.success(Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
+                "startScreenCapture" -> {
+                    if (!ScreenCapture.isActive) {
+                        @Suppress("DEPRECATION")
+                        activity.startActivityForResult(ScreenCapture.requestIntent(activity), SCREEN_REQUEST)
+                    }
+                    result.success(null)
+                }
+                "stopScreenCapture" -> {
+                    ScreenCapture.stop(activity)
+                    result.success(null)
+                }
+                "overlays" -> {
+                    val v = video
+                    if (v == null) {
+                        result.success(null)
+                    } else {
+                        v.setOverlays(
+                            call.argument<ByteArray>("under"),
+                            call.argument<ByteArray>("over"),
+                            call.argument<Boolean>("clearOver") ?: false,
+                            call.argument<Int>("width") ?: 0,
+                            call.argument<Int>("height") ?: 0,
+                            Placement.from(call.argument<Map<*, *>>("placement")),
+                        ) { main.post { result.success(null) } }
+                    }
+                }
                 "startRecording" -> result.success(startRecording())
                 "stopRecording" -> result.success(stopRecording())
                 else -> result.notImplemented()
@@ -131,6 +176,7 @@ class ObsEncoderPlugin(private val activity: Activity, messenger: BinaryMessenge
                 emit(mapOf("type" to "level", "rms" to rms.toDouble(), "peak" to peak.toDouble()))
             }).also {
                 it.gain = micGain
+                it.appGain = appAudioGain
                 it.start()
             }
         }
@@ -140,6 +186,17 @@ class ObsEncoderPlugin(private val activity: Activity, messenger: BinaryMessenge
             pendingAudio = startAudio
             activity.requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), MIC_REQUEST)
         }
+    }
+
+    /** Result of the system "start recording your screen?" dialog. */
+    fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?): Boolean {
+        if (requestCode != SCREEN_REQUEST) return false
+        if (resultCode == Activity.RESULT_OK && data != null) {
+            ScreenCapture.start(activity, resultCode, data)
+        } else {
+            emit(mapOf("type" to "screen", "state" to "stopped", "error" to "Screen capture permission was denied"))
+        }
+        return true
     }
 
     fun onRequestPermissionsResult(requestCode: Int, grantResults: IntArray) {
@@ -184,11 +241,14 @@ class ObsEncoderPlugin(private val activity: Activity, messenger: BinaryMessenge
 
     fun dispose() {
         stop()
+        ScreenCapture.stateListener = null
+        ScreenCapture.stop(activity)
         method.setMethodCallHandler(null)
         events.setStreamHandler(null)
     }
 
     companion object {
         private const val MIC_REQUEST = 4711
+        private const val SCREEN_REQUEST = 4712
     }
 }

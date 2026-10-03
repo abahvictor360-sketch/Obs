@@ -58,6 +58,20 @@ class VideoEncoder(
     private val paint = Paint(Paint.FILTER_BITMAP_FLAG)
     private val dst = Rect()
 
+    // Screen compositing mode: under layer + live screen + over layer, drawn
+    // on a timer so the stream keeps running while Flutter is in background.
+    private var compositing = false
+    private var underBmp: Bitmap? = null
+    private var overBmp: Bitmap? = null
+    private var placement = Placement(0f, 0f, 0f, 0f, 0f, "contain")
+    private val compositeTick = object : Runnable {
+        override fun run() {
+            if (!running || !compositing) return
+            renderComposite()
+            frameHandler.postDelayed(this, (1000L / fps).coerceAtLeast(1))
+        }
+    }
+
     fun start() {
         val format = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, width, height).apply {
             setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface)
@@ -98,6 +112,11 @@ class VideoEncoder(
                         bitmap = bmp
                     }
                     bmp!!.copyPixelsFromBuffer(ByteBuffer.wrap(rgba, 0, w * h * 4))
+                    // A plain frame from Dart ends screen compositing.
+                    if (compositing) {
+                        compositing = false
+                        frameHandler.removeCallbacks(compositeTick)
+                    }
                     val canvas = surface.lockHardwareCanvas()
                     try {
                         canvas.drawColor(android.graphics.Color.BLACK)
@@ -114,6 +133,94 @@ class VideoEncoder(
         }
         // The looper is shutting down: still answer Dart so it doesn't wait forever.
         if (!posted) done()
+    }
+
+    /**
+     * Updates the compositing layers (null = keep the previous one) and
+     * switches to compositing mode.
+     */
+    fun setOverlays(
+        under: ByteArray?,
+        over: ByteArray?,
+        clearOver: Boolean,
+        w: Int,
+        h: Int,
+        place: Placement,
+        done: () -> Unit,
+    ) {
+        if (!running) {
+            done()
+            return
+        }
+        val posted = frameHandler.post {
+            try {
+                fun load(bytes: ByteArray, current: Bitmap?): Bitmap? {
+                    if (w <= 0 || h <= 0 || bytes.size < w * h * 4) return current
+                    val b = if (current == null || current.width != w || current.height != h) {
+                        current?.recycle()
+                        Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+                    } else {
+                        current
+                    }
+                    b.copyPixelsFromBuffer(ByteBuffer.wrap(bytes, 0, w * h * 4))
+                    return b
+                }
+                if (under != null) underBmp = load(under, underBmp)
+                if (over != null) {
+                    overBmp = load(over, overBmp)
+                } else if (clearOver) {
+                    overBmp?.recycle()
+                    overBmp = null
+                }
+                placement = place
+                if (!compositing && running) {
+                    compositing = true
+                    frameHandler.post(compositeTick)
+                }
+            } catch (e: Exception) {
+                listener.onError("Overlay error: ${e.message}")
+            } finally {
+                done()
+            }
+        }
+        if (!posted) done()
+    }
+
+    private fun renderComposite() {
+        try {
+            val canvas = surface.lockHardwareCanvas()
+            try {
+                canvas.drawColor(android.graphics.Color.BLACK)
+                underBmp?.let { canvas.drawBitmap(it, null, dst, paint) }
+                // Hold the lock until the frame is posted: the hardware canvas
+                // uploads the bitmap at unlockCanvasAndPost.
+                synchronized(ScreenCapture.lock) {
+                    val screen = ScreenCapture.frontBitmap()
+                    if (screen != null && ScreenCapture.frameWidth > 0) {
+                        drawScreen(canvas, screen, ScreenCapture.frameWidth, ScreenCapture.frameHeight)
+                    }
+                    overBmp?.let { canvas.drawBitmap(it, null, dst, paint) }
+                    surface.unlockCanvasAndPost(canvas)
+                }
+            } catch (e: Exception) {
+                // Canvas already posted or surface gone; nothing else to do.
+                throw e
+            }
+        } catch (e: Exception) {
+            if (running) listener.onError("Compositor error: ${e.message}")
+        }
+    }
+
+    private fun drawScreen(canvas: android.graphics.Canvas, screen: Bitmap, sw: Int, sh: Int) {
+        val p = placement
+        if (p.w <= 0f || p.h <= 0f) return
+        val box = android.graphics.RectF(p.x, p.y, p.x + p.w, p.y + p.h)
+        val dest = fitRect(sw.toFloat(), sh.toFloat(), box, p.fit)
+        canvas.save()
+        canvas.rotate(p.rotation, box.centerX(), box.centerY())
+        canvas.clipRect(box)
+        canvas.drawBitmap(screen, Rect(0, 0, sw, sh), dest, paint)
+        canvas.restore()
     }
 
     fun requestKeyframe() {
@@ -163,6 +270,7 @@ class VideoEncoder(
     fun stop() {
         if (!running) return
         running = false
+        compositing = false
         drainThread?.join(1000)
         frameThread.quitSafely()
         frameThread.join(1000)
@@ -174,7 +282,32 @@ class VideoEncoder(
         surface.release()
         bitmap?.recycle()
         bitmap = null
+        underBmp?.recycle()
+        underBmp = null
+        overBmp?.recycle()
+        overBmp = null
     }
+}
+
+/** Screen placement in output pixels; rotation in degrees around the center. */
+data class Placement(val x: Float, val y: Float, val w: Float, val h: Float, val rotation: Float, val fit: String) {
+    companion object {
+        fun from(map: Map<*, *>?): Placement {
+            fun f(k: String) = (map?.get(k) as? Number)?.toFloat() ?: 0f
+            return Placement(f("x"), f("y"), f("w"), f("h"), f("rotation"), map?.get("fit") as? String ?: "contain")
+        }
+    }
+}
+
+/** Destination rect for an [sw]x[sh] image inside [box] (contain/cover/stretch). */
+internal fun fitRect(sw: Float, sh: Float, box: android.graphics.RectF, fit: String): android.graphics.RectF {
+    if (fit == "stretch" || sw <= 0f || sh <= 0f) return android.graphics.RectF(box)
+    val scale = if (fit == "cover") max(box.width() / sw, box.height() / sh) else minOf(box.width() / sw, box.height() / sh)
+    val w = sw * scale
+    val h = sh * scale
+    val l = box.centerX() - w / 2
+    val t = box.centerY() - h / 2
+    return android.graphics.RectF(l, t, l + w, t + h)
 }
 
 /**
@@ -189,6 +322,11 @@ class AudioEncoder(
     private val onLevel: (Float, Float) -> Unit,
 ) {
     @Volatile var gain = 1.0f
+
+    /** Gain for audio played by other apps (captured with the screen). */
+    @Volatile var appGain = 1.0f
+    private var playback: AudioRecord? = null
+    private var playbackProjection: android.media.projection.MediaProjection? = null
     @Volatile var outputFormat: MediaFormat? = null
         private set
     @Volatile private var running = false
@@ -246,8 +384,12 @@ class AudioEncoder(
             val count = read / 2
             bb.asShortBuffer().get(shorts, 0, count)
             val g = gain
+            val app = readAppAudio(count)
+            val ag = appGain
             for (i in 0 until count) {
-                val s = (shorts[i] * g).toInt().coerceIn(-32768, 32767)
+                var mixed = shorts[i] * g
+                if (app != null) mixed += app[i] * ag
+                val s = mixed.toInt().coerceIn(-32768, 32767)
                 shorts[i] = s.toShort()
                 val f = abs(s) / 32768f
                 levelSum += (f * f).toDouble()
@@ -282,6 +424,58 @@ class AudioEncoder(
                 break
             }
         }
+    }
+
+    private var appBuf = ShortArray(0)
+
+    /**
+     * Reads the same number of samples of other apps' audio (games, videos)
+     * when screen capture is running, or null. Uses AudioPlaybackCapture,
+     * which needs Android 10 and an active MediaProjection.
+     */
+    @SuppressLint("MissingPermission")
+    private fun readAppAudio(count: Int): ShortArray? {
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q) return null
+        val projection = ScreenCapture.projection
+        if (projection !== playbackProjection) {
+            playback?.let {
+                try { it.stop() } catch (_: Exception) {}
+                it.release()
+            }
+            playback = null
+            playbackProjection = projection
+            if (projection != null) {
+                try {
+                    val config = android.media.AudioPlaybackCaptureConfiguration.Builder(projection)
+                        .addMatchingUsage(android.media.AudioAttributes.USAGE_MEDIA)
+                        .addMatchingUsage(android.media.AudioAttributes.USAGE_GAME)
+                        .addMatchingUsage(android.media.AudioAttributes.USAGE_UNKNOWN)
+                        .build()
+                    val channelMask = if (channels == 2) AudioFormat.CHANNEL_IN_STEREO else AudioFormat.CHANNEL_IN_MONO
+                    playback = AudioRecord.Builder()
+                        .setAudioFormat(
+                            AudioFormat.Builder()
+                                .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                                .setSampleRate(sampleRate)
+                                .setChannelMask(channelMask)
+                                .build(),
+                        )
+                        .setAudioPlaybackCaptureConfig(config)
+                        .build()
+                        .also { it.startRecording() }
+                } catch (e: Exception) {
+                    listener.onError("App audio capture unavailable: ${e.message}")
+                    playback = null
+                }
+            }
+        }
+        val r = playback ?: return null
+        if (appBuf.size < count) appBuf = ShortArray(count)
+        val n = r.read(appBuf, 0, count, AudioRecord.READ_NON_BLOCKING)
+        if (n <= 0) return null
+        // Missing samples (app audio arrives in bursts) are treated as silence.
+        for (i in n until count) appBuf[i] = 0
+        return appBuf
     }
 
     private fun drainOutput(info: MediaCodec.BufferInfo) {
@@ -322,6 +516,11 @@ class AudioEncoder(
         } catch (_: Exception) {
         }
         record.release()
+        playback?.let {
+            try { it.stop() } catch (_: Exception) {}
+            it.release()
+        }
+        playback = null
         try {
             codec.stop()
         } catch (_: Exception) {

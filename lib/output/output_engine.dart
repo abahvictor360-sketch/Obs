@@ -90,6 +90,7 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
   int _lastStreamBytes = 0;
   int _framesThisSecond = 0;
   double _lastMicGain = -1;
+  double _lastScreenGain = -1;
 
   bool get isStreaming => streamStatus != OutputStatus.idle;
   bool get isRecording => recordStatus != OutputStatus.idle;
@@ -355,6 +356,7 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
     _packetSub = backend.packets.listen(_onPacket);
     await backend.start(config);
     _lastMicGain = -1;
+    _lastScreenGain = -1;
     _onStudioChanged();
     _encoderRunning = true;
     _capturing = false;
@@ -538,6 +540,11 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
     if (g != _lastMicGain && (_encoderRunning || _lastMicGain < 0)) {
       _lastMicGain = g;
       if (encoderSupported) backend.setMicGain(g).catchError((_) {});
+    }
+    final sg = studio.screenAudioGain;
+    if (sg != _lastScreenGain && (_encoderRunning || _lastScreenGain < 0)) {
+      _lastScreenGain = sg;
+      if (encoderSupported) backend.setScreenAudioGain(sg).catchError((_) {});
     }
   }
 

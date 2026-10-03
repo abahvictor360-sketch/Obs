@@ -120,6 +120,9 @@ abstract class EncoderBackend {
   Future<void> requestKeyframe();
   Future<void> setMicGain(double gain);
 
+  /// Gain for other apps' audio captured along with the screen.
+  Future<void> setScreenAudioGain(double gain);
+
   /// Starts writing an MP4 natively. Returns the file path/uri.
   Future<String?> startMp4Recording();
   Future<String?> stopMp4Recording();
@@ -229,6 +232,9 @@ class MethodChannelEncoder implements EncoderBackend {
 
   @override
   Future<void> setMicGain(double gain) => _method.invokeMethod('setMicGain', {'gain': gain});
+
+  @override
+  Future<void> setScreenAudioGain(double gain) => _method.invokeMethod('setScreenAudioGain', {'gain': gain});
 
   @override
   Future<String?> startMp4Recording() => _method.invokeMethod<String>('startRecording');

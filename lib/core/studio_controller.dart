@@ -474,6 +474,15 @@ class StudioController extends ChangeNotifier {
     return m.muted ? 0 : m.volume;
   }
 
+  /// Gain for other apps' audio captured with the screen (first Screen
+  /// Capture source's fader).
+  double get screenAudioGain {
+    for (final s in collection.sources) {
+      if (s.type == SourceType.screen) return s.muted ? 0 : s.volume;
+    }
+    return 1;
+  }
+
   // ---------------------------------------------------------------------------
   // Transitions & settings
 
