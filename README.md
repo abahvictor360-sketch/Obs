@@ -68,6 +68,33 @@ _Screenshots are from the browser build, using Chromium's synthetic test camera 
 - Settings for output resolution, FPS, video and audio bitrate, and keyframe interval.
 - Keeps the screen awake while live.
 
+**USB OTG / USB-C devices**
+- **USB Video Capture** source for HDMI capture cards (camera, console or PC → HDMI → tablet) and USB
+  webcams. Android uses a built-in generic UVC driver, so it works on any tablet with USB host. iPad
+  needs iPadOS 17 or newer.
+- **USB microphones and audio interfaces:** choose the input in the Mic/Aux source's properties.
+- **Wired internet:** plug in a USB Ethernet adapter. The status bar shows Wired, Wi-Fi or Mobile data.
+  On Android, *Prefer wired connection* (Settings → General) sends the stream over the cable. iPadOS
+  already prefers a wired connection when one is plugged in.
+
+**NDI® output (DistroAV's main output, built in)**
+- Turn on **Plugins → NDI Output** to send the program (video and audio) to your network. Receive it in
+  vMix, OBS with DistroAV, NDI Studio Monitor, TriCaster and other NDI tools.
+- Set the source name and groups. The status bar shows how many receivers are connected.
+- Needs the NDI runtime in the build (see *Building with NDI* below).
+
+**Plugins**
+- **Install from GitHub:** paste `owner/repo` or a folder link. The app installs the latest release (or
+  the default branch), shows the plugin's permissions first, and can check for updates. You can also
+  install from a `.zip` file or the plugin catalog.
+- Script plugins add **sources** (overlays, chat, alerts, timers) and **docks** (control panels). They
+  run in a sandbox: no internet unless they declare `network`, and no studio control unless they declare
+  `control`.
+- Examples in `plugins/`: Clock, Twitch Chat, Scene Rotator. To write your own, see
+  [docs/PLUGINS.md](docs/PLUGINS.md).
+- Desktop OBS plugins (C/C++ built against libobs) can't run on tablets: iPadOS and Google Play don't
+  allow downloaded native code. Features like NDI ship as built-in plugins instead.
+
 Scene collections and settings are saved automatically, and can be exported as JSON.
 
 ## Architecture
@@ -133,6 +160,21 @@ In Xcode, select your team for both the **Runner** and **BroadcastExtension** ta
 bundle ID, use your own group name in `ios/Shared/ObsLink.swift` and in both `.entitlements` files.
 Everything else works without the App Group; only screen capture needs it.
 
+### Building with NDI
+
+The NDI SDK is proprietary, so it isn't in this repository. Fetch the runtime once you have read and
+accepted the [NDI SDK license](https://ndi.video/sdk/):
+
+```bash
+NDI_SDK_ACCEPT_LICENSE=1 scripts/fetch_ndi_sdk.sh android   # adds libndi.so to the APK
+NDI_SDK_ACCEPT_LICENSE=1 scripts/fetch_ndi_sdk.sh ios       # links libndi_ios (run on a Mac)
+```
+
+In GitHub Actions, set the repository variable `NDI_SDK_ACCEPT_LICENSE` to `1` (**Settings → Secrets
+and variables → Actions → Variables**). Builds then include NDI, and an extra job sends frames through
+the real NDI runtime and receives them back. Without the runtime, everything else works and NDI Output
+shows as unavailable. NDI® is a registered trademark of Vizrt NDI AB.
+
 Every push also builds an installable Android APK in GitHub Actions. Download it from
 **Actions → Build → obs-tablet-android-apk**.
 
@@ -160,6 +202,10 @@ flutter test
 | Android native encoder (H.264/AAC, MP4 recording, gallery export) | ✅ Builds in CI; needs testing on real devices |
 | Android screen capture + app audio | ✅ Builds in CI; needs testing on real devices |
 | iPad native encoder, MP4 to Photos, screen broadcast extension | ✅ Written; compiled by the macOS CI job; needs testing on a real iPad |
+| Script plugins (GitHub install, sandbox, sources, docks, control), example plugins | ✅ Unit-tested; examples tested in a headless browser; needs device testing |
+| NDI output (built-in plugin) | ✅ Tested against a stand-in NDI library; real-SDK test runs in CI once enabled |
+| USB OTG: UVC capture cards/webcams, USB audio inputs, wired network | ✅ Builds in CI; needs testing with real devices |
+| NDI source (receive), NDI per-source filter output | Planned |
 | Browser source, chroma key, more filters, hotkeys/Stream Deck, multiple audio tracks | Planned |
 | Zero-copy GPU frame path (avoid reading RGBA back to the CPU) | Planned. Current path suits 720p30 on recent tablets |
 
