@@ -8,11 +8,49 @@ import '../core/models.dart';
 import '../core/studio_controller.dart';
 import 'platform_media.dart';
 
+/// Settings of a Video Capture Device source that affect the camera itself.
+class CameraOptions {
+  const CameraOptions({
+    this.resolution = 'high',
+    this.zoom = 1,
+    this.torch = false,
+    this.exposure = 0,
+    this.focusLocked = false,
+  });
+
+  factory CameraOptions.fromSettings(Map<String, dynamic> s) => CameraOptions(
+        resolution: s['resolution'] as String? ?? 'high',
+        zoom: (s['zoom'] as num?)?.toDouble() ?? 1,
+        torch: s['torch'] == true,
+        exposure: (s['exposure'] as num?)?.toDouble() ?? 0,
+        focusLocked: s['focusLocked'] == true,
+      );
+
+  /// medium (480p) | high (720p) | veryHigh (1080p) | ultraHigh (4K) | max
+  final String resolution;
+  final double zoom;
+  final bool torch;
+  final double exposure;
+  final bool focusLocked;
+
+  ResolutionPreset get preset => ResolutionPreset.values.where((p) => p.name == resolution).firstOrNull ?? ResolutionPreset.high;
+}
+
+/// What the open camera can do (for the properties sliders).
+class CameraCaps {
+  const CameraCaps({this.minZoom = 1, this.maxZoom = 1, this.minExposure = 0, this.maxExposure = 0, this.hasTorch = false});
+  final double minZoom, maxZoom, minExposure, maxExposure;
+  final bool hasTorch;
+}
+
 /// Opens cameras on demand and closes them when no visible scene uses them.
-/// Several sources can share one lens (same controller, same texture).
+/// Several sources can share one lens (same controller, same texture); the
+/// first visible source's options win.
 class CameraService extends ChangeNotifier {
   List<CameraDescription>? _cameras;
   final Map<String, CameraController> _controllers = {};
+  final Map<String, CameraOptions> _applied = {};
+  final Map<String, CameraCaps> _caps = {};
   final Map<String, String> errors = {};
   final Set<String> _opening = {};
   bool _disposed = false;
@@ -33,23 +71,32 @@ class CameraService extends ChangeNotifier {
     return (c != null && c.value.isInitialized) ? c : null;
   }
 
+  CameraCaps? capsFor(String lens) => _caps[lens];
+
   String? errorFor(String lens) => errors[lens] ?? errors['*'];
 
-  /// Ensures exactly the cameras in [lenses] are open.
-  Future<void> sync(Set<String> lenses) async {
+  /// Ensures exactly the cameras in [lenses] are open with these options.
+  Future<void> sync(Map<String, CameraOptions> lenses) async {
     for (final lens in _controllers.keys.toList()) {
-      if (!lenses.contains(lens)) {
+      final want = lenses[lens];
+      // Resolution can only be chosen when opening.
+      if (want == null || want.resolution != _applied[lens]?.resolution) {
         final c = _controllers.remove(lens);
+        _applied.remove(lens);
         await c?.dispose();
       }
     }
-    for (final lens in lenses) {
-      if (_controllers.containsKey(lens) || _opening.contains(lens)) continue;
-      unawaited(_open(lens));
+    for (final e in lenses.entries) {
+      if (_opening.contains(e.key)) continue;
+      if (_controllers.containsKey(e.key)) {
+        unawaited(_apply(e.key, e.value));
+      } else {
+        unawaited(_open(e.key, e.value));
+      }
     }
   }
 
-  Future<void> _open(String lens) async {
+  Future<void> _open(String lens, CameraOptions options) async {
     _opening.add(lens);
     try {
       final all = await cameras();
@@ -63,19 +110,58 @@ class CameraService extends ChangeNotifier {
         errors[lens] = 'No camera found';
         return;
       }
-      final c = CameraController(desc, ResolutionPreset.high, enableAudio: false);
+      final c = CameraController(desc, options.preset, enableAudio: false);
       await c.initialize();
       if (_disposed) {
         await c.dispose();
         return;
       }
       _controllers[lens] = c;
+      _applied[lens] = CameraOptions(resolution: options.resolution);
       errors.remove(lens);
+      try {
+        _caps[lens] = CameraCaps(
+          minZoom: await c.getMinZoomLevel(),
+          maxZoom: await c.getMaxZoomLevel(),
+          minExposure: await c.getMinExposureOffset(),
+          maxExposure: await c.getMaxExposureOffset(),
+          hasTorch: desc.lensDirection == CameraLensDirection.back,
+        );
+      } catch (_) {
+        _caps[lens] = const CameraCaps();
+      }
+      await _apply(lens, options);
     } catch (e) {
       errors[lens] = e is CameraException ? (e.description ?? e.code) : '$e';
     } finally {
       _opening.remove(lens);
       if (!_disposed) notifyListeners();
+    }
+  }
+
+  /// Applies the live controls (zoom, torch, exposure, focus) that changed.
+  Future<void> _apply(String lens, CameraOptions o) async {
+    final c = controllerFor(lens);
+    final prev = _applied[lens];
+    final caps = _caps[lens] ?? const CameraCaps();
+    if (c == null || prev == null) return;
+    _applied[lens] = o;
+    try {
+      if (o.zoom != prev.zoom && caps.maxZoom > caps.minZoom) {
+        await c.setZoomLevel(o.zoom.clamp(caps.minZoom, caps.maxZoom));
+      }
+      if (o.torch != prev.torch && caps.hasTorch) {
+        await c.setFlashMode(o.torch ? FlashMode.torch : FlashMode.off);
+      }
+      if (o.exposure != prev.exposure && caps.maxExposure > caps.minExposure) {
+        await c.setExposureOffset(o.exposure.clamp(caps.minExposure, caps.maxExposure));
+      }
+      if (o.focusLocked != prev.focusLocked) {
+        await c.setFocusMode(o.focusLocked ? FocusMode.locked : FocusMode.auto);
+      }
+    } on CameraException catch (e) {
+      errors[lens] = e.description ?? e.code;
+      notifyListeners();
     }
   }
 
@@ -163,14 +249,16 @@ class SourceActivityTracker {
 
   void _sync() {
     final scenes = {studio.programScene, studio.previewScene};
-    final lenses = <String>{};
+    final lenses = <String, CameraOptions>{};
     final mediaSources = <String, Source>{};
     for (final scene in scenes) {
       for (final item in scene.items) {
         if (!item.visible) continue;
         final s = studio.sourceById(item.sourceId);
         if (s == null) continue;
-        if (s.type == SourceType.camera) lenses.add(s.settings['lens'] as String? ?? 'front');
+        if (s.type == SourceType.camera) {
+          lenses.putIfAbsent(s.settings['lens'] as String? ?? 'front', () => CameraOptions.fromSettings(s.settings));
+        }
         if (s.type == SourceType.media) mediaSources[s.id] = s;
       }
     }

@@ -29,6 +29,9 @@ enum SourceType {
 
   /// HDMI capture card or webcam on USB OTG / USB-C (UVC).
   usbVideo('USB Video Capture'),
+
+  /// Phone camera / IP camera over Wi-Fi (DroidCam, IP Webcam, MJPEG, HLS).
+  networkVideo('Network Video (phone / IP camera)'),
   image('Image'),
   media('Media Source'),
   text('Text'),
@@ -113,6 +116,11 @@ class SourceDefaults {
     switch (type) {
       case SourceType.camera:
         return {
+          'resolution': 'high', // medium 480p | high 720p | veryHigh 1080p | ultraHigh 4K | max
+          'zoom': 1.0,
+          'torch': false,
+          'exposure': 0.0, // EV offset
+          'focusLocked': false,
           'lens': 'front', // front | back | external
           // Off by default like OBS: a mirrored feed shows text backwards to viewers.
           'mirror': false,
@@ -124,6 +132,13 @@ class SourceDefaults {
       case SourceType.usbVideo:
         return {
           'device': '', // native device id; empty = first connected
+        };
+      case SourceType.networkVideo:
+        return {
+          'kind': 'droidcam', // droidcam | ipWebcam | mjpeg | stream
+          'host': '', // phone IP shown in the DroidCam / IP Webcam app
+          'url': '', // for the URL kinds
+          'resolution': 'auto', // DroidCam only, e.g. 1280x720
         };
       case SourceType.image:
         return {

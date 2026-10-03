@@ -22,10 +22,14 @@ _Screenshots are from the browser build, using Chromium's synthetic test camera 
 - Scenes with add, rename, duplicate, remove and drag to reorder.
 - Global sources shared across scenes ("Add existing"), just like libobs.
 - Source types:
-  - Video Capture Device (front, back or USB camera)
+  - Video Capture Device (the tablet's front/back camera): resolution up to 4K, zoom, torch, exposure,
+    focus lock
   - Screen Capture: the whole device screen, including games and other apps, plus their sound
-  - Image
-  - Media Source (looping video)
+  - Network Video: a phone as a wireless webcam via **DroidCam** or **IP Webcam**, IP cameras (MJPEG),
+    and HLS/HTTP streams. Enter the phone's IP; the app reconnects automatically. (Iriun Webcam uses a
+    closed protocol that only its own desktop driver understands, so it isn't supported.)
+  - Image and Media Source (looping video): pick files from the tablet's file manager (Files app, USB
+    drive, SD card, cloud) or the photo gallery. Files are copied into the app, so they keep working.
   - Text (font size, bold, italic, outline, colors, alignment)
   - Color Source
   - Audio Input Capture (microphone)

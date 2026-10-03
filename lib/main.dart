@@ -6,6 +6,7 @@ import 'core/storage.dart';
 import 'core/studio_controller.dart';
 import 'devices/device_service.dart';
 import 'ndi/ndi_controller.dart';
+import 'network_video/network_video_service.dart';
 import 'output/output_engine.dart';
 import 'plugins/plugin_bridge.dart';
 import 'plugins/plugin_manager.dart';
@@ -30,8 +31,10 @@ Future<void> main() async {
   final devices = DeviceService();
   await devices.init();
   DeviceActivityTracker(studio, devices);
+  final networkVideo = NetworkVideoService();
+  NetworkVideoTracker(studio, networkVideo);
 
-  runApp(ObsTabletApp(studio: studio, output: output, cameras: cameras, media: media, plugins: plugins, devices: devices));
+  runApp(ObsTabletApp(studio: studio, output: output, cameras: cameras, media: media, plugins: plugins, devices: devices, networkVideo: networkVideo));
 }
 
 class ObsTabletApp extends StatefulWidget {
@@ -43,6 +46,7 @@ class ObsTabletApp extends StatefulWidget {
     required this.media,
     required this.plugins,
     required this.devices,
+    required this.networkVideo,
   });
 
   final StudioController studio;
@@ -51,6 +55,7 @@ class ObsTabletApp extends StatefulWidget {
   final MediaService media;
   final PluginManager plugins;
   final DeviceService devices;
+  final NetworkVideoService networkVideo;
 
   @override
   State<ObsTabletApp> createState() => _ObsTabletAppState();
@@ -86,6 +91,7 @@ class _ObsTabletAppState extends State<ObsTabletApp> with WidgetsBindingObserver
       media: widget.media,
       plugins: widget.plugins,
       devices: widget.devices,
+      networkVideo: widget.networkVideo,
       child: MaterialApp(
         title: 'OBS Tablet',
         debugShowCheckedModeBanner: false,

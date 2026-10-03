@@ -157,6 +157,8 @@ class SourceRenderer extends StatelessWidget {
         return _CameraSource(source: source, fit: _boxFit(fit), showPlaceholder: showPlaceholder);
       case SourceType.media:
         return _MediaSource(source: source, fit: _boxFit(fit), showPlaceholder: showPlaceholder);
+      case SourceType.networkVideo:
+        return _NetworkVideoSource(source: source, fit: _boxFit(fit), showPlaceholder: showPlaceholder);
       case SourceType.usbVideo:
         return _UsbVideoSource(source: source, fit: _boxFit(fit), showPlaceholder: showPlaceholder);
       case SourceType.screen:
@@ -464,6 +466,58 @@ class _UsbVideoSource extends StatelessWidget {
           hint = 'Starting…';
         }
         return SourcePlaceholder(icon: Icons.usb, label: source.name, hint: hint);
+      },
+    );
+  }
+}
+
+/// A phone camera (DroidCam / IP Webcam), IP camera or stream over Wi-Fi.
+class _NetworkVideoSource extends StatelessWidget {
+  const _NetworkVideoSource({required this.source, required this.fit, required this.showPlaceholder});
+
+  final Source source;
+  final BoxFit fit;
+  final bool showPlaceholder;
+
+  @override
+  Widget build(BuildContext context) {
+    final service = AppScope.of(context).networkVideo;
+    return ListenableBuilder(
+      listenable: service,
+      builder: (context, _) {
+        final feed = service.feed(source.id);
+        final player = feed?.player;
+        if (player != null && player.value.isInitialized) {
+          final size = player.value.size;
+          return ClipRect(
+            child: FittedBox(
+              fit: fit,
+              child: SizedBox(width: size.width, height: size.height, child: VideoPlayer(player)),
+            ),
+          );
+        }
+        Widget placeholder() {
+          if (!showPlaceholder) return const ColoredBox(color: Colors.black);
+          final String hint;
+          if (!service.supported) {
+            hint = 'Network video works in the Android and iPad apps';
+          } else if (feed == null) {
+            hint = 'Tap ⚙ and enter the phone or camera address';
+          } else if (feed.error != null) {
+            hint = feed.error!;
+          } else {
+            hint = 'Connecting to ${feed.url}…';
+          }
+          return SourcePlaceholder(icon: Icons.wifi_tethering, label: source.name, hint: hint);
+        }
+
+        if (feed == null) return placeholder();
+        return ValueListenableBuilder<ui.Image?>(
+          valueListenable: feed.frame,
+          builder: (context, image, _) => image == null
+              ? placeholder()
+              : RawImage(image: image, fit: fit, filterQuality: FilterQuality.medium),
+        );
       },
     );
   }

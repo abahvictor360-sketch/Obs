@@ -8,6 +8,7 @@ import 'package:obs_tablet/core/storage.dart';
 import 'package:obs_tablet/core/studio_controller.dart';
 import 'package:obs_tablet/devices/device_service.dart';
 import 'package:obs_tablet/main.dart';
+import 'package:obs_tablet/network_video/network_video_service.dart';
 import 'package:obs_tablet/output/encoder_backend.dart';
 import 'package:obs_tablet/output/output_engine.dart';
 import 'package:obs_tablet/plugins/plugin_manager.dart';
@@ -95,6 +96,7 @@ Future<(StudioController, OutputEngine)> _pump(WidgetTester tester, Size size, {
     media: MediaService(),
     plugins: PluginManager(createPlatformPluginBackend()),
     devices: DeviceService(),
+    networkVideo: NetworkVideoService(),
   ));
   await tester.pump();
   return (studio, output);
