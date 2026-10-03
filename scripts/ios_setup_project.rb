@@ -11,7 +11,7 @@ ROOT = File.expand_path('../ios', __dir__)
 project = Xcodeproj::Project.open(File.join(ROOT, 'Runner.xcodeproj'))
 runner = project.targets.find { |t| t.name == 'Runner' } or abort 'Runner target not found'
 
-APP_SOURCES = %w[ObsEncoderPlugin.swift DevicesPlugin.swift AppEncoders.swift Mp4Writer.swift ScreenReceiver.swift].freeze
+APP_SOURCES = %w[ObsEncoderPlugin.swift DevicesPlugin.swift AppEncoders.swift Mp4Writer.swift ScreenReceiver.swift ExternalDisplay.swift].freeze
 SHARED_SOURCES = %w[ObsLink.swift H264Encoder.swift Compositor.swift].freeze
 EXT_NAME = 'BroadcastExtension'.freeze
 

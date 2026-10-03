@@ -7,6 +7,7 @@ import 'core/studio_controller.dart';
 import 'devices/device_service.dart';
 import 'ndi/ndi_controller.dart';
 import 'network_video/network_video_service.dart';
+import 'output/external_display_output.dart';
 import 'output/output_engine.dart';
 import 'plugins/plugin_bridge.dart';
 import 'plugins/plugin_manager.dart';
@@ -31,6 +32,7 @@ Future<void> main() async {
   final devices = DeviceService();
   await devices.init();
   DeviceActivityTracker(studio, devices);
+  ExternalDisplayOutput(output: output, devices: devices);
   final networkVideo = NetworkVideoService();
   NetworkVideoTracker(studio, networkVideo);
 

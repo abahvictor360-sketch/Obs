@@ -27,13 +27,14 @@ import io.flutter.view.TextureRegistry
  * Hardware connected over USB OTG (and the network it runs on):
  *  - USB video (UVC capture cards / webcams) rendered into a Flutter texture,
  *  - audio input selection (USB mics and interfaces),
- *  - wired vs Wi-Fi vs cellular status, and "prefer wired" routing.
+ *  - wired vs Wi-Fi vs cellular status, and "prefer wired" routing,
+ *  - docking stations and connected screens ([DockMonitor]).
  *
  * Channel "obs_tablet/devices", events on "obs_tablet/device_events".
  */
 class DevicesPlugin(
     private val activity: Activity,
-    messenger: BinaryMessenger,
+    private val messenger: BinaryMessenger,
     private val textures: TextureRegistry,
 ) : MethodChannel.MethodCallHandler, EventChannel.StreamHandler {
 
@@ -70,6 +71,8 @@ class DevicesPlugin(
                     result.success(null)
                 }
                 "getNetwork" -> result.success(networkState())
+                "getDock" -> result.success(dock?.state())
+                "setDisplayMode" -> result.success(dock?.setMode(call.argument<String>("mode") ?: "program"))
                 "setPreferWired" -> {
                     preferWired = call.argument<Boolean>("enabled") ?: false
                     applyRouting()
@@ -93,6 +96,7 @@ class DevicesPlugin(
     private fun helper(): CameraHelper = camera ?: CameraHelper().also { h ->
         h.setStateCallback(object : ICameraHelper.StateCallback {
             override fun onAttach(device: UsbDevice) {
+                dock?.changed()
                 emit(mapOf("type" to "usbVideo", "state" to "attached", "id" to device.deviceName, "name" to label(device)))
             }
 
@@ -132,6 +136,7 @@ class DevicesPlugin(
             override fun onDeviceClose(device: UsbDevice) {}
 
             override fun onDetach(device: UsbDevice) {
+                dock?.changed()
                 if (openDevice?.deviceName == device.deviceName) {
                     openDevice = null
                     releaseTexture()
@@ -200,7 +205,16 @@ class DevicesPlugin(
         override fun onAudioDevicesRemoved(removed: Array<out AudioDeviceInfo>) = emitAudio()
     }
 
-    private fun emitAudio() = emit(mapOf("type" to "audioInputs", "inputs" to audioInputs()))
+    private fun emitAudio() {
+        emit(mapOf("type" to "audioInputs", "inputs" to audioInputs()))
+        dock?.changed()
+    }
+
+    private fun usbAudioConnected(): Boolean =
+        audioManager.getDevices(AudioManager.GET_DEVICES_ALL).any {
+            it.type == AudioDeviceInfo.TYPE_USB_DEVICE || it.type == AudioDeviceInfo.TYPE_USB_HEADSET ||
+                it.type == AudioDeviceInfo.TYPE_USB_ACCESSORY || it.type == AudioDeviceInfo.TYPE_HDMI
+        }
 
     private fun audioInputs(): List<Map<String, Any>> =
         audioManager.getDevices(AudioManager.GET_DEVICES_INPUTS)
@@ -238,6 +252,7 @@ class DevicesPlugin(
                 ethernet = network
                 applyRouting()
                 emitNetwork()
+                dock?.changed()
             }
         }
 
@@ -246,6 +261,7 @@ class DevicesPlugin(
                 if (ethernet == network) ethernet = null
                 applyRouting()
                 emitNetwork()
+                dock?.changed()
             }
         }
     }
@@ -287,6 +303,11 @@ class DevicesPlugin(
 
     private fun emitNetwork() = emit(mapOf("type" to "network") + networkState())
 
+    // ---------------------------------------------------------------------------------------
+    // Docking station / connected screen
+
+    private var dock: DockMonitor? = null
+
     // Runs after all properties above are initialized.
     init {
         method.setMethodCallHandler(this)
@@ -294,6 +315,7 @@ class DevicesPlugin(
         UVCUtils.init(activity.application)
         audioManager.registerAudioDeviceCallback(audioCallback, main)
         startNetworkMonitoring()
+        dock = DockMonitor(activity, messenger, { ethernet != null }, ::usbAudioConnected, ::emit)
     }
 
     fun dispose() {
@@ -306,6 +328,8 @@ class DevicesPlugin(
         } catch (_: Exception) {
         }
         connectivity.bindProcessToNetwork(null)
+        dock?.dispose()
+        dock = null
         camera?.release()
         camera = null
         releaseTexture()

@@ -525,6 +525,7 @@ class OutputSettings {
     this.keepScreenOn = true,
     this.confirmStartStop = true,
     this.preferWired = true,
+    this.externalDisplay = 'program',
   });
 
   String service;
@@ -543,6 +544,11 @@ class OutputSettings {
   /// Send traffic over a USB Ethernet adapter when one is connected (Android;
   /// iPadOS does this by itself).
   bool preferWired;
+
+  /// What a screen connected through a docking station / USB-C / HDMI shows:
+  /// 'program' (full-screen program output, like OBS's fullscreen projector)
+  /// or 'mirror' (the tablet's own screen).
+  String externalDisplay;
 
   /// Full publish URL: server + '/' + key (key may be empty for servers that
   /// embed it in the URL).
@@ -569,6 +575,7 @@ class OutputSettings {
         'keepScreenOn': keepScreenOn,
         'confirmStartStop': confirmStartStop,
         'preferWired': preferWired,
+        'externalDisplay': externalDisplay,
       };
 
   factory OutputSettings.fromJson(Map<String, dynamic> j) {
@@ -590,6 +597,7 @@ class OutputSettings {
       keepScreenOn: j['keepScreenOn'] as bool? ?? d.keepScreenOn,
       confirmStartStop: j['confirmStartStop'] as bool? ?? d.confirmStartStop,
       preferWired: j['preferWired'] as bool? ?? d.preferWired,
+      externalDisplay: j['externalDisplay'] == 'mirror' ? 'mirror' : d.externalDisplay,
     );
   }
 }

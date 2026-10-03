@@ -47,6 +47,86 @@ class NetworkInfo {
       );
 }
 
+/// A screen connected over USB-C (DisplayPort alt mode), HDMI, a docking
+/// station or wirelessly (Miracast / AirPlay).
+class ExternalDisplayInfo {
+  const ExternalDisplayInfo({
+    required this.name,
+    required this.width,
+    required this.height,
+    this.refreshRate = 60,
+    this.presenting = false,
+    this.needsReconnect = false,
+  });
+
+  final String name;
+  final int width, height;
+  final double refreshRate;
+
+  /// The app is showing the program on it (otherwise the system mirrors
+  /// the tablet).
+  final bool presenting;
+
+  /// iPad: the screen is mirroring or used by Stage Manager; reconnecting it
+  /// (or turning off Stage Manager's extended display) lets the app show
+  /// the program.
+  final bool needsReconnect;
+
+  static ExternalDisplayInfo? fromMap(dynamic m) {
+    if (m is! Map) return null;
+    return ExternalDisplayInfo(
+      name: '${m['name'] ?? 'External display'}',
+      width: (m['width'] as num?)?.toInt() ?? 1920,
+      height: (m['height'] as num?)?.toInt() ?? 1080,
+      refreshRate: (m['refreshRate'] as num?)?.toDouble() ?? 60,
+      presenting: m['presenting'] == true,
+      needsReconnect: m['needsReconnect'] == true,
+    );
+  }
+}
+
+/// What a USB-C docking station (or hub) brings: a screen, wired network,
+/// USB audio, capture cards and power. The tablet doesn't report "a dock"
+/// as such, so it's recognised from what's plugged in through it.
+class DockInfo {
+  const DockInfo({
+    this.display,
+    this.ethernet = false,
+    this.usbAudio = false,
+    this.usbVideo = false,
+    this.usbDevices = 0,
+    this.charging = false,
+  });
+
+  final ExternalDisplayInfo? display;
+  final bool ethernet, usbAudio, usbVideo, charging;
+
+  /// USB devices attached (Android only; 0 on iPad).
+  final int usbDevices;
+
+  /// A dock or hub is connected: a wired screen, a wired network, or several
+  /// USB devices at once.
+  bool get docked => display != null || ethernet || usbDevices >= 2 || (usbAudio && usbVideo);
+
+  /// What the dock provides, for display ("Screen", "Ethernet", ...).
+  List<String> get features => [
+        if (display != null) 'Screen',
+        if (ethernet) 'Ethernet',
+        if (usbAudio) 'USB audio',
+        if (usbVideo) 'Capture/USB camera',
+        if (charging) 'Charging',
+      ];
+
+  factory DockInfo.fromMap(Map m) => DockInfo(
+        display: ExternalDisplayInfo.fromMap(m['display']),
+        ethernet: m['ethernet'] == true,
+        usbAudio: m['usbAudio'] == true,
+        usbVideo: m['usbVideo'] == true,
+        usbDevices: (m['usbDevices'] as num?)?.toInt() ?? 0,
+        charging: m['charging'] == true,
+      );
+}
+
 /// Hardware plugged in over USB OTG / USB-C and the network type:
 /// capture cards & webcams (UVC), USB microphones, USB Ethernet.
 class DeviceService extends ChangeNotifier {
@@ -60,6 +140,7 @@ class DeviceService extends ChangeNotifier {
 
   bool supported = false;
   NetworkInfo network = const NetworkInfo();
+  DockInfo dock = const DockInfo();
   List<UsbCamera> usbCameras = [];
   List<AudioInput> audioInputs = [];
   OpenUsbVideo? usbVideo;
@@ -77,6 +158,9 @@ class DeviceService extends ChangeNotifier {
       supported = false;
       return;
     }
+    try {
+      dock = DockInfo.fromMap(await _method.invokeMethod<Map>('getDock') ?? {});
+    } catch (_) {}
     _sub = _events.receiveBroadcastStream().listen(_onEvent, onError: (_) {});
     await Future.wait([refreshUsbCameras(), refreshAudioInputs()]);
     notifyListeners();
@@ -87,6 +171,8 @@ class DeviceService extends ChangeNotifier {
     switch (e['type']) {
       case 'network':
         network = NetworkInfo.fromMap(e);
+      case 'dock':
+        dock = DockInfo.fromMap(e);
       case 'audioInputs':
         audioInputs = _parseInputs(e['inputs']);
       case 'usbVideo':
@@ -183,6 +269,17 @@ class DeviceService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 'program' shows the program full screen on the connected screen,
+  /// 'mirror' leaves it to the system (mirrors the tablet).
+  Future<void> setDisplayMode(String mode) async {
+    if (!supported) return;
+    try {
+      final m = await _method.invokeMethod<Map>('setDisplayMode', {'mode': mode});
+      if (m != null) dock = DockInfo.fromMap(m);
+    } catch (_) {}
+    notifyListeners();
+  }
+
   @override
   void dispose() {
     _sub?.cancel();
@@ -203,6 +300,7 @@ class DeviceActivityTracker {
   final DeviceService devices;
   String? _lastInput;
   bool? _lastPreferWired;
+  String? _lastDisplayMode;
   int _lastCameraCount = -1;
 
   void _onDevices() {
@@ -243,6 +341,11 @@ class DeviceActivityTracker {
     if (pw != _lastPreferWired) {
       _lastPreferWired = pw;
       devices.setPreferWired(pw);
+    }
+    final dm = studio.settings.externalDisplay;
+    if (dm != _lastDisplayMode) {
+      _lastDisplayMode = dm;
+      devices.setDisplayMode(dm);
     }
   }
 

@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */ = {isa = PBXBuildFile; fileRef = 1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */; };
+		1F53B821F8013039C2167945 /* ExternalDisplay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4091901F2A1472CA8962D5AA /* ExternalDisplay.swift */; };
 		1FCDD8B1248C784F06728948 /* H264Encoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2C73ECC8FBD178B881DF668 /* H264Encoder.swift */; };
 		2583EB984B3366B8A9C99115 /* Compositor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1880B6EED9EEA1C45C46A24C /* Compositor.swift */; };
 		2A458D18F3A4800D8ED93127 /* Mp4Writer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 800D1F1F663B6F4BD1ABD7A3 /* Mp4Writer.swift */; };
@@ -82,6 +83,7 @@
 		331C807B294A618700263BE5 /* RunnerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerTests.swift; sourceTree = "<group>"; };
 		331C8081294A63A400263BE5 /* RunnerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RunnerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = AppFrameworkInfo.plist; path = Flutter/AppFrameworkInfo.plist; sourceTree = "<group>"; };
+		4091901F2A1472CA8962D5AA /* ExternalDisplay.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ExternalDisplay.swift; sourceTree = "<group>"; };
 		59169B876FCA351276EA4A98 /* SampleHandler.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SampleHandler.swift; sourceTree = "<group>"; };
 		6ABD734ACF2EF814C28F453A /* BroadcastExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = BroadcastExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		6C19FA089C1AF974246C4CD6 /* Runner.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = Runner.entitlements; sourceTree = "<group>"; };
@@ -205,6 +207,7 @@
 				C44BA31EFAA83E8C474D036D /* ScreenReceiver.swift */,
 				6C19FA089C1AF974246C4CD6 /* Runner.entitlements */,
 				0F3994C524C61B212FEB2328 /* DevicesPlugin.swift */,
+				4091901F2A1472CA8962D5AA /* ExternalDisplay.swift */,
 			);
 			path = Runner;
 			sourceTree = "<group>";
@@ -419,6 +422,7 @@
 				1FCDD8B1248C784F06728948 /* H264Encoder.swift in Sources */,
 				2583EB984B3366B8A9C99115 /* Compositor.swift in Sources */,
 				F5CD73901140942A6556A6C4 /* DevicesPlugin.swift in Sources */,
+				1F53B821F8013039C2167945 /* ExternalDisplay.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

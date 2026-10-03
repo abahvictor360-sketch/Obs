@@ -101,6 +101,22 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
   double _lastMicGain = -1;
   double _lastScreenGain = -1;
 
+  /// Called with every program frame sent to the encoder (RGBA), so the
+  /// connected screen can reuse it instead of capturing again.
+  void Function(Uint8List rgba, int width, int height)? programFrameTap;
+
+  /// True while the encoder pump captures the whole program each frame
+  /// (not in screen-capture overlay mode, app in the foreground).
+  bool get pumpingProgramFrames => _encoderRunning && !_compositing && _appResumed;
+
+  /// A connected screen is showing the program: keep the tablet awake.
+  bool _externalPresenting = false;
+  set externalPresenting(bool v) {
+    if (v == _externalPresenting) return;
+    _externalPresenting = v;
+    _updateWakelock();
+  }
+
   bool get isStreaming => streamStatus != OutputStatus.idle;
   int get ndiConnections => ndi.connections;
   bool get isRecording => recordStatus != OutputStatus.idle;
@@ -484,6 +500,7 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
       if (data != null && _encoderRunning) {
         final rgba = data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
         if (ndiActive) ndi.sendVideo(rgba, w, h, config.fps);
+        programFrameTap?.call(rgba, w, h);
         await backend.pushFrame(rgba, w, h);
         renderedFrames++;
         _framesThisSecond++;
@@ -610,7 +627,7 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   void _updateWakelock() {
-    final on = (isStreaming || isRecording || ndiActive) && studio.settings.keepScreenOn;
+    final on = (isStreaming || isRecording || ndiActive || _externalPresenting) && studio.settings.keepScreenOn;
     WakelockPlus.toggle(enable: on).catchError((_) {});
   }
 

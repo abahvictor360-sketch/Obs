@@ -8,6 +8,7 @@ import '../output/output_engine.dart';
 import '../render/editable_canvas.dart';
 import '../render/program_view.dart';
 import '../render/scene_canvas.dart';
+import 'dock_panel.dart';
 import 'docks.dart';
 import 'theme.dart';
 
@@ -24,11 +25,14 @@ class StudioScreen extends StatelessWidget {
       body: SafeArea(
         child: _ErrorListener(
           output: out,
-          child: LayoutBuilder(
-            builder: (context, box) {
-              final landscape = box.maxWidth > box.maxHeight && box.maxWidth >= 900;
-              return landscape ? _LandscapeLayout(height: box.maxHeight) : const _PortraitLayout();
-            },
+          child: DockListener(
+            devices: AppScope.of(context).devices,
+            child: LayoutBuilder(
+              builder: (context, box) {
+                final landscape = box.maxWidth > box.maxHeight && box.maxWidth >= 900;
+                return landscape ? _LandscapeLayout(height: box.maxHeight) : const _PortraitLayout();
+              },
+            ),
           ),
         ),
       ),
@@ -161,6 +165,7 @@ class _TopBar extends StatelessWidget {
                 ),
               ),
               const Spacer(),
+              const DockChip(),
               if (out.isStreaming) const _Pill(text: 'LIVE', color: ObsColors.live),
               if (out.isRecording) const _Pill(text: 'REC', color: ObsColors.rec),
               if (out.initialized && !out.encoderSupported)

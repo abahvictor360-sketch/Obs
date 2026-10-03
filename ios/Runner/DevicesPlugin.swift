@@ -3,7 +3,8 @@ import Flutter
 import Network
 
 /// Hardware over USB-C: external cameras / capture cards (iPadOS 17+, UVC),
-/// audio inputs (USB mics and interfaces) and network type (USB Ethernet).
+/// audio inputs (USB mics and interfaces), network type (USB Ethernet),
+/// and docking stations / connected screens ([ExternalDisplay]).
 /// Same channel contract as android/.../DevicesPlugin.kt.
 final class DevicesPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
     private var sink: FlutterEventSink?
@@ -22,6 +23,8 @@ final class DevicesPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
         let events = FlutterEventChannel(name: "obs_tablet/device_events", binaryMessenger: registrar.messenger())
         registrar.addMethodCallDelegate(instance, channel: method)
         events.setStreamHandler(instance)
+        ExternalDisplay.shared.register(messenger: registrar.messenger())
+        ExternalDisplay.shared.onChange = { [weak instance] in instance?.emitDock() }
         instance.startObserving()
     }
 
@@ -57,6 +60,11 @@ final class DevicesPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
             AudioRouting.preferredUID = args["id"] as? String
             AudioRouting.apply()
             result(nil)
+        case "getDock":
+            result(dockState())
+        case "setDisplayMode":
+            ExternalDisplay.shared.setMode(args["mode"] as? String ?? "program")
+            result(dockState())
         case "getNetwork", "setPreferWired":
             // iPadOS already prefers a wired connection when one is plugged in.
             result(networkState())
@@ -151,11 +159,44 @@ final class DevicesPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
         return ["transport": transport, "wiredAvailable": wired, "preferWired": false, "canPreferWired": false]
     }
 
+    // MARK: Docking station
+
+    /// iPadOS doesn't report a dock as such; it's recognised from what comes
+    /// through it (screen, Ethernet, USB audio, capture cards, power).
+    private func dockState() -> [String: Any] {
+        let session = AVAudioSession.sharedInstance()
+        let route = session.currentRoute
+        let usbAudio = (session.availableInputs ?? []).contains { $0.portType == .usbAudio } ||
+            route.outputs.contains { $0.portType == .usbAudio || $0.portType == .HDMI }
+        let battery = UIDevice.current.batteryState
+        var state: [String: Any] = [
+            "ethernet": path?.availableInterfaces.contains { $0.type == .wiredEthernet } ?? false,
+            "usbAudio": usbAudio,
+            "usbVideo": !externalCameras().isEmpty,
+            "usbDevices": 0,
+            "charging": battery == .charging || battery == .full,
+        ]
+        if let display = ExternalDisplay.shared.state() { state["display"] = display }
+        return state
+    }
+
+    func emitDock() {
+        DispatchQueue.main.async {
+            self.sink?(self.dockState().merging(["type": "dock"]) { $1 })
+        }
+    }
+
     private func startObserving() {
+        UIDevice.current.isBatteryMonitoringEnabled = true
+        NotificationCenter.default.addObserver(
+            forName: UIDevice.batteryStateDidChangeNotification, object: nil, queue: .main
+        ) { [weak self] _ in self?.emitDock() }
+
         monitor.pathUpdateHandler = { [weak self] p in
             guard let self = self else { return }
             self.path = p
             self.emit(self.networkState().merging(["type": "network"]) { $1 })
+            self.emitDock()
         }
         monitor.start(queue: DispatchQueue(label: "org.obstablet.network"))
 
@@ -163,10 +204,12 @@ final class DevicesPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
         nc.addObserver(forName: AVAudioSession.routeChangeNotification, object: nil, queue: .main) { [weak self] _ in
             guard let self = self else { return }
             self.emit(["type": "audioInputs", "inputs": self.audioInputs()])
+            self.emitDock()
         }
         nc.addObserver(forName: AVCaptureDevice.wasConnectedNotification, object: nil, queue: .main) { [weak self] n in
             guard let d = n.object as? AVCaptureDevice, d.hasMediaType(.video) else { return }
             self?.emit(["type": "usbVideo", "state": "attached", "id": d.uniqueID, "name": d.localizedName])
+            self?.emitDock()
         }
         nc.addObserver(forName: AVCaptureDevice.wasDisconnectedNotification, object: nil, queue: .main) { [weak self] n in
             guard let self = self, let d = n.object as? AVCaptureDevice, d.hasMediaType(.video) else { return }
@@ -175,6 +218,7 @@ final class DevicesPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
                 self.camera = nil
             }
             self.emit(["type": "usbVideo", "state": "detached", "id": d.uniqueID])
+            self.emitDock()
         }
     }
 }
