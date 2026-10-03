@@ -5,6 +5,11 @@ on:
   pull_request:
   workflow_dispatch:
 
+# A newer push makes older in-progress builds pointless.
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test-and-android:
     runs-on: ubuntu-latest
@@ -39,10 +44,13 @@ jobs:
       - name: Build Android APK
         run: flutter build apk --release
 
+      - name: Name the APK
+        run: cp build/app/outputs/flutter-apk/app-release.apk obs-tablet.apk
+
       - uses: actions/upload-artifact@v4
         with:
           name: obs-tablet-android-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+          path: obs-tablet.apk
 
       - name: Build web preview
         run: flutter build web --release --no-web-resources-cdn
@@ -73,6 +81,19 @@ jobs:
       - name: Check the extension is embedded
         run: test -d build/ios/iphoneos/Runner.app/PlugIns/BroadcastExtension.appex
 
+      # Unsigned: sideload with your Apple ID (Sideloadly / AltStore), which
+      # signs it for your iPad.
+      - name: Package unsigned IPA
+        run: |
+          mkdir -p Payload
+          cp -R build/ios/iphoneos/Runner.app Payload/
+          zip -qry obs-tablet-unsigned.ipa Payload
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: obs-tablet-ios-ipa
+          path: obs-tablet-unsigned.ipa
+
   ndi-sdk:
     # Sends frames through the real NDI runtime and receives them back,
     # checking the Dart FFI bindings against the actual SDK.
@@ -91,3 +112,37 @@ jobs:
         run: scripts/fetch_ndi_sdk.sh linux
       - name: NDI send/receive test (real SDK)
         run: NDI_LIB=$PWD/build/ndi/linux/libndi.so flutter test test/ndi_test.dart
+
+  release:
+    # Publishes each successful build of the default branch, so
+    # https://github.com/<owner>/<repo>/releases/latest/download/obs-tablet.apk
+    # always points at the newest test build.
+    needs: [test-and-android, ios]
+    if: github.event_name != 'pull_request' && github.ref_name == github.event.repository.default_branch
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          name: OBS Tablet test build ${{ github.run_number }}
+          make_latest: true
+          files: |
+            dist/obs-tablet.apk
+            dist/obs-tablet-unsigned.ipa
+          body: |
+            Test build from ${{ github.sha }}.
+
+            **Android tablet:** download `obs-tablet.apk`, open it, and allow installing from this source when asked.
+
+            **iPad:** `obs-tablet-unsigned.ipa` must be signed with your Apple ID: open it with
+            [Sideloadly](https://sideloadly.io) or [AltStore](https://altstore.io) on a computer, with the iPad
+            connected. Screen capture also needs the App Group set up (see README).
+
