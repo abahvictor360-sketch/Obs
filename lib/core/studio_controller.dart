@@ -100,6 +100,16 @@ class StudioController extends ChangeNotifier {
     return null;
   }
 
+  /// Index of the first visible Screen Capture item in [scene], or -1. The
+  /// output composites that item natively (see OutputEngine).
+  int screenItemIndex(Scene scene) {
+    for (var i = 0; i < scene.items.length; i++) {
+      final it = scene.items[i];
+      if (it.visible && sourceById(it.sourceId)?.type == SourceType.screen) return i;
+    }
+    return -1;
+  }
+
   /// Audio-capable sources, in the order they appear in the mixer.
   List<Source> get audioSources => collection.sources.where((s) => s.type.hasAudio).toList();
 
@@ -255,6 +265,8 @@ class StudioController extends ChangeNotifier {
       case SourceType.camera:
       case SourceType.media:
         return ItemTransform(width: cw, height: ch, fit: FitMode.cover);
+      case SourceType.screen:
+        return ItemTransform(width: cw, height: ch, fit: FitMode.contain);
       case SourceType.image:
         final w = cw / 2, h = ch / 2;
         return ItemTransform(x: (cw - w) / 2, y: (ch - h) / 2, width: w, height: h, fit: FitMode.contain);

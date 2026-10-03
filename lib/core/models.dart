@@ -25,6 +25,7 @@ String newId(String prefix) {
 
 enum SourceType {
   camera('Video Capture Device'),
+  screen('Screen Capture'),
   image('Image'),
   media('Media Source'),
   text('Text'),
@@ -109,6 +110,10 @@ class SourceDefaults {
           // Off by default like OBS: a mirrored feed shows text backwards to viewers.
           'mirror': false,
         };
+      case SourceType.screen:
+        // Captures the whole device screen (other apps, games...). Pixels
+        // come from the native side, see ScreenCaptureState.
+        return {};
       case SourceType.image:
         return {
           'path': '', // local file path

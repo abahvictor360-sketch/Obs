@@ -13,9 +13,24 @@ import 'platform_media.dart';
 /// Renders a scene at full canvas resolution (e.g. 1920x1080 logical px).
 /// Wrap in a FittedBox to display it at any size.
 class SceneCanvas extends StatelessWidget {
-  const SceneCanvas({super.key, required this.scene, this.showPlaceholders = true});
+  const SceneCanvas({
+    super.key,
+    required this.scene,
+    this.showPlaceholders = true,
+    this.start = 0,
+    this.end,
+    this.transparent = false,
+  });
 
   final Scene scene;
+
+  /// Only draw items in [start, end) (bottom-most first). Used to split a
+  /// scene into layers below and above a Screen Capture item.
+  final int start;
+  final int? end;
+
+  /// No black canvas background (for the layer above the screen).
+  final bool transparent;
 
   /// Draw hints for sources that have no content yet (no image picked,
   /// camera missing). Turned off for the program output.
@@ -32,11 +47,11 @@ class SceneCanvas extends StatelessWidget {
       height: ch,
       child: ClipRect(
         child: ColoredBox(
-          color: Colors.black,
+          color: transparent ? Colors.transparent : Colors.black,
           child: Stack(
             clipBehavior: Clip.none,
             children: [
-              for (final item in scene.items)
+              for (final item in scene.items.sublist(start, end ?? scene.items.length))
                 if (item.visible)
                   if (studio.sourceById(item.sourceId) case final source? when source.type.isVisual)
                     SceneItemView(
@@ -141,6 +156,8 @@ class SourceRenderer extends StatelessWidget {
         return _CameraSource(source: source, fit: _boxFit(fit), showPlaceholder: showPlaceholder);
       case SourceType.media:
         return _MediaSource(source: source, fit: _boxFit(fit), showPlaceholder: showPlaceholder);
+      case SourceType.screen:
+        return showPlaceholder ? ScreenSourceCard(source: source) : const ColoredBox(color: Colors.black);
       case SourceType.audioInput:
         return const SizedBox.shrink();
     }
@@ -305,6 +322,60 @@ class _MediaSource extends StatelessWidget {
           child: FittedBox(
             fit: fit,
             child: SizedBox(width: size.width, height: size.height, child: VideoPlayer(c)),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// On-screen stand-in for a Screen Capture source. The real screen pixels are
+/// composited natively into the output (they keep flowing while you use other
+/// apps), so the editor shows status and a start button instead of a
+/// recursive mirror of this app.
+class ScreenSourceCard extends StatelessWidget {
+  const ScreenSourceCard({super.key, required this.source});
+
+  final Source source;
+
+  @override
+  Widget build(BuildContext context) {
+    final out = AppScope.of(context).output;
+    return ListenableBuilder(
+      listenable: out,
+      builder: (context, _) {
+        final st = out.screenState;
+        return Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFF15171C),
+            border: Border.all(color: st.active ? ObsColors.ok : ObsColors.border, width: 6),
+          ),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Padding(
+              padding: const EdgeInsets.all(48),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(st.active ? Icons.screen_share : Icons.screen_share_outlined,
+                      size: 160, color: st.active ? ObsColors.ok : ObsColors.textDim),
+                  const SizedBox(height: 16),
+                  Text(source.name, style: const TextStyle(fontSize: 56, color: ObsColors.text)),
+                  const SizedBox(height: 8),
+                  Text(
+                    st.active
+                        ? 'Capturing your screen. Switch to any app: it streams live.'
+                        : (st.error ?? 'Screen capture is off'),
+                    style: const TextStyle(fontSize: 36, color: ObsColors.textDim),
+                  ),
+                  if (!st.active && out.screenCaptureSupported)
+                    const Text(
+                      'Tap ▶ next to it in Sources to start',
+                      style: TextStyle(fontSize: 36, color: ObsColors.textDim),
+                    ),
+                ],
+              ),
+            ),
           ),
         );
       },

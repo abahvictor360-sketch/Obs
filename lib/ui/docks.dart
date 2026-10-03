@@ -295,7 +295,6 @@ class SourcesDock extends StatelessWidget {
                         color: isSel ? ObsColors.accentDim : Colors.transparent,
                         child: InkWell(
                           onTap: () => studio.selectItem(item.id),
-                          onDoubleTap: () => showSourceProperties(context, item.id),
                           child: SizedBox(
                             height: 48,
                             child: Row(
@@ -310,6 +309,7 @@ class SourcesDock extends StatelessWidget {
                                     style: TextStyle(color: item.visible ? ObsColors.text : ObsColors.textDim),
                                   ),
                                 ),
+                                if (src?.type == SourceType.screen) _ScreenToggle(),
                                 IconButton(
                                   icon: Icon(item.visible ? Icons.visibility : Icons.visibility_off, size: 20),
                                   tooltip: item.visible ? 'Hide' : 'Show',
@@ -340,6 +340,27 @@ class SourcesDock extends StatelessWidget {
                     );
                   },
                 ),
+        );
+      },
+    );
+  }
+}
+
+/// Start/stop button for screen capture, shown on Screen Capture rows.
+class _ScreenToggle extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final out = AppScope.of(context).output;
+    return ListenableBuilder(
+      listenable: out,
+      builder: (context, _) {
+        if (!out.screenCaptureSupported) return const SizedBox.shrink();
+        final active = out.screenState.active;
+        return IconButton(
+          icon: Icon(active ? Icons.stop_circle_outlined : Icons.play_circle_outline, size: 22),
+          color: active ? ObsColors.live : ObsColors.ok,
+          tooltip: active ? 'Stop screen capture' : 'Start screen capture',
+          onPressed: active ? out.stopScreenCapture : out.startScreenCapture,
         );
       },
     );

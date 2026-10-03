@@ -12,8 +12,16 @@ import 'package:obs_tablet/output/output_engine.dart';
 import 'package:obs_tablet/render/media_services.dart';
 
 class FakeEncoder implements EncoderBackend {
+  FakeEncoder({this.supported = false});
+
+  final bool supported;
+  final frames = <(int, int)>[];
+  final overlays = <Map<String, Object?>>[];
+  final screen = StreamController<ScreenCaptureState>.broadcast();
+  int screenStarts = 0;
+
   @override
-  Future<bool> isSupported() async => false;
+  Future<bool> isSupported() async => supported;
   @override
   Stream<EncodedPacket> get packets => const Stream.empty();
   @override
@@ -25,7 +33,7 @@ class FakeEncoder implements EncoderBackend {
   @override
   Future<void> stop() async {}
   @override
-  Future<void> pushFrame(Uint8List rgba, int width, int height) async {}
+  Future<void> pushFrame(Uint8List rgba, int width, int height) async => frames.add((width, height));
   @override
   Future<void> requestKeyframe() async {}
   @override
@@ -34,14 +42,43 @@ class FakeEncoder implements EncoderBackend {
   Future<String?> startMp4Recording() async => null;
   @override
   Future<String?> stopMp4Recording() async => null;
+  @override
+  Future<bool> isScreenCaptureSupported() async => supported;
+  @override
+  Stream<ScreenCaptureState> get screenStates => screen.stream;
+  @override
+  Future<void> startScreenCapture() async {
+    screenStarts++;
+    screen.add(const ScreenCaptureState(active: true, width: 1280, height: 960));
+  }
+
+  @override
+  Future<void> stopScreenCapture() async => screen.add(const ScreenCaptureState());
+  @override
+  Future<void> pushOverlays({
+    Uint8List? under,
+    Uint8List? over,
+    bool clearOver = false,
+    required int width,
+    required int height,
+    required ScreenPlacement placement,
+  }) async =>
+      overlays.add({
+        'under': under?.length,
+        'over': over?.length,
+        'clearOver': clearOver,
+        'width': width,
+        'height': height,
+        'placement': placement,
+      });
 }
 
-Future<(StudioController, OutputEngine)> _pump(WidgetTester tester, Size size) async {
+Future<(StudioController, OutputEngine)> _pump(WidgetTester tester, Size size, {EncoderBackend? backend}) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   final studio = StudioController(storage: MemoryStorage());
-  final output = OutputEngine(studio: studio, backend: FakeEncoder());
+  final output = OutputEngine(studio: studio, backend: backend ?? FakeEncoder());
   await output.init();
   await tester.pumpWidget(ObsTabletApp(
     studio: studio,
@@ -130,5 +167,67 @@ void main() {
     await tester.enterText(find.widgetWithText(TextField, 'Stream Key'), 'secret');
     expect(studio.settings.publishUrl, 'rtmp://example.com/live/secret');
     unawaited(studio.save());
+  });
+
+  testWidgets('screen capture source switches the output to native compositing', (tester) async {
+    final enc = FakeEncoder(supported: true);
+    final (studio, output) = await _pump(tester, const Size(1366, 1024), backend: enc);
+
+    // Put a Screen Capture source under the title (index 2 of 4).
+    final screen = studio.addNewSource(SourceType.screen);
+    studio.moveItem(screen.id, OrderMove.down);
+    await tester.pump(const Duration(seconds: 1));
+    expect(studio.screenItemIndex(studio.programScene), 2);
+    expect(find.textContaining('Screen capture is off'), findsOneWidget);
+
+    await tester.runAsync(() async {
+      await output.debugStartEncoder();
+      await output.debugCaptureFrame();
+    });
+    expect(enc.frames, isEmpty);
+    expect(enc.overlays, hasLength(1));
+    final first = enc.overlays.single;
+    expect(first['under'], 1280 * 720 * 4);
+    expect(first['over'], 1280 * 720 * 4);
+    expect(first['clearOver'], false);
+    expect(first['placement'], const ScreenPlacement(x: 0, y: 0, width: 1280, height: 720));
+
+    // The under layer holds the live camera, so it refreshes at ~15 fps; the
+    // static title layer above is not read back again.
+    await tester.runAsync(output.debugCaptureFrame);
+    expect(enc.overlays, hasLength(2));
+    expect(enc.overlays.last['under'], isNotNull);
+    expect(enc.overlays.last['over'], isNull);
+    expect(enc.overlays.last['clearOver'], false);
+
+    // With the camera hidden, an unchanged scene needs no readback at all.
+    final camera = studio.programScene.items.firstWhere((i) => studio.sourceById(i.sourceId)!.type == SourceType.camera);
+    studio.setItemVisible(camera.id, false);
+    await tester.pump(const Duration(seconds: 1));
+    await tester.runAsync(output.debugCaptureFrame); // picks up the change
+    final n = enc.overlays.length;
+    for (var i = 0; i < 3; i++) {
+      await tester.runAsync(output.debugCaptureFrame);
+    }
+    expect(enc.overlays, hasLength(n));
+
+    // Moving the screen item sends the new placement.
+    studio.updateTransform(screen.id, (t) => t.x = 960, persist: true);
+    await tester.pump();
+    await tester.runAsync(output.debugCaptureFrame);
+    expect(enc.overlays, hasLength(n + 1));
+    expect((enc.overlays.last['placement']! as ScreenPlacement).x, 640);
+
+    // Starting capture updates the on-canvas status card.
+    await tester.tap(find.byTooltip('Start screen capture'));
+    await tester.pump();
+    expect(enc.screenStarts, 1);
+    expect(find.textContaining('Capturing your screen'), findsOneWidget);
+
+    // Hiding the screen source goes back to plain frames.
+    studio.setItemVisible(screen.id, false);
+    await tester.pump(const Duration(seconds: 1));
+    await tester.runAsync(output.debugCaptureFrame);
+    expect(enc.frames, hasLength(1));
   });
 }

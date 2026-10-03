@@ -55,6 +55,56 @@ class AudioLevel {
   final double rms, peak; // linear 0..1
 }
 
+/// State of the native screen capture (Android MediaProjection, iPad
+/// ReplayKit broadcast extension).
+class ScreenCaptureState {
+  const ScreenCaptureState({this.active = false, this.width = 0, this.height = 0, this.error});
+
+  final bool active;
+  final int width, height;
+  final String? error;
+}
+
+/// Where the native compositor draws the screen inside the output frame, in
+/// output pixels. Rotation is in degrees around the rect center.
+class ScreenPlacement {
+  const ScreenPlacement({
+    required this.x,
+    required this.y,
+    required this.width,
+    required this.height,
+    this.rotation = 0,
+    this.fit = 'contain',
+  });
+
+  final double x, y, width, height, rotation;
+
+  /// contain | cover | stretch
+  final String fit;
+
+  Map<String, Object> toMap() => {
+        'x': x,
+        'y': y,
+        'w': width,
+        'h': height,
+        'rotation': rotation,
+        'fit': fit,
+      };
+
+  @override
+  bool operator ==(Object other) =>
+      other is ScreenPlacement &&
+      other.x == x &&
+      other.y == y &&
+      other.width == width &&
+      other.height == height &&
+      other.rotation == rotation &&
+      other.fit == fit;
+
+  @override
+  int get hashCode => Object.hash(x, y, width, height, rotation, fit);
+}
+
 /// Hardware encoder living on the native side (MediaCodec on Android,
 /// VideoToolbox on iOS). The Dart side feeds it composited canvas frames and
 /// receives encoded H.264 / AAC packets back.
@@ -73,6 +123,28 @@ abstract class EncoderBackend {
   /// Starts writing an MP4 natively. Returns the file path/uri.
   Future<String?> startMp4Recording();
   Future<String?> stopMp4Recording();
+
+  // --- Screen capture ------------------------------------------------------
+
+  Future<bool> isScreenCaptureSupported();
+  Stream<ScreenCaptureState> get screenStates;
+
+  /// Asks the user for permission and starts capturing the device screen.
+  Future<void> startScreenCapture();
+  Future<void> stopScreenCapture();
+
+  /// Switches the encoder to native compositing: every output frame is
+  /// [under] + live screen (at [placement]) + [over]. Layers are RGBA at
+  /// [width]x[height]; a null layer keeps the previous one, [clearOver]
+  /// removes the top layer. Calling [pushFrame] switches back to plain frames.
+  Future<void> pushOverlays({
+    Uint8List? under,
+    Uint8List? over,
+    bool clearOver = false,
+    required int width,
+    required int height,
+    required ScreenPlacement placement,
+  });
 }
 
 class MethodChannelEncoder implements EncoderBackend {
@@ -85,6 +157,7 @@ class MethodChannelEncoder implements EncoderBackend {
   final _packets = StreamController<EncodedPacket>.broadcast(sync: true);
   final _levels = StreamController<AudioLevel>.broadcast();
   final _errors = StreamController<String>.broadcast();
+  final _screen = StreamController<ScreenCaptureState>.broadcast();
 
   bool? _supported;
 
@@ -94,6 +167,8 @@ class MethodChannelEncoder implements EncoderBackend {
   Stream<AudioLevel> get levels => _levels.stream;
   @override
   Stream<String> get errors => _errors.stream;
+  @override
+  Stream<ScreenCaptureState> get screenStates => _screen.stream;
 
   void _onEvent(dynamic e) {
     if (e is! Map) return;
@@ -110,6 +185,13 @@ class MethodChannelEncoder implements EncoderBackend {
         _levels.add(AudioLevel((e['rms'] as num).toDouble(), (e['peak'] as num).toDouble()));
       case 'error':
         _errors.add('${e['message']}');
+      case 'screen':
+        _screen.add(ScreenCaptureState(
+          active: e['state'] == 'active',
+          width: (e['width'] as num?)?.toInt() ?? 0,
+          height: (e['height'] as num?)?.toInt() ?? 0,
+          error: e['error'] as String?,
+        ));
     }
   }
 
@@ -153,6 +235,40 @@ class MethodChannelEncoder implements EncoderBackend {
 
   @override
   Future<String?> stopMp4Recording() => _method.invokeMethod<String>('stopRecording');
+
+  @override
+  Future<bool> isScreenCaptureSupported() async {
+    if (!await isSupported()) return false;
+    try {
+      return await _method.invokeMethod<bool>('isScreenCaptureSupported') ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  @override
+  Future<void> startScreenCapture() => _method.invokeMethod('startScreenCapture');
+
+  @override
+  Future<void> stopScreenCapture() => _method.invokeMethod('stopScreenCapture');
+
+  @override
+  Future<void> pushOverlays({
+    Uint8List? under,
+    Uint8List? over,
+    bool clearOver = false,
+    required int width,
+    required int height,
+    required ScreenPlacement placement,
+  }) =>
+      _method.invokeMethod('overlays', {
+        'under': under,
+        'over': over,
+        'clearOver': clearOver,
+        'width': width,
+        'height': height,
+        'placement': placement.toMap(),
+      });
 
   void dispose() {
     _sub?.cancel();

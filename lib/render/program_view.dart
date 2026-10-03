@@ -85,6 +85,35 @@ class _ProgramViewState extends State<ProgramView> with SingleTickerProviderStat
 
         Widget canvasFor(Scene s) => SceneCanvas(scene: s, showPlaceholders: false);
 
+        // A settled scene with a Screen Capture source is split into the
+        // layers below and above it. The output engine captures those two
+        // layers and the native side puts the live screen between them, so
+        // the stream keeps running while the user is in another app. The
+        // status card in between is only shown on the tablet.
+        Widget settled(Scene s) {
+          final idx = studio.screenItemIndex(s);
+          if (idx < 0) return canvasFor(s);
+          final item = s.items[idx];
+          return Stack(children: [
+            RepaintBoundary(
+              key: scope.output.underKey,
+              child: SceneCanvas(scene: s, showPlaceholders: false, end: idx),
+            ),
+            SizedBox(
+              width: cw,
+              height: studio.settings.canvasHeight.toDouble(),
+              child: Stack(children: [
+                SceneItemView(item: item, source: studio.sourceById(item.sourceId)!, showPlaceholder: true),
+              ]),
+            ),
+            if (idx < s.items.length - 1)
+              RepaintBoundary(
+                key: scope.output.overKey,
+                child: SceneCanvas(scene: s, showPlaceholders: false, start: idx + 1, transparent: true),
+              ),
+          ]);
+        }
+
         return RepaintBoundary(
           key: scope.output.programKey,
           child: ColoredBox(
@@ -95,7 +124,7 @@ class _ProgramViewState extends State<ProgramView> with SingleTickerProviderStat
                   animation: _anim,
                   builder: (context, _) {
                     final t = Curves.easeInOut.transform(_anim.value);
-                    if (from == null || _anim.value >= 1) return canvasFor(to);
+                    if (from == null || _anim.value >= 1) return settled(to);
                     switch (_type) {
                       case TransitionType.cut:
                         return canvasFor(to);

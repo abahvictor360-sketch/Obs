@@ -1,10 +1,13 @@
 import 'dart:async';
+import 'dart:math' as math;
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
+import '../core/models.dart';
 import '../core/studio_controller.dart';
 import 'av_packager.dart';
 import 'encoder_backend.dart';
@@ -19,7 +22,7 @@ enum OutputStatus { idle, starting, active, reconnecting, stopping }
 ///
 /// One encoder is shared by the stream and the recording; each has its own
 /// [AvPackager] so they can start/stop independently.
-class OutputEngine extends ChangeNotifier {
+class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
   OutputEngine({required this.studio, EncoderBackend? backend})
       : backend = backend ?? MethodChannelEncoder() {
     studio.addListener(_onStudioChanged);
@@ -30,6 +33,16 @@ class OutputEngine extends ChangeNotifier {
 
   /// Wraps the program canvas; frames are captured from it.
   final GlobalKey programKey = GlobalKey(debugLabel: 'program');
+
+  /// When the program scene contains a Screen Capture source, the program
+  /// view is split into the layers below and above it. The native side
+  /// composites under + live screen + over, which keeps working while the
+  /// user is in another app.
+  final GlobalKey underKey = GlobalKey(debugLabel: 'under-screen');
+  final GlobalKey overKey = GlobalKey(debugLabel: 'over-screen');
+
+  ScreenCaptureState screenState = const ScreenCaptureState();
+  bool screenCaptureSupported = false;
 
   OutputStatus streamStatus = OutputStatus.idle;
   OutputStatus recordStatus = OutputStatus.idle;
@@ -59,6 +72,14 @@ class OutputEngine extends ChangeNotifier {
   StreamSubscription<EncodedPacket>? _packetSub;
   StreamSubscription<AudioLevel>? _levelSub;
   StreamSubscription<String>? _errorSub;
+  StreamSubscription<ScreenCaptureState>? _screenSub;
+
+  bool _appResumed = true;
+  bool _compositing = false;
+  bool _layersDirty = true;
+  int _tick = 0;
+  DateTime _lastStaticGrab = DateTime(0);
+  ScreenPlacement? _lastPlacement;
 
   PacketSink? _streamSink;
   AvPackager? _streamPackager;
@@ -83,7 +104,48 @@ class OutputEngine extends ChangeNotifier {
       lastError = e;
       notifyListeners();
     });
+    _screenSub = backend.screenStates.listen((st) {
+      screenState = st;
+      _layersDirty = true;
+      notifyListeners();
+    });
+    screenCaptureSupported = await backend.isScreenCaptureSupported();
+    WidgetsBinding.instance.addObserver(this);
     notifyListeners();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Flutter doesn't render in the background, so stop grabbing frames;
+    // the native side keeps compositing the screen with the last overlays
+    // (or repeats the last frame).
+    _appResumed = state == AppLifecycleState.resumed;
+    if (_appResumed) _layersDirty = true;
+  }
+
+  /// Test hooks: run the encoder and frame pump steps without real outputs.
+  @visibleForTesting
+  Future<void> debugStartEncoder() => _ensureEncoder();
+
+  @visibleForTesting
+  Future<void> debugCaptureFrame() => _captureFrame();
+
+  // ---------------------------------------------------------------------------
+  // Screen capture
+
+  Future<void> startScreenCapture() async {
+    try {
+      await backend.startScreenCapture();
+    } catch (e) {
+      screenState = ScreenCaptureState(error: 'Could not start screen capture: $e');
+      notifyListeners();
+    }
+  }
+
+  Future<void> stopScreenCapture() async {
+    try {
+      await backend.stopScreenCapture();
+    } catch (_) {}
   }
 
   // ---------------------------------------------------------------------------
@@ -296,6 +358,9 @@ class OutputEngine extends ChangeNotifier {
     _onStudioChanged();
     _encoderRunning = true;
     _capturing = false;
+    _compositing = false;
+    _layersDirty = true;
+    _lastPlacement = null;
     renderedFrames = 0;
     laggedFrames = 0;
     _pumpTimer = Timer.periodic(Duration(microseconds: 1000000 ~/ config.fps), (_) => _captureFrame());
@@ -328,6 +393,23 @@ class OutputEngine extends ChangeNotifier {
       laggedFrames++;
       return;
     }
+    if (!_appResumed) return;
+    _tick++;
+    if (underKey.currentContext != null) {
+      _capturing = true;
+      try {
+        await _captureLayers();
+      } catch (e) {
+        debugPrint('Overlay capture failed: $e');
+      } finally {
+        _capturing = false;
+      }
+      return;
+    }
+    if (_compositing) {
+      _compositing = false;
+      _lastPlacement = null;
+    }
     final config = _config;
     final ctx = programKey.currentContext;
     final ro = ctx?.findRenderObject();
@@ -350,6 +432,93 @@ class OutputEngine extends ChangeNotifier {
     }
   }
 
+  static RenderRepaintBoundary? _boundary(GlobalKey key) {
+    final ro = key.currentContext?.findRenderObject();
+    if (ro is! RenderRepaintBoundary || !ro.attached || ro.size.isEmpty) return null;
+    return ro;
+  }
+
+  Future<(Uint8List, int, int)?> _grab(RenderRepaintBoundary ro, double pixelRatio) async {
+    final image = await ro.toImage(pixelRatio: pixelRatio);
+    final data = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+    final w = image.width, h = image.height;
+    image.dispose();
+    if (data == null) return null;
+    return (data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes), w, h);
+  }
+
+  /// Overlay mode: grab the layers under/over the screen source. Layers with
+  /// live content (camera, video) refresh at ~15 fps; static layers only when
+  /// the scene changes (or once a second as a safety net), which keeps the
+  /// GPU readback cost low while a game is being streamed.
+  Future<void> _captureLayers() async {
+    final config = _config;
+    final under = _boundary(underKey);
+    if (config == null || under == null) return;
+    final scene = studio.programScene;
+    final idx = studio.screenItemIndex(scene);
+    if (idx < 0) return;
+
+    final cw = studio.settings.canvasWidth.toDouble();
+    final k = config.width / cw;
+    final t = scene.items[idx].transform;
+    final placement = ScreenPlacement(
+      x: t.x * k,
+      y: t.y * k,
+      width: t.width * k,
+      height: t.height * k,
+      rotation: t.rotation,
+      fit: switch (t.fit) {
+        FitMode.cover => 'cover',
+        FitMode.stretch => 'stretch',
+        FitMode.contain => 'contain',
+      },
+    );
+
+    bool isLive(int from, int to) {
+      for (final it in scene.items.sublist(from, to)) {
+        if (!it.visible) continue;
+        final type = studio.sourceById(it.sourceId)?.type;
+        if (type == SourceType.camera || type == SourceType.media) return true;
+      }
+      return false;
+    }
+
+    final now = DateTime.now();
+    final staticDue = _layersDirty || !_compositing || now.difference(_lastStaticGrab).inMilliseconds > 1000;
+    final liveDue = _tick % math.max(1, (config.fps / 15).round()) == 0;
+    final grabUnder = staticDue || (liveDue && isLive(0, idx));
+    final over = _boundary(overKey);
+    final grabOver = over != null && (staticDue || (liveDue && isLive(idx + 1, scene.items.length)));
+
+    if (!grabUnder && !grabOver && placement == _lastPlacement) {
+      _framesThisSecond++; // native keeps producing frames on its own
+      return;
+    }
+    final ratio = config.width / under.size.width;
+    final u = grabUnder ? await _grab(under, ratio) : null;
+    final o = grabOver ? await _grab(over, ratio) : null;
+    if (!_encoderRunning) return;
+    final w = u?.$2 ?? o?.$2 ?? config.width;
+    final h = u?.$3 ?? o?.$3 ?? config.height;
+    await backend.pushOverlays(
+      under: u?.$1,
+      over: o?.$1,
+      clearOver: over == null,
+      width: w,
+      height: h,
+      placement: placement,
+    );
+    if (staticDue) {
+      _lastStaticGrab = now;
+      _layersDirty = false;
+    }
+    _compositing = true;
+    _lastPlacement = placement;
+    renderedFrames++;
+    _framesThisSecond++;
+  }
+
   void _tickStats() {
     outputFps = _framesThisSecond.toDouble();
     _framesThisSecond = 0;
@@ -364,6 +533,7 @@ class OutputEngine extends ChangeNotifier {
   }
 
   void _onStudioChanged() {
+    _layersDirty = true;
     final g = studio.micGain;
     if (g != _lastMicGain && (_encoderRunning || _lastMicGain < 0)) {
       _lastMicGain = g;
@@ -394,6 +564,8 @@ class OutputEngine extends ChangeNotifier {
     _packetSub?.cancel();
     _levelSub?.cancel();
     _errorSub?.cancel();
+    _screenSub?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 }

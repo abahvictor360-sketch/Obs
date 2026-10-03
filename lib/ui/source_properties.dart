@@ -91,6 +91,7 @@ class _PropertiesSheet extends StatelessWidget {
 
 IconData sourceIcon(SourceType t) => switch (t) {
       SourceType.camera => Icons.videocam_outlined,
+      SourceType.screen => Icons.screen_share_outlined,
       SourceType.image => Icons.image_outlined,
       SourceType.media => Icons.movie_outlined,
       SourceType.text => Icons.text_fields,
@@ -136,6 +137,8 @@ class _SourceSettingsTab extends StatelessWidget {
             style: TextStyle(color: ObsColors.textDim, fontSize: 13),
           ),
         ]);
+      case SourceType.screen:
+        children.add(const _ScreenCaptureSettings());
       case SourceType.image:
       case SourceType.media:
         final isImage = source.type == SourceType.image;
@@ -453,6 +456,62 @@ class _FiltersTab extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _ScreenCaptureSettings extends StatelessWidget {
+  const _ScreenCaptureSettings();
+
+  @override
+  Widget build(BuildContext context) {
+    final out = AppScope.of(context).output;
+    return ListenableBuilder(
+      listenable: out,
+      builder: (context, _) {
+        final st = out.screenState;
+        final ios = Theme.of(context).platform == TargetPlatform.iOS;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(st.active ? Icons.screen_share : Icons.stop_screen_share_outlined,
+                  color: st.active ? ObsColors.ok : ObsColors.textDim),
+              title: Text(st.active ? 'Capturing (${st.width}x${st.height})' : 'Not capturing'),
+              subtitle: st.error == null ? null : Text(st.error!, style: const TextStyle(color: ObsColors.warn)),
+            ),
+            if (!out.screenCaptureSupported)
+              const Text('Screen capture is not available on this platform.',
+                  style: TextStyle(color: ObsColors.textDim))
+            else
+              FilledButton.icon(
+                icon: Icon(st.active ? Icons.stop : Icons.play_arrow),
+                label: Text(st.active ? 'Stop screen capture' : 'Start screen capture'),
+                style: st.active ? FilledButton.styleFrom(backgroundColor: ObsColors.live) : null,
+                onPressed: st.active ? out.stopScreenCapture : out.startScreenCapture,
+              ),
+            const SizedBox(height: 16),
+            Text(
+              ios
+                  ? 'On iPad, choose "OBS Tablet Screen" in the broadcast sheet and tap Start '
+                      'Broadcast. Then switch to the app or game you want to show; your other '
+                      'sources stay on top of it.'
+                  : 'Android will ask for permission to capture the screen. Then switch to the '
+                      'app or game you want to show; your other sources stay on top of it, and '
+                      'the stream keeps running in the background.',
+              style: const TextStyle(color: ObsColors.textDim, fontSize: 13),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'While this app is open the screen source shows a status card instead of a '
+              'mirror of the app itself. Cameras in other layers freeze while you are in another '
+              'app (the OS pauses camera access in the background).',
+              style: TextStyle(color: ObsColors.textDim, fontSize: 13),
+            ),
+          ],
+        );
+      },
     );
   }
 }
