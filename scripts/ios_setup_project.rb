@@ -53,15 +53,22 @@ file_ref(ext_group, 'Info.plist')
 file_ref(ext_group, "#{EXT_NAME}.entitlements")
 shared_refs.each { |r| add_source(ext, r) }
 
-%w[ReplayKit VideoToolbox CoreImage CoreMedia].each do |fw|
-  path = "System/Library/Frameworks/#{fw}.framework"
-  next if ext.frameworks_build_phase.files_references.any? { |r| r.path == path }
-  ext.add_system_framework(fw)
+# System frameworks (ReplayKit, VideoToolbox, ...) are linked automatically
+# through Swift imports; explicit references would pin one SDK version.
+ext.frameworks_build_phase.files.dup.each do |bf|
+  ref = bf.file_ref
+  next unless ref && ref.path.to_s.include?('.sdk/System/Library/Frameworks/')
+  ext.frameworks_build_phase.remove_build_file(bf)
+  ref.remove_from_project
 end
 
 flutter_group = project.main_group.children.find { |g| g.display_name == 'Flutter' }
-ext_xcconfig = flutter_group.files.find { |f| f.path == 'Extension.xcconfig' } ||
-               flutter_group.new_reference('Extension.xcconfig')
+# The Flutter group has no folder of its own: its files carry a "Flutter/"
+# prefix in their path (like Debug.xcconfig), so do the same.
+ext_xcconfig = flutter_group.files.find { |f| f.display_name == 'Extension.xcconfig' } ||
+               flutter_group.new_reference('Flutter/Extension.xcconfig')
+ext_xcconfig.path = 'Flutter/Extension.xcconfig'
+ext_xcconfig.name = 'Extension.xcconfig'
 
 app_bundle_id = runner.build_configurations.first.build_settings['PRODUCT_BUNDLE_IDENTIFIER']
 ext.build_configurations.each do |c|

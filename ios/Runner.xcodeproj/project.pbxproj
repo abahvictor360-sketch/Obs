@@ -7,8 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		0001D3552163BF750E595365 /* CoreMedia.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 21ED50419501DC16342DF65A /* CoreMedia.framework */; };
-		0FA37DB9BCAC700A35B717E8 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DB60F4B9C5E165FFEA0748C7 /* Foundation.framework */; };
 		1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */ = {isa = PBXBuildFile; fileRef = 1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */; };
 		1FCDD8B1248C784F06728948 /* H264Encoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2C73ECC8FBD178B881DF668 /* H264Encoder.swift */; };
 		2583EB984B3366B8A9C99115 /* Compositor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1880B6EED9EEA1C45C46A24C /* Compositor.swift */; };
@@ -21,17 +19,14 @@
 		74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74858FAE1ED2DC5600515810 /* AppDelegate.swift */; };
 		7884E8682EC3CC0700C636F2 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7884E8672EC3CC0400C636F2 /* SceneDelegate.swift */; };
 		78A318202AECB46A00862997 /* FlutterGeneratedPluginSwiftPackage in Frameworks */ = {isa = PBXBuildFile; productRef = 78A3181F2AECB46A00862997 /* FlutterGeneratedPluginSwiftPackage */; };
-		96556064399EE0AAC0EE38AB /* ReplayKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 61EE62A6166FC8249B0D77D8 /* ReplayKit.framework */; };
 		97C146FC1CF9000F007C117D /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FA1CF9000F007C117D /* Main.storyboard */; };
 		97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FD1CF9000F007C117D /* Assets.xcassets */; };
 		97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */; };
 		9F48B887BCA3599EE60A0AC7 /* ScreenReceiver.swift in Sources */ = {isa = PBXBuildFile; fileRef = C44BA31EFAA83E8C474D036D /* ScreenReceiver.swift */; };
-		A3B6D34671F23518C51CCBDD /* VideoToolbox.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2174B555DF81AC6A7D18A47B /* VideoToolbox.framework */; };
 		D6D1419C89492F58F9DD8775 /* Compositor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1880B6EED9EEA1C45C46A24C /* Compositor.swift */; };
 		D6DEE2A672C73629EF5FF47C /* SampleHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59169B876FCA351276EA4A98 /* SampleHandler.swift */; };
 		D801996EE8DC1CA8D1EEC7B3 /* BroadcastExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 6ABD734ACF2EF814C28F453A /* BroadcastExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		DB1C0C4DB2E42BD47938F13D /* ObsLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27A94EF8B8B0250453DD48C5 /* ObsLink.swift */; };
-		E37151039136A268B18BFE24 /* CoreImage.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F0BD2B27DEB21BB01C9680CB /* CoreImage.framework */; };
 		FB6E60BA1271A635F91C2DBA /* AppEncoders.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3CA800AE7A7AA75484E7255 /* AppEncoders.swift */; };
 /* End PBXBuildFile section */
 
@@ -81,14 +76,11 @@
 		1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GeneratedPluginRegistrant.m; sourceTree = "<group>"; };
 		1880B6EED9EEA1C45C46A24C /* Compositor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Compositor.swift; sourceTree = "<group>"; };
 		1BEB53600C9C5DD1496F623F /* ObsEncoderPlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ObsEncoderPlugin.swift; sourceTree = "<group>"; };
-		2174B555DF81AC6A7D18A47B /* VideoToolbox.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = VideoToolbox.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.0.sdk/System/Library/Frameworks/VideoToolbox.framework; sourceTree = DEVELOPER_DIR; };
-		21ED50419501DC16342DF65A /* CoreMedia.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreMedia.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.0.sdk/System/Library/Frameworks/CoreMedia.framework; sourceTree = DEVELOPER_DIR; };
 		27A94EF8B8B0250453DD48C5 /* ObsLink.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ObsLink.swift; sourceTree = "<group>"; };
 		331C807B294A618700263BE5 /* RunnerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerTests.swift; sourceTree = "<group>"; };
 		331C8081294A63A400263BE5 /* RunnerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RunnerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = AppFrameworkInfo.plist; path = Flutter/AppFrameworkInfo.plist; sourceTree = "<group>"; };
 		59169B876FCA351276EA4A98 /* SampleHandler.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SampleHandler.swift; sourceTree = "<group>"; };
-		61EE62A6166FC8249B0D77D8 /* ReplayKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ReplayKit.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.0.sdk/System/Library/Frameworks/ReplayKit.framework; sourceTree = DEVELOPER_DIR; };
 		6ABD734ACF2EF814C28F453A /* BroadcastExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = BroadcastExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		6C19FA089C1AF974246C4CD6 /* Runner.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = Runner.entitlements; sourceTree = "<group>"; };
 		74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Runner-Bridging-Header.h"; sourceTree = "<group>"; };
@@ -108,10 +100,8 @@
 		A12733394A86BE6D07D171CB /* BroadcastExtension.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = BroadcastExtension.entitlements; sourceTree = "<group>"; };
 		C44BA31EFAA83E8C474D036D /* ScreenReceiver.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScreenReceiver.swift; sourceTree = "<group>"; };
 		D2C73ECC8FBD178B881DF668 /* H264Encoder.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = H264Encoder.swift; sourceTree = "<group>"; };
-		DB60F4B9C5E165FFEA0748C7 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
-		E377E53D0271C5C714EE2A02 /* Extension.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = Extension.xcconfig; sourceTree = "<group>"; };
+		E377E53D0271C5C714EE2A02 /* Extension.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = Extension.xcconfig; path = Flutter/Extension.xcconfig; sourceTree = "<group>"; };
 		E3CA800AE7A7AA75484E7255 /* AppEncoders.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppEncoders.swift; sourceTree = "<group>"; };
-		F0BD2B27DEB21BB01C9680CB /* CoreImage.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreImage.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.0.sdk/System/Library/Frameworks/CoreImage.framework; sourceTree = DEVELOPER_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -119,11 +109,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				0FA37DB9BCAC700A35B717E8 /* Foundation.framework in Frameworks */,
-				96556064399EE0AAC0EE38AB /* ReplayKit.framework in Frameworks */,
-				A3B6D34671F23518C51CCBDD /* VideoToolbox.framework in Frameworks */,
-				E37151039136A268B18BFE24 /* CoreImage.framework in Frameworks */,
-				0001D3552163BF750E595365 /* CoreMedia.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -160,11 +145,6 @@
 		57658783FB3F28FC51F8562A /* iOS */ = {
 			isa = PBXGroup;
 			children = (
-				DB60F4B9C5E165FFEA0748C7 /* Foundation.framework */,
-				61EE62A6166FC8249B0D77D8 /* ReplayKit.framework */,
-				2174B555DF81AC6A7D18A47B /* VideoToolbox.framework */,
-				F0BD2B27DEB21BB01C9680CB /* CoreImage.framework */,
-				21ED50419501DC16342DF65A /* CoreMedia.framework */,
 			);
 			name = iOS;
 			sourceTree = "<group>";
