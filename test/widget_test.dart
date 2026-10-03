@@ -296,6 +296,25 @@ void main() {
     unawaited(studio.save());
   });
 
+  testWidgets('picking Facebook Live in Settings leaves only the stream key', (tester) async {
+    final (studio, output) = await _pump(tester, const Size(1366, 1024));
+    await tester.tap(find.text('Settings'));
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(TextField, 'Server'), findsOneWidget);
+    await tester.tap(find.text('Custom'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Facebook Live').last);
+    await tester.pumpAndSettle();
+    expect(studio.settings.service, 'Facebook Live');
+    expect(find.widgetWithText(TextField, 'Server'), findsNothing);
+    expect(find.byKey(const ValueKey('preset-server-note')), findsOneWidget);
+    await tester.enterText(find.widgetWithText(TextField, 'Stream Key'), 'rtmps://live-api-s.facebook.com:443/rtmp/FB-42-x');
+    await tester.pump();
+    expect(studio.settings.streamKey, 'FB-42-x');
+    expect(studio.settings.publishUrl, 'rtmps://live-api-s.facebook.com:443/rtmp/FB-42-x');
+    unawaited(studio.save());
+  });
+
   testWidgets('screen capture source switches the output to native compositing', (tester) async {
     final enc = FakeEncoder(supported: true);
     final (studio, output) = await _pump(tester, const Size(1366, 1024), backend: enc);

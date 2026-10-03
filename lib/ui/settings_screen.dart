@@ -39,11 +39,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: ListenableBuilder(
         listenable: studio,
         builder: (context, _) {
-          final pages = [
-            const _StreamPage(),
-            const _OutputPage(),
-            const _VideoPage(),
-            const _GeneralPage(),
+          // Not const: the pages read the settings, so they must rebuild
+          // whenever the studio changes.
+          // ignore_for_file: prefer_const_constructors
+          final pages = <Widget>[
+            _StreamPage(key: ValueKey('stream-${studio.settings.service}')),
+            _OutputPage(),
+            _VideoPage(),
+            _GeneralPage(),
           ];
           return LayoutBuilder(builder: (context, box) {
             if (box.maxWidth < 700) {
@@ -151,7 +154,7 @@ class _FieldState extends State<_Field> {
 }
 
 class _StreamPage extends StatelessWidget {
-  const _StreamPage();
+  const _StreamPage({super.key});
 
   @override
   Widget build(BuildContext context) {
