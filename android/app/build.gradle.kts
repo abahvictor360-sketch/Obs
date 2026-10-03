@@ -30,11 +30,24 @@ android {
         versionName = flutter.versionName
     }
 
+    // One fixed key for every build, so a new APK installs as an update over
+    // the previous one. The committed test key is only for these sideloaded
+    // test builds; for a store release, set OBSPAD_KEYSTORE (and the
+    // password/alias variables) to a private key kept out of the repository.
+    signingConfigs {
+        create("obspad") {
+            val custom = System.getenv("OBSPAD_KEYSTORE")
+            storeFile = file(custom ?: "obspad-test-signing.p12")
+            storeType = if (custom == null) "PKCS12" else (System.getenv("OBSPAD_KEYSTORE_TYPE") ?: "PKCS12")
+            storePassword = System.getenv("OBSPAD_KEYSTORE_PASSWORD") ?: "obspad-test"
+            keyAlias = System.getenv("OBSPAD_KEY_ALIAS") ?: "obspad"
+            keyPassword = System.getenv("OBSPAD_KEY_PASSWORD") ?: "obspad-test"
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("obspad")
         }
     }
 }

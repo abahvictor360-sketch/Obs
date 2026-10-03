@@ -50,13 +50,20 @@ jobs:
         # dependencies (e.g. HTTP 503); a compile error fails every attempt.
         run: |
           for i in 1 2 3; do
-            flutter build apk --release && exit 0
+            # The run number becomes the versionCode, so every build installs as an update.
+            flutter build apk --release --build-number=${{ github.run_number }} && exit 0
             echo "APK build failed (attempt $i), retrying in $((i * 20)) s…"; sleep $((i * 20))
           done
           exit 1
 
       - name: Name the APK
         run: cp build/app/outputs/flutter-apk/app-release.apk obspad.apk
+
+      - name: Check the APK is a valid, signed package
+        run: |
+          BT=$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)
+          "$ANDROID_HOME/build-tools/$BT/apksigner" verify --verbose --print-certs obspad.apk
+          "$ANDROID_HOME/build-tools/$BT/aapt2" dump badging obspad.apk | head -3
 
       - uses: actions/upload-artifact@v4
         with:
