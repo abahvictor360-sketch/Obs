@@ -28,7 +28,8 @@ void main() {
   late List<(int, int, int)> frames;
   MockStreamHandlerEventSink? sink;
 
-  const screen = {'name': 'HDMI', 'width': 1920, 'height': 1080, 'refreshRate': 60.0, 'presenting': true};
+  const screen = {'id': '2', 'name': 'HDMI', 'width': 1920, 'height': 1080, 'refreshRate': 60.0, 'presenting': true};
+  const tv = {'id': '7', 'name': 'Living room TV', 'width': 3840, 'height': 2160, 'refreshRate': 60.0, 'presenting': false};
 
   setUp(() {
     calls = [];
@@ -42,10 +43,15 @@ void main() {
         case 'getDock':
           return dock;
         case 'setDisplayMode':
-          final program = (call.arguments as Map)['mode'] != 'mirror';
+          final args = call.arguments as Map;
+          final program = args['mode'] != 'mirror';
+          final second = args['displayId'] == '7';
           return {
             ...dock,
-            'display': {...screen, 'presenting': program},
+            'display': second
+                ? {...tv, 'presenting': program}
+                : {...screen, 'presenting': program},
+            if (dock['displays'] != null) 'displays': dock['displays'],
           };
         case 'listUsbCameras':
         case 'listAudioInputs':
@@ -189,6 +195,65 @@ void main() {
     expect(frames, hasLength(sent));
 
     display.dispose();
+    tracker.dispose();
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 3));
+  });
+
+  testWidgets('long-press Program: send it to the screen of your choice or fullscreen on the tablet', (tester) async {
+    tester.view.physicalSize = const Size(1366, 1024);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    dock = {
+      ...dock,
+      'displays': [screen, tv],
+    };
+    final studio = StudioController(storage: MemoryStorage())..setStudioMode(true);
+    final output = OutputEngine(studio: studio, backend: FakeEncoder());
+    await output.init();
+    final devices = DeviceService();
+    await tester.runAsync(devices.init);
+    expect(devices.dock.displays.map((d) => d.name), ['HDMI', 'Living room TV']);
+    final tracker = DeviceActivityTracker(studio, devices);
+    await tester.pumpWidget(ObsTabletApp(
+      studio: studio,
+      output: output,
+      cameras: CameraService(),
+      media: MediaService(),
+      plugins: PluginManager(createPlatformPluginBackend()),
+      devices: devices,
+      networkVideo: NetworkVideoService(),
+    ));
+    await tester.pump();
+
+    await tester.longPress(find.text('Program'));
+    await tester.pumpAndSettle();
+    expect(find.text('Send Program to…'), findsOneWidget);
+    expect(find.text('This tablet (fullscreen)'), findsOneWidget);
+    expect(find.text('HDMI'), findsOneWidget);
+    expect(find.text('Living room TV'), findsOneWidget);
+    expect(find.text('Program · 3840×2160'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('projector-7-program')));
+    await tester.runAsync(pumpEventQueue);
+    await tester.pumpAndSettle();
+    expect(studio.settings.externalDisplayId, '7');
+    expect(studio.settings.externalDisplay, 'program');
+    final call = calls.lastWhere((c) => c.method == 'setDisplayMode');
+    expect(call.arguments, {'mode': 'program', 'displayId': '7'});
+    expect(devices.dock.display!.name, 'Living room TV');
+
+    // The cast button opens the same menu; "This tablet" is a fullscreen projector.
+    await tester.tap(find.byKey(const ValueKey('send-program')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('projector-tablet')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('projector-screen')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('projector-screen')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('projector-screen')), findsNothing);
+    expect(tester.takeException(), isNull);
+
     tracker.dispose();
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 3));

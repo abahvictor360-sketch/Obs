@@ -17,11 +17,15 @@ import '../ui/theme.dart';
 ///  * drag the red handles to resize (corners keep aspect ratio)
 ///  * long-press for the item menu (transform presets, order, lock, ...)
 class EditableCanvas extends StatelessWidget {
-  const EditableCanvas({super.key, required this.content, this.editable = true, this.label});
+  const EditableCanvas({super.key, required this.content, this.editable = true, this.label, this.onLongPressCanvas});
 
   final Widget content;
   final bool editable;
   final String? label;
+
+  /// Long-press on the canvas itself (not on an item you can edit): the
+  /// Program's "send to screen" menu.
+  final void Function(Offset globalPosition)? onLongPressCanvas;
 
   @override
   Widget build(BuildContext context) {
@@ -44,7 +48,34 @@ class EditableCanvas extends StatelessWidget {
                   child: DecoratedBox(decoration: BoxDecoration(border: Border.all(color: ObsColors.border))),
                 ),
               ),
-              if (editable) Positioned.fill(child: _EditorOverlay(scale: s)),
+              if (editable)
+                Positioned.fill(child: _EditorOverlay(scale: s, onLongPressCanvas: onLongPressCanvas))
+              else if (onLongPressCanvas != null)
+                Positioned.fill(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onLongPressStart: (d) => onLongPressCanvas!(d.globalPosition),
+                  ),
+                ),
+              if (onLongPressCanvas != null)
+                Positioned(
+                  right: 4,
+                  top: 4,
+                  child: Builder(
+                    builder: (context) => IconButton(
+                      key: const ValueKey('send-program'),
+                      tooltip: 'Send Program to a screen',
+                      iconSize: 18,
+                      visualDensity: VisualDensity.compact,
+                      style: IconButton.styleFrom(backgroundColor: Colors.black54, foregroundColor: ObsColors.text),
+                      icon: const Icon(Icons.cast),
+                      onPressed: () {
+                        final box = context.findRenderObject() as RenderBox;
+                        onLongPressCanvas!(box.localToGlobal(box.size.bottomLeft(Offset.zero)));
+                      },
+                    ),
+                  ),
+                ),
               if (label != null)
                 Positioned(
                   left: 6,
@@ -71,10 +102,11 @@ class EditableCanvas extends StatelessWidget {
 enum _Mode { none, move, pinch, resize }
 
 class _EditorOverlay extends StatefulWidget {
-  const _EditorOverlay({required this.scale});
+  const _EditorOverlay({required this.scale, this.onLongPressCanvas});
 
   /// Display pixels per canvas pixel.
   final double scale;
+  final void Function(Offset globalPosition)? onLongPressCanvas;
 
   @override
   State<_EditorOverlay> createState() => _EditorOverlayState();
@@ -170,6 +202,12 @@ class _EditorOverlayState extends State<_EditorOverlay> {
 
   void _onLongPress(Offset local, Offset global) {
     final hit = _hitTest(_toCanvas(local));
+    final canvasMenu = widget.onLongPressCanvas;
+    // Empty space or a locked background: the canvas's own menu.
+    if (canvasMenu != null && (hit == null || hit.locked)) {
+      canvasMenu(global);
+      return;
+    }
     if (hit == null) return;
     _studio.selectItem(hit.id);
     showItemMenu(context, global, hit.id);

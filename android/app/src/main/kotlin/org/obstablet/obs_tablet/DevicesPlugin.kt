@@ -72,7 +72,9 @@ class DevicesPlugin(
                 }
                 "getNetwork" -> result.success(networkState())
                 "getDock" -> result.success(dock?.state())
-                "setDisplayMode" -> result.success(dock?.setMode(call.argument<String>("mode") ?: "program"))
+                "setDisplayMode" -> result.success(
+                    dock?.setMode(call.argument<String>("mode") ?: "program", call.argument<String>("displayId")),
+                )
                 "setPreferWired" -> {
                     preferWired = call.argument<Boolean>("enabled") ?: false
                     applyRouting()

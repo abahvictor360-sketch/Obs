@@ -11,7 +11,11 @@ import 'scene_canvas.dart';
 /// using the configured transition whenever the program scene changes, and
 /// wraps everything in the RepaintBoundary the output engine captures.
 class ProgramView extends StatefulWidget {
-  const ProgramView({super.key});
+  const ProgramView({super.key, this.capture = true});
+
+  /// The instance the output engine captures (owns the capture keys). Extra
+  /// views, like the fullscreen projector, pass false.
+  final bool capture;
 
   @override
   State<ProgramView> createState() => _ProgramViewState();
@@ -98,7 +102,7 @@ class _ProgramViewState extends State<ProgramView> with SingleTickerProviderStat
           final item = s.items[idx];
           return Stack(children: [
             RepaintBoundary(
-              key: scope.output.underKey,
+              key: widget.capture ? scope.output.underKey : null,
               child: SceneCanvas(scene: s, showPlaceholders: false, end: idx),
             ),
             SizedBox(
@@ -110,7 +114,7 @@ class _ProgramViewState extends State<ProgramView> with SingleTickerProviderStat
             ),
             if (idx < s.items.length - 1)
               RepaintBoundary(
-                key: scope.output.overKey,
+                key: widget.capture ? scope.output.overKey : null,
                 child: SceneCanvas(scene: s, showPlaceholders: false, start: idx + 1, transparent: true),
               ),
           ]);
@@ -147,7 +151,7 @@ class _ProgramViewState extends State<ProgramView> with SingleTickerProviderStat
         }
 
         return RepaintBoundary(
-          key: scope.output.programKey,
+          key: widget.capture ? scope.output.programKey : null,
           child: ColoredBox(
             color: Colors.black,
             child: FittedBox(

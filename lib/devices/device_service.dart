@@ -51,6 +51,7 @@ class NetworkInfo {
 /// station or wirelessly (Miracast / AirPlay).
 class ExternalDisplayInfo {
   const ExternalDisplayInfo({
+    this.id = '',
     required this.name,
     required this.width,
     required this.height,
@@ -59,6 +60,8 @@ class ExternalDisplayInfo {
     this.needsReconnect = false,
   });
 
+  /// Native display id ('' if unknown).
+  final String id;
   final String name;
   final int width, height;
   final double refreshRate;
@@ -75,6 +78,7 @@ class ExternalDisplayInfo {
   static ExternalDisplayInfo? fromMap(dynamic m) {
     if (m is! Map) return null;
     return ExternalDisplayInfo(
+      id: '${m['id'] ?? ''}',
       name: '${m['name'] ?? 'External display'}',
       width: (m['width'] as num?)?.toInt() ?? 1920,
       height: (m['height'] as num?)?.toInt() ?? 1080,
@@ -91,6 +95,7 @@ class ExternalDisplayInfo {
 class DockInfo {
   const DockInfo({
     this.display,
+    this.displays = const [],
     this.ethernet = false,
     this.usbAudio = false,
     this.usbVideo = false,
@@ -98,7 +103,11 @@ class DockInfo {
     this.charging = false,
   });
 
+  /// The screen the app uses (the chosen one, or the first).
   final ExternalDisplayInfo? display;
+
+  /// Every connected screen the program can be sent to.
+  final List<ExternalDisplayInfo> displays;
   final bool ethernet, usbAudio, usbVideo, charging;
 
   /// USB devices attached (Android only; 0 on iPad).
@@ -117,14 +126,21 @@ class DockInfo {
         if (charging) 'Charging',
       ];
 
-  factory DockInfo.fromMap(Map m) => DockInfo(
-        display: ExternalDisplayInfo.fromMap(m['display']),
+  factory DockInfo.fromMap(Map m) {
+    final display = ExternalDisplayInfo.fromMap(m['display']);
+    final list = [
+      for (final d in (m['displays'] as List? ?? const [])) ?ExternalDisplayInfo.fromMap(d),
+    ];
+    return DockInfo(
+        display: display,
+        displays: list.isEmpty && display != null ? [display] : list,
         ethernet: m['ethernet'] == true,
         usbAudio: m['usbAudio'] == true,
         usbVideo: m['usbVideo'] == true,
         usbDevices: (m['usbDevices'] as num?)?.toInt() ?? 0,
         charging: m['charging'] == true,
       );
+  }
 }
 
 /// Hardware plugged in over USB OTG / USB-C and the network type:
@@ -287,10 +303,11 @@ class DeviceService extends ChangeNotifier {
 
   /// 'program' shows the program full screen on the connected screen,
   /// 'mirror' leaves it to the system (mirrors the tablet).
-  Future<void> setDisplayMode(String mode) async {
+  /// [displayId]: which connected screen (null = the first one).
+  Future<void> setDisplayMode(String mode, {String? displayId}) async {
     if (!supported) return;
     try {
-      final m = await _method.invokeMethod<Map>('setDisplayMode', {'mode': mode});
+      final m = await _method.invokeMethod<Map>('setDisplayMode', {'mode': mode, 'displayId': displayId});
       if (m != null) dock = DockInfo.fromMap(m);
     } catch (_) {}
     notifyListeners();
@@ -363,10 +380,10 @@ class DeviceActivityTracker {
       _lastPreferWired = pw;
       devices.setPreferWired(pw);
     }
-    final dm = studio.settings.externalDisplay;
+    final dm = '${studio.settings.externalDisplay}@${studio.settings.externalDisplayId ?? ''}';
     if (dm != _lastDisplayMode) {
       _lastDisplayMode = dm;
-      devices.setDisplayMode(dm);
+      devices.setDisplayMode(studio.settings.externalDisplay, displayId: studio.settings.externalDisplayId);
     }
   }
 

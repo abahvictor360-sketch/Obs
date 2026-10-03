@@ -176,7 +176,10 @@ final class DevicesPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
             "usbDevices": 0,
             "charging": battery == .charging || battery == .full,
         ]
-        if let display = ExternalDisplay.shared.state() { state["display"] = display }
+        if let display = ExternalDisplay.shared.state() {
+            state["display"] = display
+            state["displays"] = [display]
+        }
         return state
     }
 

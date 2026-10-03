@@ -618,6 +618,7 @@ class OutputSettings {
     Map<String, double>? dockWeights,
     this.dockHeight = 0,
     this.studioMode = true,
+    this.externalDisplayId,
   })  : hiddenDocks = hiddenDocks ?? [],
         dockWeights = dockWeights ?? {};
 
@@ -643,6 +644,9 @@ class OutputSettings {
   /// 'multiview' (preview, program and scene thumbnails, like OBS's
   /// Multiview) or 'mirror' (the tablet's own screen).
   String externalDisplay;
+
+  /// Which connected screen gets it (native display id); null = the first.
+  String? externalDisplayId;
 
   /// Docks the user closed (ids from `kDocks`); reopen them from the Docks
   /// menu.
@@ -709,6 +713,7 @@ class OutputSettings {
         'dockWeights': dockWeights,
         'dockHeight': dockHeight,
         'studioMode': studioMode,
+        if (externalDisplayId != null) 'externalDisplayId': externalDisplayId,
       };
 
   factory OutputSettings.fromJson(Map<String, dynamic> j) {
@@ -738,6 +743,7 @@ class OutputSettings {
           ?.map((k, v) => MapEntry('$k', (v as num).toDouble())),
       dockHeight: (j['dockHeight'] as num?)?.toDouble() ?? 0,
       studioMode: j['studioMode'] as bool? ?? d.studioMode,
+      externalDisplayId: j['externalDisplayId'] as String?,
     );
   }
 }

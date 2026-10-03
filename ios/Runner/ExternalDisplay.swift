@@ -88,6 +88,7 @@ final class ExternalDisplay {
         guard let screen = screen else { return nil }
         let size = screen.nativeBounds.size
         return [
+            "id": "external",
             "name": "External display",
             "width": Int(max(size.width, size.height)),
             "height": Int(min(size.width, size.height)),

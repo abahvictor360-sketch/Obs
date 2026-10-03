@@ -13,6 +13,7 @@ import 'dock_panel.dart';
 import 'dock_layout.dart';
 import 'docks.dart';
 import 'menu_bar.dart';
+import 'projector_menu.dart';
 import 'theme.dart';
 import 'transition_panel.dart';
 
@@ -200,14 +201,22 @@ class _CanvasArea extends StatelessWidget {
       builder: (context, _) {
         if (!studio.studioMode) {
           // Normal mode: what you edit is what's live.
-          return const EditableCanvas(content: ProgramView());
+          return EditableCanvas(
+            content: const ProgramView(),
+            onLongPressCanvas: (g) => showProjectorMenu(context, g),
+          );
         }
         return LayoutBuilder(builder: (context, box) {
           final preview = EditableCanvas(
             label: 'Preview',
             content: FittedBox(child: SceneCanvas(scene: studio.previewScene)),
           );
-          const program = EditableCanvas(label: 'Program', editable: false, content: ProgramView());
+          final program = EditableCanvas(
+            label: 'Program',
+            editable: false,
+            content: const ProgramView(),
+            onLongPressCanvas: (g) => showProjectorMenu(context, g),
+          );
           // Wide: OBS's column between Preview and Program. Narrow: a strip
           // below them.
           if (box.maxWidth >= 760) {
@@ -219,7 +228,7 @@ class _CanvasArea extends StatelessWidget {
                   padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                   child: Center(child: TransitionPanel()),
                 ),
-                const Expanded(child: program),
+                Expanded(child: program),
               ],
             );
           }
@@ -230,7 +239,7 @@ class _CanvasArea extends StatelessWidget {
                   children: [
                     Expanded(child: preview),
                     const SizedBox(width: 6),
-                    const Expanded(child: program),
+                    Expanded(child: program),
                   ],
                 ),
               ),

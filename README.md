@@ -112,6 +112,8 @@ _Screenshots are from the browser build, using Chromium's synthetic test camera 
 **Docking stations and connected screens**
 - OBSpad recognises a USB-C dock or hub from what comes through it: a screen, Ethernet, USB audio,
   a capture card, and power. The top bar shows **Docked**; tap it to see what's connected.
+- **Long-press the Program** (or tap its cast button) to choose where it goes: fullscreen on the tablet, or
+  any connected screen (each one listed by name and resolution) as Program or Multiview.
 - **Program on the connected screen:** a monitor or TV on the dock (or a USB-C/HDMI adapter) shows
   the program full screen, like OBS's fullscreen projector, while the tablet stays the control
   surface. Or pick **Multiview**: Preview and Program on top and the first 8 scenes below, with the

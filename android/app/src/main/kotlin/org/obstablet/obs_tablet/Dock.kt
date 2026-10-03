@@ -77,9 +77,31 @@ class DockMonitor(
     }
 
     /** First external screen that can show app content. */
-    private fun externalDisplay(): Display? =
+    /** Screens that can show app content (HDMI / USB-C / dock, wireless). */
+    private fun externalDisplays(): List<Display> =
         displays.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION)
-            .firstOrNull { it.displayId != Display.DEFAULT_DISPLAY && it.isValid }
+            .filter { it.displayId != Display.DEFAULT_DISPLAY && it.isValid }
+
+    /** The chosen screen, or the first one if it isn't connected. */
+    private fun externalDisplay(): Display? {
+        val all = externalDisplays()
+        return all.firstOrNull { it.displayId.toString() == targetId } ?: all.firstOrNull()
+    }
+
+    private var targetId: String? = null
+
+    private fun describe(d: Display): Map<String, Any?> {
+        @Suppress("DEPRECATION")
+        val size = android.graphics.Point().also { p -> d.getRealSize(p) }
+        return mapOf(
+            "id" to d.displayId.toString(),
+            "name" to d.name,
+            "width" to size.x,
+            "height" to size.y,
+            "refreshRate" to d.refreshRate.toDouble(),
+            "presenting" to (presentation?.display?.displayId == d.displayId && presentation?.isShowing == true),
+        )
+    }
 
     private fun usbVideoConnected(): Boolean = usb?.deviceList?.values?.any { d ->
         d.deviceClass == USB_CLASS_VIDEO || d.deviceClass == USB_CLASS_MISC ||
@@ -87,20 +109,9 @@ class DockMonitor(
     } ?: false
 
     fun state(): Map<String, Any?> {
-        val d = externalDisplay()
-        val display = d?.let {
-            @Suppress("DEPRECATION")
-            val size = android.graphics.Point().also { p -> it.getRealSize(p) }
-            mapOf(
-                "name" to it.name,
-                "width" to size.x,
-                "height" to size.y,
-                "refreshRate" to it.refreshRate.toDouble(),
-                "presenting" to (presentation?.display?.displayId == it.displayId && presentation?.isShowing == true),
-            )
-        }
         return mapOf(
-            "display" to display,
+            "display" to externalDisplay()?.let(::describe),
+            "displays" to externalDisplays().map(::describe),
             "ethernet" to ethernetConnected(),
             "usbAudio" to usbAudioConnected(),
             "usbVideo" to usbVideoConnected(),
@@ -114,8 +125,9 @@ class DockMonitor(
         main.post { emit(mapOf("type" to "dock") + state()) }
     }
 
-    fun setMode(m: String): Map<String, Any?> {
+    fun setMode(m: String, displayId: String?): Map<String, Any?> {
         mode = if (m == "mirror") "mirror" else "program"
+        targetId = displayId
         updatePresentation()
         return state()
     }
