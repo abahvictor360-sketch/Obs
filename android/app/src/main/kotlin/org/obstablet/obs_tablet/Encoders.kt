@@ -348,6 +348,7 @@ class AudioEncoder(
             AudioFormat.ENCODING_PCM_16BIT,
             max(minBuf, 4096 * channels * 2),
         )
+        AudioRouting.attach(record) // USB / chosen microphone
         val format = MediaFormat.createAudioFormat(MediaFormat.MIMETYPE_AUDIO_AAC, sampleRate, channels).apply {
             setInteger(MediaFormat.KEY_AAC_PROFILE, MediaCodecInfo.CodecProfileLevel.AACObjectLC)
             setInteger(MediaFormat.KEY_BIT_RATE, bitrate)

@@ -266,6 +266,7 @@ class StudioController extends ChangeNotifier {
       case SourceType.media:
         return ItemTransform(width: cw, height: ch, fit: FitMode.cover);
       case SourceType.screen:
+      case SourceType.usbVideo:
         return ItemTransform(width: cw, height: ch, fit: FitMode.contain);
       case SourceType.image:
         final w = cw / 2, h = ch / 2;

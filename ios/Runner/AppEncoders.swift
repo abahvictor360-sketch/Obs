@@ -165,6 +165,7 @@ final class AppAudioEncoder {
     }
 
     func start() throws {
+        AudioRouting.apply() // USB / chosen microphone
         let input = engine.inputNode
         let format = input.outputFormat(forBus: 0)
         input.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, when in

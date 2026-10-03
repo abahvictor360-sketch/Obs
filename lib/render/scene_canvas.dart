@@ -157,6 +157,8 @@ class SourceRenderer extends StatelessWidget {
         return _CameraSource(source: source, fit: _boxFit(fit), showPlaceholder: showPlaceholder);
       case SourceType.media:
         return _MediaSource(source: source, fit: _boxFit(fit), showPlaceholder: showPlaceholder);
+      case SourceType.usbVideo:
+        return _UsbVideoSource(source: source, fit: _boxFit(fit), showPlaceholder: showPlaceholder);
       case SourceType.screen:
         return showPlaceholder ? ScreenSourceCard(source: source) : const ColoredBox(color: Colors.black);
       case SourceType.audioInput:
@@ -416,6 +418,52 @@ class _PluginSource extends StatelessWidget {
           hint = plugins.instanceErrors[source.id] ?? 'Starting…';
         }
         return SourcePlaceholder(icon: Icons.extension_outlined, label: source.name, hint: hint);
+      },
+    );
+  }
+}
+
+/// HDMI capture card / webcam on USB OTG, drawn from a native GPU texture.
+class _UsbVideoSource extends StatelessWidget {
+  const _UsbVideoSource({required this.source, required this.fit, required this.showPlaceholder});
+
+  final Source source;
+  final BoxFit fit;
+  final bool showPlaceholder;
+
+  @override
+  Widget build(BuildContext context) {
+    final devices = AppScope.of(context).devices;
+    return ListenableBuilder(
+      listenable: devices,
+      builder: (context, _) {
+        final v = devices.usbVideo;
+        if (v != null) {
+          return ClipRect(
+            child: FittedBox(
+              fit: fit,
+              child: SizedBox(
+                width: v.width.toDouble(),
+                height: v.height.toDouble(),
+                child: Texture(textureId: v.textureId),
+              ),
+            ),
+          );
+        }
+        if (!showPlaceholder) return const ColoredBox(color: Colors.black);
+        final String hint;
+        if (!devices.supported) {
+          hint = 'USB video works in the Android and iPad apps';
+        } else if (devices.usbError != null) {
+          hint = devices.usbError!;
+        } else if (devices.usbOpening) {
+          hint = 'Opening… (allow USB access if asked)';
+        } else if (devices.usbCameras.isEmpty) {
+          hint = 'Plug in a capture card or webcam (USB OTG / USB-C)';
+        } else {
+          hint = 'Starting…';
+        }
+        return SourcePlaceholder(icon: Icons.usb, label: source.name, hint: hint);
       },
     );
   }

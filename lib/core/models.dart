@@ -26,6 +26,9 @@ String newId(String prefix) {
 enum SourceType {
   camera('Video Capture Device'),
   screen('Screen Capture'),
+
+  /// HDMI capture card or webcam on USB OTG / USB-C (UVC).
+  usbVideo('USB Video Capture'),
   image('Image'),
   media('Media Source'),
   text('Text'),
@@ -118,6 +121,10 @@ class SourceDefaults {
         // Captures the whole device screen (other apps, games...). Pixels
         // come from the native side, see ScreenCaptureState.
         return {};
+      case SourceType.usbVideo:
+        return {
+          'device': '', // native device id; empty = first connected
+        };
       case SourceType.image:
         return {
           'path': '', // local file path
@@ -502,6 +509,7 @@ class OutputSettings {
     this.recordingFormat = 'mp4',
     this.keepScreenOn = true,
     this.confirmStartStop = true,
+    this.preferWired = true,
   });
 
   String service;
@@ -516,6 +524,10 @@ class OutputSettings {
   String recordingFormat;
   bool keepScreenOn;
   bool confirmStartStop;
+
+  /// Send traffic over a USB Ethernet adapter when one is connected (Android;
+  /// iPadOS does this by itself).
+  bool preferWired;
 
   /// Full publish URL: server + '/' + key (key may be empty for servers that
   /// embed it in the URL).
@@ -541,6 +553,7 @@ class OutputSettings {
         'recordingFormat': recordingFormat,
         'keepScreenOn': keepScreenOn,
         'confirmStartStop': confirmStartStop,
+        'preferWired': preferWired,
       };
 
   factory OutputSettings.fromJson(Map<String, dynamic> j) {
@@ -561,6 +574,7 @@ class OutputSettings {
       recordingFormat: j['recordingFormat'] as String? ?? d.recordingFormat,
       keepScreenOn: j['keepScreenOn'] as bool? ?? d.keepScreenOn,
       confirmStartStop: j['confirmStartStop'] as bool? ?? d.confirmStartStop,
+      preferWired: j['preferWired'] as bool? ?? d.preferWired,
     );
   }
 }

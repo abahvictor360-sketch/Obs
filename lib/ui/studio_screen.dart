@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../app_scope.dart';
+import '../devices/device_service.dart';
 import '../output/output_engine.dart';
 import '../render/editable_canvas.dart';
 import '../render/program_view.dart';
@@ -276,8 +277,9 @@ class _StatusBarState extends State<StatusBar> {
   @override
   Widget build(BuildContext context) {
     final out = AppScope.of(context).output;
+    final devices = AppScope.of(context).devices;
     return ListenableBuilder(
-      listenable: out,
+      listenable: Listenable.merge([out, devices]),
       builder: (context, _) {
         final dim = const TextStyle(fontSize: 12, color: ObsColors.textDim, fontFeatures: [FontFeature.tabularFigures()]);
         final dropPct = out.renderedFrames == 0 ? 0 : out.droppedFrames * 100 / out.renderedFrames;
@@ -307,6 +309,14 @@ class _StatusBarState extends State<StatusBar> {
               ],
               if (out.isStreaming || out.isRecording) ...[
                 Text('${out.outputFps.toStringAsFixed(0)} fps', style: dim),
+                const SizedBox(width: 16),
+              ],
+              if (devices.supported) ...[
+                _NetworkBadge(info: devices.network, style: dim),
+                const SizedBox(width: 16),
+              ],
+              if (out.ndiActive) ...[
+                Text('NDI · ${out.ndiConnections}', style: dim.copyWith(color: ObsColors.ok)),
                 const SizedBox(width: 16),
               ],
               Icon(Icons.podcasts, size: 14, color: dot(out.streamStatus, ObsColors.live)),
@@ -361,4 +371,33 @@ class _ErrorListenerState extends State<_ErrorListener> {
 
   @override
   Widget build(BuildContext context) => widget.child;
+}
+
+/// Which network the stream goes out on (USB Ethernet shows as "Wired").
+class _NetworkBadge extends StatelessWidget {
+  const _NetworkBadge({required this.info, required this.style});
+
+  final NetworkInfo info;
+  final TextStyle style;
+
+  @override
+  Widget build(BuildContext context) {
+    final (icon, label, color) = switch (info.transport) {
+      'ethernet' => (Icons.settings_ethernet, 'Wired', ObsColors.ok),
+      'wifi' => (Icons.wifi, 'Wi-Fi', ObsColors.textDim),
+      'cellular' => (Icons.signal_cellular_alt, 'Mobile data', ObsColors.warn),
+      'none' => (Icons.signal_wifi_off, 'Offline', ObsColors.live),
+      _ => (Icons.lan_outlined, 'Network', ObsColors.textDim),
+    };
+    return Tooltip(
+      message: info.wiredAvailable && info.transport != 'ethernet'
+          ? 'A wired adapter is connected but not in use. Turn on "Prefer wired connection" in Settings.'
+          : 'Streaming over: $label',
+      child: Row(children: [
+        Icon(icon, size: 14, color: color),
+        const SizedBox(width: 4),
+        Text(label, style: style.copyWith(color: color)),
+      ]),
+    );
+  }
 }

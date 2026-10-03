@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:obs_tablet/core/models.dart';
 import 'package:obs_tablet/core/storage.dart';
 import 'package:obs_tablet/core/studio_controller.dart';
+import 'package:obs_tablet/devices/device_service.dart';
 import 'package:obs_tablet/main.dart';
 import 'package:obs_tablet/output/encoder_backend.dart';
 import 'package:obs_tablet/output/output_engine.dart';
@@ -93,6 +94,7 @@ Future<(StudioController, OutputEngine)> _pump(WidgetTester tester, Size size, {
     cameras: CameraService(),
     media: MediaService(),
     plugins: PluginManager(createPlatformPluginBackend()),
+    devices: DeviceService(),
   ));
   await tester.pump();
   return (studio, output);

@@ -368,6 +368,24 @@ class _GeneralPage extends StatelessWidget {
           value: s.keepScreenOn,
           onChanged: (v) => studio.updateSettings((s) => s.keepScreenOn = v),
         ),
+        Builder(builder: (context) {
+          final devices = AppScope.of(context).devices;
+          return ListenableBuilder(
+            listenable: devices,
+            builder: (context, _) => SwitchListTile(
+              title: const Text('Prefer wired connection (USB Ethernet)'),
+              subtitle: Text(!devices.supported
+                  ? 'Available in the Android and iPad apps'
+                  : !devices.network.canPreferWired
+                      ? 'iPadOS uses a connected Ethernet adapter automatically'
+                      : devices.network.wiredAvailable
+                          ? 'Adapter connected: streaming goes over the cable'
+                          : 'Plug a USB Ethernet adapter into the tablet (USB-C / OTG)'),
+              value: s.preferWired,
+              onChanged: devices.network.canPreferWired ? (v) => studio.updateSettings((s) => s.preferWired = v) : null,
+            ),
+          );
+        }),
         SwitchListTile(
           title: const Text('Confirm before starting/stopping a stream'),
           value: s.confirmStartStop,

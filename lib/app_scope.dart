@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 import 'core/studio_controller.dart';
+import 'devices/device_service.dart';
 import 'output/output_engine.dart';
 import 'plugins/plugin_manager.dart';
 import 'render/media_services.dart';
@@ -14,6 +15,7 @@ class AppScope extends InheritedWidget {
     required this.cameras,
     required this.media,
     required this.plugins,
+    required this.devices,
     required super.child,
   });
 
@@ -22,6 +24,7 @@ class AppScope extends InheritedWidget {
   final CameraService cameras;
   final MediaService media;
   final PluginManager plugins;
+  final DeviceService devices;
 
   static AppScope of(BuildContext context) {
     final s = context.dependOnInheritedWidgetOfExactType<AppScope>();
@@ -31,5 +34,7 @@ class AppScope extends InheritedWidget {
 
   @override
   bool updateShouldNotify(AppScope old) =>
-      studio != old.studio || output != old.output || cameras != old.cameras || media != old.media || plugins != old.plugins;
+      studio != old.studio || output != old.output || cameras != old.cameras || media != old.media ||
+      plugins != old.plugins ||
+      devices != old.devices;
 }

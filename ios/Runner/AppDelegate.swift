@@ -15,5 +15,8 @@ import UIKit
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "ObsEncoderPlugin") {
       ObsEncoderPlugin.register(with: registrar)
     }
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "DevicesPlugin") {
+      DevicesPlugin.register(with: registrar)
+    }
   }
 }

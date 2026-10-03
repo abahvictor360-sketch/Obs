@@ -48,3 +48,9 @@ kotlin {
 flutter {
     source = "../.."
 }
+
+dependencies {
+    // Generic USB Video Class driver (libusb/libuvc) for HDMI capture cards and
+    // webcams on any Android device with USB host (OTG). Apache-2.0.
+    implementation("com.herohan:UVCAndroid:1.0.13")
+}

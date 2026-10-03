@@ -86,6 +86,7 @@ class _PropertiesSheet extends StatelessWidget {
 IconData sourceIcon(SourceType t) => switch (t) {
       SourceType.camera => Icons.videocam_outlined,
       SourceType.screen => Icons.screen_share_outlined,
+      SourceType.usbVideo => Icons.usb,
       SourceType.image => Icons.image_outlined,
       SourceType.media => Icons.movie_outlined,
       SourceType.text => Icons.text_fields,
@@ -134,6 +135,8 @@ class _SourceSettingsTab extends StatelessWidget {
         ]);
       case SourceType.screen:
         children.add(const _ScreenCaptureSettings());
+      case SourceType.usbVideo:
+        children.add(_UsbVideoSettings(source: source));
       case SourceType.image:
       case SourceType.media:
         final isImage = source.type == SourceType.image;
@@ -228,16 +231,7 @@ class _SourceSettingsTab extends StatelessWidget {
       case SourceType.plugin:
         children.add(_PluginSettings(source: source));
       case SourceType.audioInput:
-        children.addAll(const [
-          ListTile(
-            leading: Icon(Icons.mic),
-            title: Text('Device microphone'),
-            subtitle: Text(
-              'Uses the tablet\'s built-in mic, or a USB/Bluetooth mic when one is connected. '
-              'Adjust the level in the Audio Mixer.',
-            ),
-          ),
-        ]);
+        children.add(_AudioInputSettings(source: source));
     }
     return ListView(padding: const EdgeInsets.all(20), children: children);
   }
@@ -622,4 +616,128 @@ class _PluginTextFieldState extends State<_PluginTextField> {
         decoration: InputDecoration(labelText: widget.label),
         onChanged: widget.onChanged,
       );
+}
+
+class _UsbVideoSettings extends StatelessWidget {
+  const _UsbVideoSettings({required this.source});
+
+  final Source source;
+
+  @override
+  Widget build(BuildContext context) {
+    final scope = AppScope.of(context);
+    final devices = scope.devices;
+    return ListenableBuilder(
+      listenable: devices,
+      builder: (context, _) {
+        final current = source.settings['device'] as String? ?? '';
+        final ids = devices.usbCameras.map((c) => c.id).toSet();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(children: [
+              Expanded(
+                child: DropdownButtonFormField<String>(
+                  initialValue: ids.contains(current) ? current : '',
+                  decoration: const InputDecoration(labelText: 'Device'),
+                  items: [
+                    const DropdownMenuItem(value: '', child: Text('First connected device')),
+                    for (final c in devices.usbCameras) DropdownMenuItem(value: c.id, child: Text(c.name)),
+                  ],
+                  onChanged: (v) async {
+                    scope.studio.updateSourceSettings(source.id, {'device': v ?? ''});
+                    await devices.closeUsbVideo();
+                    await devices.openUsbVideo(v);
+                  },
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.refresh),
+                tooltip: 'Look for devices',
+                onPressed: devices.refreshUsbCameras,
+              ),
+            ]),
+            const SizedBox(height: 12),
+            if (devices.usbVideo != null)
+              Text('Receiving ${devices.usbVideo!.width}x${devices.usbVideo!.height}',
+                  style: const TextStyle(color: ObsColors.ok))
+            else if (devices.usbError != null)
+              Text(devices.usbError!, style: const TextStyle(color: ObsColors.warn)),
+            const SizedBox(height: 12),
+            const Text(
+              'Plug an HDMI capture card (camera, console, PC) or a USB webcam into the tablet with a '
+              'USB-C / OTG adapter. Android asks for permission to use it the first time; on iPad it needs '
+              'iPadOS 17. One USB video device can be used at a time, and most tablets can\'t run a USB '
+              'camera and a built-in camera together.',
+              style: TextStyle(color: ObsColors.textDim, fontSize: 13),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _AudioInputSettings extends StatelessWidget {
+  const _AudioInputSettings({required this.source});
+
+  final Source source;
+
+  static IconData _icon(String type) => switch (type) {
+        'usb' => Icons.usb,
+        'bluetooth' => Icons.bluetooth_audio,
+        'headset' => Icons.headset_mic,
+        _ => Icons.mic,
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final scope = AppScope.of(context);
+    final devices = scope.devices;
+    return ListenableBuilder(
+      listenable: devices,
+      builder: (context, _) {
+        final current = source.settings['device'] as String? ?? 'default';
+        final ids = devices.audioInputs.map((i) => i.id).toSet();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(children: [
+              Expanded(
+                child: DropdownButtonFormField<String>(
+                  initialValue: ids.contains(current) ? current : 'default',
+                  isExpanded: true,
+                  decoration: const InputDecoration(labelText: 'Input device'),
+                  items: [
+                    const DropdownMenuItem(value: 'default', child: Text('Default (system choice)')),
+                    for (final i in devices.audioInputs)
+                      DropdownMenuItem(
+                        value: i.id,
+                        child: Row(children: [
+                          Icon(_icon(i.type), size: 18),
+                          const SizedBox(width: 8),
+                          Flexible(child: Text(i.name, overflow: TextOverflow.ellipsis)),
+                        ]),
+                      ),
+                  ],
+                  onChanged: (v) => scope.studio.updateSourceSettings(source.id, {'device': v ?? 'default'}),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.refresh),
+                tooltip: 'Look for devices',
+                onPressed: devices.refreshAudioInputs,
+              ),
+            ]),
+            const SizedBox(height: 12),
+            const Text(
+              'USB microphones and audio interfaces show up here when plugged in (USB-C / OTG). '
+              'Adjust the level in the Audio Mixer.',
+              style: TextStyle(color: ObsColors.textDim, fontSize: 13),
+            ),
+          ],
+        );
+      },
+    );
+  }
 }

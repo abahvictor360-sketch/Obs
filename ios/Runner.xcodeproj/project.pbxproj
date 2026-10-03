@@ -27,6 +27,7 @@
 		D6DEE2A672C73629EF5FF47C /* SampleHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59169B876FCA351276EA4A98 /* SampleHandler.swift */; };
 		D801996EE8DC1CA8D1EEC7B3 /* BroadcastExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 6ABD734ACF2EF814C28F453A /* BroadcastExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		DB1C0C4DB2E42BD47938F13D /* ObsLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27A94EF8B8B0250453DD48C5 /* ObsLink.swift */; };
+		F5CD73901140942A6556A6C4 /* DevicesPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F3994C524C61B212FEB2328 /* DevicesPlugin.swift */; };
 		FB6E60BA1271A635F91C2DBA /* AppEncoders.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3CA800AE7A7AA75484E7255 /* AppEncoders.swift */; };
 /* End PBXBuildFile section */
 
@@ -72,6 +73,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		0F3994C524C61B212FEB2328 /* DevicesPlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DevicesPlugin.swift; sourceTree = "<group>"; };
 		1498D2321E8E86230040F4C2 /* GeneratedPluginRegistrant.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GeneratedPluginRegistrant.h; sourceTree = "<group>"; };
 		1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GeneratedPluginRegistrant.m; sourceTree = "<group>"; };
 		1880B6EED9EEA1C45C46A24C /* Compositor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Compositor.swift; sourceTree = "<group>"; };
@@ -202,6 +204,7 @@
 				800D1F1F663B6F4BD1ABD7A3 /* Mp4Writer.swift */,
 				C44BA31EFAA83E8C474D036D /* ScreenReceiver.swift */,
 				6C19FA089C1AF974246C4CD6 /* Runner.entitlements */,
+				0F3994C524C61B212FEB2328 /* DevicesPlugin.swift */,
 			);
 			path = Runner;
 			sourceTree = "<group>";
@@ -415,6 +418,7 @@
 				DB1C0C4DB2E42BD47938F13D /* ObsLink.swift in Sources */,
 				1FCDD8B1248C784F06728948 /* H264Encoder.swift in Sources */,
 				2583EB984B3366B8A9C99115 /* Compositor.swift in Sources */,
+				F5CD73901140942A6556A6C4 /* DevicesPlugin.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
