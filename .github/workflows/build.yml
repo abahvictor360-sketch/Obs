@@ -45,8 +45,7 @@ jobs:
           path: build/web
 
   ios:
-    # macOS minutes are expensive: run on demand from the Actions tab.
-    if: github.event_name == 'workflow_dispatch'
+    # Compiles the iPad app and the ReplayKit screen broadcast extension.
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -55,5 +54,8 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get
-      - name: Build iOS (unsigned)
+      - name: Build iOS app + broadcast extension (unsigned)
         run: flutter build ios --release --no-codesign
+
+      - name: Check the extension is embedded
+        run: test -d build/ios/iphoneos/Runner.app/PlugIns/BroadcastExtension.appex

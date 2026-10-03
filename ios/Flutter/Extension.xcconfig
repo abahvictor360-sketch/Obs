@@ -1,0 +1,3 @@
+// Build settings for the broadcast extension: Flutter's version numbers only
+// (no CocoaPods/plugin linker flags, which an app extension must not get).
+#include "Generated.xcconfig"

@@ -23,6 +23,7 @@ _Screenshots are from the browser build, using Chromium's synthetic test camera 
 - Global sources shared across scenes ("Add existing"), just like libobs.
 - Source types:
   - Video Capture Device (front, back or USB camera)
+  - Screen Capture: the whole device screen, including games and other apps, plus their sound
   - Image
   - Media Source (looping video)
   - Text (font size, bold, italic, outline, colors, alignment)
@@ -51,8 +52,19 @@ _Screenshots are from the browser build, using Chromium's synthetic test camera 
 - Auto-reconnect: up to 10 attempts, 5 s apart.
 - Congestion handling: drops video frames until the next keyframe, like OBS.
 - Streaming and recording can run at the same time and share one hardware encoder.
-- Recording to MP4, saved to the gallery under `Movies/OBS Tablet`, or to FLV, which is crash-safe like
-  OBS's MKV.
+- Recording to MP4, saved to the gallery (`Movies/OBS Tablet` on Android, Photos on iPad), or to FLV,
+  which is crash-safe like OBS's MKV.
+
+**Screen capture (stream your games)**
+- Add a Screen Capture source, tap ▶ next to it in Sources, and accept the system prompt. Then switch to
+  any app or game.
+- The stream keeps running in the background. Sources above the screen (camera, text, logos) stay on top
+  of it; sources below show through around it.
+- Other apps' audio is captured too, with its own fader in the mixer. On Android this needs Android 10+;
+  on iPad it comes from the ReplayKit broadcast.
+- While the studio itself is open, the screen source shows a status card instead of a mirror of the app.
+  Cameras freeze while you're in another app, because both Android and iPadOS pause camera access in the
+  background.
 - Settings for output resolution, FPS, video and audio bitrate, and keyframe interval.
 - Keeps the screen awake while live.
 
@@ -66,7 +78,11 @@ lib/
   render/     Compositor (SceneCanvas), Program view with transitions, touch editor, camera/media services
   output/     Output engine, pure-Dart RTMP/RTMPS client, FLV muxer, AMF0, H.264/AAC packaging
   ui/         Docks (Scenes, Sources, Mixer, Transitions, Controls), properties sheet, settings
-android/app/src/main/kotlin/…   Native encoder: MediaCodec H.264 + AAC, MediaMuxer MP4
+android/app/src/main/kotlin/…   MediaCodec H.264 + AAC, MediaMuxer MP4, MediaProjection screen capture
+ios/Runner/                     VideoToolbox H.264, AVAudioEngine + AAC, AVAssetWriter MP4, socket server
+ios/BroadcastExtension/         ReplayKit screen broadcast: composites and encodes the screen
+ios/Shared/                     Code shared by app + extension: H.264 encoder, Core Image compositor, link
+scripts/ios_setup_project.rb    Adds the extension target to the Xcode project (idempotent)
 ```
 
 The output pipeline:
@@ -79,6 +95,19 @@ Microphone (native)       ──────────────▶  native 
                          ▼                                   ▼              ▼
                  RTMP/RTMPS publisher (Dart)         FLV file (Dart)   MP4 (native MediaMuxer)
 ```
+
+**Screen capture.** When the program scene contains a Screen Capture source, the program view is split
+into the layers *under* and *over* the screen. Dart captures those two layers: layers with a camera or
+video refresh at about 15 fps, and static layers only when they change. Native code puts the live screen
+between them for every output frame. That native compositor keeps running while another app is in
+front, which Flutter can't do.
+
+- **Android:** a foreground service owns the MediaProjection, and the video encoder composites the
+  layers itself.
+- **iPad:** iPadOS doesn't allow an app's hardware video encoder to run in the background. So the
+  *broadcast extension* composites and encodes, and sends H.264 packets and the game audio to the app
+  over a Unix socket in a shared App Group container. The app stays alive in the background through its
+  audio session, and handles the microphone, RTMP and recording.
 
 Most of the streaming logic (RTMP handshake, chunking, AMF0, FLV, H.264/AAC packaging) is written in
 plain Dart. That makes it fully testable, and the same code serves both Android and iPad. Each platform
@@ -96,6 +125,13 @@ flutter build apk           # Android
 flutter build ios           # iPad (open ios/Runner.xcworkspace to sign)
 flutter build web --no-web-resources-cdn   # browser preview of the UI (no streaming)
 ```
+
+### iPad signing
+
+The screen broadcast extension shares an **App Group** (`group.org.obstablet.obsTablet`) with the app.
+In Xcode, select your team for both the **Runner** and **BroadcastExtension** targets. If you change the
+bundle ID, use your own group name in `ios/Shared/ObsLink.swift` and in both `.entitlements` files.
+Everything else works without the App Group; only screen capture needs it.
 
 Every push also builds an installable Android APK in GitHub Actions. Download it from
 **Actions → Build → obs-tablet-android-apk**.
@@ -121,9 +157,9 @@ flutter test
 | --- | --- |
 | Scene editing, compositor, transitions, Studio Mode, mixer UI, settings, persistence | ✅ Done, tested |
 | RTMP/RTMPS streaming client, FLV packaging | ✅ Done, verified end to end against an RTMP server |
-| Android native encoder (H.264/AAC, MP4 recording, gallery export) | ✅ Written and type-checked; needs testing on real devices |
-| iPad native encoder (VideoToolbox/AVAudioEngine) | ⏳ Next. The app runs on iPad in preview-only mode until then |
-| Screen capture source (Android MediaProjection / iOS ReplayKit) | Planned |
+| Android native encoder (H.264/AAC, MP4 recording, gallery export) | ✅ Builds in CI; needs testing on real devices |
+| Android screen capture + app audio | ✅ Builds in CI; needs testing on real devices |
+| iPad native encoder, MP4 to Photos, screen broadcast extension | ✅ Written; compiled by the macOS CI job; needs testing on a real iPad |
 | Browser source, chroma key, more filters, hotkeys/Stream Deck, multiple audio tracks | Planned |
 | Zero-copy GPU frame path (avoid reading RGBA back to the CPU) | Planned. Current path suits 720p30 on recent tablets |
 
