@@ -7,15 +7,8 @@ import 'dialogs.dart';
 import 'theme.dart';
 
 void openSettings(BuildContext context) {
-  final scope = AppScope.of(context);
   Navigator.of(context).push(MaterialPageRoute<void>(
-    builder: (_) => AppScope(
-      studio: scope.studio,
-      output: scope.output,
-      cameras: scope.cameras,
-      media: scope.media,
-      child: const SettingsScreen(),
-    ),
+    builder: (_) => const SettingsScreen(),
   ));
 }
 

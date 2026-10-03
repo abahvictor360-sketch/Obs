@@ -38,6 +38,14 @@ class ObsEncoderPlugin(private val activity: Activity, messenger: BinaryMessenge
     @Volatile private var micGain = 1.0f
 
     @Volatile private var appAudioGain = 1.0f
+    @Volatile private var pcmTapEnabled = false
+    private var multicastLock: android.net.wifi.WifiManager.MulticastLock? = null
+
+    private val pcmTap: (FloatArray, Int, Int) -> Unit = { samples, rate, channels ->
+        val bytes = java.nio.ByteBuffer.allocate(samples.size * 4).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+        bytes.asFloatBuffer().put(samples)
+        emit(mapOf("type" to "pcm", "data" to bytes.array(), "sampleRate" to rate, "channels" to channels))
+    }
 
     init {
         method.setMethodCallHandler(this)
@@ -106,6 +114,12 @@ class ObsEncoderPlugin(private val activity: Activity, messenger: BinaryMessenge
                 "setScreenAudioGain" -> {
                     appAudioGain = (call.argument<Double>("gain") ?: 1.0).toFloat()
                     audio?.appGain = appAudioGain
+                    result.success(null)
+                }
+                "setPcmTap" -> {
+                    pcmTapEnabled = call.argument<Boolean>("enabled") ?: false
+                    audio?.pcmTap = if (pcmTapEnabled) pcmTap else null
+                    setNdiNetworking(pcmTapEnabled)
                     result.success(null)
                 }
                 "isScreenCaptureSupported" -> result.success(Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
@@ -177,6 +191,7 @@ class ObsEncoderPlugin(private val activity: Activity, messenger: BinaryMessenge
             }).also {
                 it.gain = micGain
                 it.appGain = appAudioGain
+                if (pcmTapEnabled) it.pcmTap = pcmTap
                 it.start()
             }
         }
@@ -185,6 +200,27 @@ class ObsEncoderPlugin(private val activity: Activity, messenger: BinaryMessenge
         } else {
             pendingAudio = startAudio
             activity.requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), MIC_REQUEST)
+        }
+    }
+
+    /**
+     * NDI discovery uses mDNS: Android needs the NSD service referenced and a
+     * Wi-Fi multicast lock while NDI output runs.
+     */
+    private fun setNdiNetworking(on: Boolean) {
+        if (on) {
+            activity.getSystemService(android.content.Context.NSD_SERVICE)
+            if (multicastLock == null) {
+                val wifi = activity.applicationContext.getSystemService(android.content.Context.WIFI_SERVICE)
+                    as android.net.wifi.WifiManager
+                multicastLock = wifi.createMulticastLock("obs-tablet-ndi").apply {
+                    setReferenceCounted(false)
+                    acquire()
+                }
+            }
+        } else {
+            multicastLock?.release()
+            multicastLock = null
         }
     }
 
@@ -242,6 +278,7 @@ class ObsEncoderPlugin(private val activity: Activity, messenger: BinaryMessenge
     fun dispose() {
         stop()
         ScreenCapture.stateListener = null
+        setNdiNetworking(false)
         ScreenCapture.stop(activity)
         method.setMethodCallHandler(null)
         events.setStreamHandler(null)

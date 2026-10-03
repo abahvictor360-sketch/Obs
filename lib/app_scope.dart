@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 
 import 'core/studio_controller.dart';
 import 'output/output_engine.dart';
+import 'plugins/plugin_manager.dart';
 import 'render/media_services.dart';
 
 /// Gives every widget access to the app's long-lived services.
@@ -12,6 +13,7 @@ class AppScope extends InheritedWidget {
     required this.output,
     required this.cameras,
     required this.media,
+    required this.plugins,
     required super.child,
   });
 
@@ -19,6 +21,7 @@ class AppScope extends InheritedWidget {
   final OutputEngine output;
   final CameraService cameras;
   final MediaService media;
+  final PluginManager plugins;
 
   static AppScope of(BuildContext context) {
     final s = context.dependOnInheritedWidgetOfExactType<AppScope>();
@@ -28,5 +31,5 @@ class AppScope extends InheritedWidget {
 
   @override
   bool updateShouldNotify(AppScope old) =>
-      studio != old.studio || output != old.output || cameras != old.cameras || media != old.media;
+      studio != old.studio || output != old.output || cameras != old.cameras || media != old.media || plugins != old.plugins;
 }

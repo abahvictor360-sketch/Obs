@@ -1,0 +1,25 @@
+{
+  "id": "org.obstablet.clock",
+  "name": "Clock",
+  "version": "1.0.0",
+  "description": "A clean clock and date overlay.",
+  "author": "OBS Tablet",
+  "main": "main.js",
+  "permissions": [],
+  "sources": [
+    {
+      "type": "clock",
+      "name": "Clock",
+      "width": 900,
+      "height": 240,
+      "fps": 2,
+      "settings": [
+        {"key": "format", "label": "Format", "type": "select", "default": "24h", "options": ["24h", "12h"]},
+        {"key": "seconds", "label": "Show seconds", "type": "bool", "default": true},
+        {"key": "date", "label": "Show date", "type": "bool", "default": true},
+        {"key": "color", "label": "Text color", "type": "color", "default": 4294967295},
+        {"key": "background", "label": "Background", "type": "color", "default": 2147483648}
+      ]
+    }
+  ]
+}

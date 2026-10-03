@@ -1,0 +1,60 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  body { margin: 0; padding: 16px; font: 18px sans-serif; color: #e6e7eb; background: #1f2128; }
+  h2 { font-size: 16px; color: #9ea3b0; font-weight: 600; margin: 16px 0 8px; }
+  .scenes { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
+  button { font: inherit; color: inherit; background: #31343f; border: 1px solid #3c404d; border-radius: 8px; padding: 18px 12px; }
+  button.live { background: #d7334b; border-color: #d7334b; }
+  .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  input { font: inherit; width: 80px; padding: 10px; background: #1a1c22; color: inherit; border: 1px solid #3c404d; border-radius: 6px; }
+  #status { color: #9ea3b0; margin-top: 12px; }
+</style>
+</head>
+<body>
+<h2>Scenes</h2>
+<div class="scenes" id="scenes"></div>
+<h2>Auto rotate</h2>
+<div class="row">
+  Every <input id="secs" type="number" min="3" value="30"> seconds
+  <button id="toggle">Start rotating</button>
+</div>
+<div id="status"></div>
+<script>
+  var state = null, timer = null;
+  function render() {
+    var el = document.getElementById('scenes');
+    el.innerHTML = '';
+    (state ? state.scenes : []).forEach(function (name) {
+      var b = document.createElement('button');
+      b.textContent = name;
+      if (state.programScene === name) b.className = 'live';
+      b.onclick = function () { go(name); };
+      el.appendChild(b);
+    });
+  }
+  function refresh() { return obstablet.getState().then(function (s) { state = s; render(); }); }
+  function go(name) {
+    obstablet.control.switchScene(name).then(refresh).catch(function (e) {
+      document.getElementById('status').textContent = e.message;
+    });
+  }
+  document.getElementById('toggle').onclick = function () {
+    if (timer) { clearInterval(timer); timer = null; this.textContent = 'Start rotating'; return; }
+    var secs = Math.max(3, Number(document.getElementById('secs').value) || 30);
+    timer = setInterval(function () {
+      if (!state || !state.scenes.length) return;
+      var i = (state.scenes.indexOf(state.programScene) + 1) % state.scenes.length;
+      go(state.scenes[i]);
+    }, secs * 1000);
+    this.textContent = 'Stop rotating';
+  };
+  obstablet.on('sceneChanged', refresh);
+  refresh();
+  setInterval(refresh, 3000);
+</script>
+</body>
+</html>

@@ -1,0 +1,25 @@
+{
+  "id": "org.obstablet.twitch-chat",
+  "name": "Twitch Chat",
+  "version": "1.0.0",
+  "description": "Shows your Twitch chat on stream. Read-only, no login needed.",
+  "author": "OBS Tablet",
+  "main": "main.js",
+  "permissions": ["network"],
+  "sources": [
+    {
+      "type": "chat",
+      "name": "Twitch Chat",
+      "width": 600,
+      "height": 800,
+      "fps": 4,
+      "settings": [
+        {"key": "channel", "label": "Channel", "type": "text", "default": ""},
+        {"key": "fontSize", "label": "Font size", "type": "number", "default": 30, "min": 16, "max": 64},
+        {"key": "maxLines", "label": "Messages shown", "type": "number", "default": 12, "min": 3, "max": 40},
+        {"key": "fadeAfter", "label": "Hide after (seconds, 0 = never)", "type": "number", "default": 0, "min": 0, "max": 120},
+        {"key": "background", "label": "Background", "type": "color", "default": 1711276032}
+      ]
+    }
+  ]
+}

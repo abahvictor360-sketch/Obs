@@ -14,6 +14,7 @@ final class ObsEncoderPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
     private var config: [String: Any] = [:]
     private var micGain: Float = 1
     private var appGain: Float = 1
+    private var pcmTap = false
 
     /// True while the broadcast extension encodes the composited screen.
     private var extensionEncoding = false
@@ -97,6 +98,9 @@ final class ObsEncoderPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
         case "setMicGain":
             micGain = Float(args["gain"] as? Double ?? 1)
             audio?.gain = micGain
+            result(nil)
+        case "setPcmTap":
+            pcmTap = args["enabled"] as? Bool ?? false
             result(nil)
         case "setScreenAudioGain":
             appGain = Float(args["gain"] as? Double ?? 1)
@@ -188,7 +192,19 @@ final class ObsEncoderPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
             a.onPacket = { [weak self] data, pts in
                 self?.emitPacket(video: false, config: false, key: false, ptsUs: pts, data: data)
             }
-            a.onPCM = { [weak self] pcm, pts in self?.recorder?.appendAudio(pcm, ptsUs: pts) }
+            a.onPCM = { [weak self] pcm, pts in
+                guard let self = self else { return }
+                self.recorder?.appendAudio(pcm, ptsUs: pts)
+                if self.pcmTap, let ch = pcm.floatChannelData {
+                    let data = Data(bytes: ch[0], count: Int(pcm.frameLength) * MemoryLayout<Float>.size)
+                    self.emit([
+                        "type": "pcm",
+                        "data": FlutterStandardTypedData(bytes: data),
+                        "sampleRate": Int(AppAudioEncoder.sampleRate),
+                        "channels": 1,
+                    ])
+                }
+            }
             a.onLevel = { [weak self] rms, peak in
                 self?.emit(["type": "level", "rms": Double(rms), "peak": Double(peak)])
             }

@@ -9,6 +9,7 @@ import 'package:obs_tablet/core/studio_controller.dart';
 import 'package:obs_tablet/main.dart';
 import 'package:obs_tablet/output/encoder_backend.dart';
 import 'package:obs_tablet/output/output_engine.dart';
+import 'package:obs_tablet/plugins/plugin_manager.dart';
 import 'package:obs_tablet/render/media_services.dart';
 
 class FakeEncoder implements EncoderBackend {
@@ -40,6 +41,10 @@ class FakeEncoder implements EncoderBackend {
   Future<void> setMicGain(double gain) async {}
   @override
   Future<void> setScreenAudioGain(double gain) async {}
+  @override
+  Future<void> setPcmTap(bool enabled) async {}
+  @override
+  Stream<PcmChunk> get pcm => const Stream.empty();
   @override
   Future<String?> startMp4Recording() async => null;
   @override
@@ -87,6 +92,7 @@ Future<(StudioController, OutputEngine)> _pump(WidgetTester tester, Size size, {
     output: output,
     cameras: CameraService(),
     media: MediaService(),
+    plugins: PluginManager(createPlatformPluginBackend()),
   ));
   await tester.pump();
   return (studio, output);

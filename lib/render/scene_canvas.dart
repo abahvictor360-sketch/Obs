@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart';
@@ -160,6 +161,8 @@ class SourceRenderer extends StatelessWidget {
         return showPlaceholder ? ScreenSourceCard(source: source) : const ColoredBox(color: Colors.black);
       case SourceType.audioInput:
         return const SizedBox.shrink();
+      case SourceType.plugin:
+        return _PluginSource(source: source, fit: _boxFit(fit), showPlaceholder: showPlaceholder);
     }
   }
 
@@ -378,6 +381,41 @@ class ScreenSourceCard extends StatelessWidget {
             ),
           ),
         );
+      },
+    );
+  }
+}
+
+/// Pixels produced by a script plugin (drawn by the plugin on its canvas in
+/// the sandbox, delivered as images).
+class _PluginSource extends StatelessWidget {
+  const _PluginSource({required this.source, required this.fit, required this.showPlaceholder});
+
+  final Source source;
+  final BoxFit fit;
+  final bool showPlaceholder;
+
+  @override
+  Widget build(BuildContext context) {
+    final plugins = AppScope.of(context).plugins;
+    return ValueListenableBuilder<ui.Image?>(
+      valueListenable: plugins.frameFor(source.id),
+      builder: (context, image, _) {
+        if (image != null) return RawImage(image: image, fit: fit, filterQuality: FilterQuality.medium);
+        if (!showPlaceholder) return const SizedBox.expand();
+        final pluginId = source.settings['plugin'] as String? ?? '';
+        final plugin = plugins.plugin(pluginId);
+        final String hint;
+        if (!plugins.supported) {
+          hint = 'Plugins run in the Android and iPad apps';
+        } else if (plugin == null) {
+          hint = 'Plugin "$pluginId" is not installed';
+        } else if (!plugins.isEnabled(pluginId)) {
+          hint = 'Plugin "${plugin.manifest.name}" is disabled';
+        } else {
+          hint = plugins.instanceErrors[source.id] ?? 'Starting…';
+        }
+        return SourcePlaceholder(icon: Icons.extension_outlined, label: source.name, hint: hint);
       },
     );
   }

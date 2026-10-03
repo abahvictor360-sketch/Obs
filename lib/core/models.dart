@@ -30,7 +30,10 @@ enum SourceType {
   media('Media Source'),
   text('Text'),
   color('Color Source'),
-  audioInput('Audio Input Capture');
+  audioInput('Audio Input Capture'),
+
+  /// A source type provided by an installed script plugin.
+  plugin('Plugin Source');
 
   const SourceType(this.label);
   final String label;
@@ -146,6 +149,12 @@ class SourceDefaults {
       case SourceType.audioInput:
         return {
           'device': 'default',
+        };
+      case SourceType.plugin:
+        return {
+          'plugin': '', // plugin id
+          'type': '', // source type within the plugin
+          'config': <String, dynamic>{}, // values for the plugin's settings
         };
     }
   }

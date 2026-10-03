@@ -323,6 +323,9 @@ class AudioEncoder(
 ) {
     @Volatile var gain = 1.0f
 
+    /** Receives the mixed PCM (float, interleaved) when set: NDI audio. */
+    @Volatile var pcmTap: ((FloatArray, Int, Int) -> Unit)? = null
+
     /** Gain for audio played by other apps (captured with the screen). */
     @Volatile var appGain = 1.0f
     private var playback: AudioRecord? = null
@@ -396,6 +399,7 @@ class AudioEncoder(
                 if (f > levelPeak) levelPeak = f
             }
             levelCount += count
+            pcmTap?.let { tap -> tap(FloatArray(count) { shorts[it] / 32768f }, sampleRate, channels) }
             bb.clear()
             bb.asShortBuffer().put(shorts, 0, count)
 

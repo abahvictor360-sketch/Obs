@@ -10,6 +10,7 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 import '../core/models.dart';
 import '../core/studio_controller.dart';
 import 'av_packager.dart';
+import '../ndi/ndi_output.dart';
 import 'encoder_backend.dart';
 import 'flv.dart';
 import 'sinks.dart';
@@ -23,13 +24,21 @@ enum OutputStatus { idle, starting, active, reconnecting, stopping }
 /// One encoder is shared by the stream and the recording; each has its own
 /// [AvPackager] so they can start/stop independently.
 class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
-  OutputEngine({required this.studio, EncoderBackend? backend})
+  OutputEngine({required this.studio, EncoderBackend? backend, NdiOutputSink? ndi})
       : backend = backend ?? MethodChannelEncoder() {
+    this.ndi = ndi ?? createNdiOutput(onChanged: notifyListeners);
     studio.addListener(_onStudioChanged);
   }
 
   final StudioController studio;
   final EncoderBackend backend;
+
+  /// NDI® program output (built-in "NDI Output" plugin).
+  late final NdiOutputSink ndi;
+  bool ndiActive = false;
+  String? ndiError;
+  String? ndiName;
+  StreamSubscription<PcmChunk>? _pcmSub;
 
   /// Wraps the program canvas; frames are captured from it.
   final GlobalKey programKey = GlobalKey(debugLabel: 'program');
@@ -93,6 +102,7 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
   double _lastScreenGain = -1;
 
   bool get isStreaming => streamStatus != OutputStatus.idle;
+  int get ndiConnections => ndi.connections;
   bool get isRecording => recordStatus != OutputStatus.idle;
 
   Future<void> init() async {
@@ -243,6 +253,55 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   // ---------------------------------------------------------------------------
+  // NDI output
+
+  /// Starts sending the program over NDI. Runs the capture pipeline like a
+  /// stream or recording would (the hardware encoder idles if nothing else
+  /// is using it).
+  Future<void> startNdi({required String name, String? groups}) async {
+    if (ndiActive && name == ndiName) return;
+    if (ndiActive) await stopNdi();
+    ndiError = null;
+    if (!ndi.available) {
+      ndiError = ndi.unavailableReason;
+      notifyListeners();
+      return;
+    }
+    try {
+      await ndi.start(name: name, groups: groups);
+      ndiActive = true;
+      ndiName = name;
+      if (encoderSupported) {
+        await _ensureEncoder();
+        await backend.setPcmTap(true);
+        _pcmSub ??= backend.pcm.listen((c) {
+          if (ndiActive) ndi.sendAudio(c.samples, c.sampleRate, c.channels);
+        });
+      }
+    } catch (e) {
+      ndiActive = false;
+      ndiError = 'NDI output failed: $e';
+    }
+    _updateWakelock();
+    notifyListeners();
+  }
+
+  Future<void> stopNdi() async {
+    if (!ndiActive) return;
+    ndiActive = false;
+    ndiName = null;
+    await _pcmSub?.cancel();
+    _pcmSub = null;
+    try {
+      await backend.setPcmTap(false);
+    } catch (_) {}
+    await ndi.stop();
+    await _maybeStopEncoder();
+    _updateWakelock();
+    notifyListeners();
+  }
+
+  // ---------------------------------------------------------------------------
   // Recording
 
   Future<void> startRecording() async {
@@ -370,7 +429,7 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> _maybeStopEncoder() async {
-    if (!_encoderRunning || isStreaming || isRecording) return;
+    if (!_encoderRunning || isStreaming || isRecording || ndiActive) return;
     _encoderRunning = false;
     _pumpTimer?.cancel();
     _statsTimer?.cancel();
@@ -423,7 +482,9 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
       final w = image.width, h = image.height;
       image.dispose();
       if (data != null && _encoderRunning) {
-        await backend.pushFrame(data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes), w, h);
+        final rgba = data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
+        if (ndiActive) ndi.sendVideo(rgba, w, h, config.fps);
+        await backend.pushFrame(rgba, w, h);
         renderedFrames++;
         _framesThisSecond++;
       }
@@ -549,7 +610,7 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   void _updateWakelock() {
-    final on = (isStreaming || isRecording) && studio.settings.keepScreenOn;
+    final on = (isStreaming || isRecording || ndiActive) && studio.settings.keepScreenOn;
     WakelockPlus.toggle(enable: on).catchError((_) {});
   }
 
@@ -572,6 +633,8 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
     _levelSub?.cancel();
     _errorSub?.cancel();
     _screenSub?.cancel();
+    _pcmSub?.cancel();
+    if (ndiActive) ndi.stop();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }

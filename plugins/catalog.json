@@ -1,0 +1,22 @@
+{
+  "plugins": [
+    {
+      "name": "Clock",
+      "description": "A clean clock and date overlay.",
+      "author": "OBS Tablet",
+      "url": "https://github.com/abahvictor360-sketch/Obs/tree/HEAD/plugins/clock"
+    },
+    {
+      "name": "Twitch Chat",
+      "description": "Shows your Twitch chat on stream. Read-only, no login needed.",
+      "author": "OBS Tablet",
+      "url": "https://github.com/abahvictor360-sketch/Obs/tree/HEAD/plugins/twitch-chat"
+    },
+    {
+      "name": "Scene Rotator",
+      "description": "Big scene buttons and automatic scene rotation, in a dock.",
+      "author": "OBS Tablet",
+      "url": "https://github.com/abahvictor360-sketch/Obs/tree/HEAD/plugins/scene-rotator"
+    }
+  ]
+}

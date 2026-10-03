@@ -8,6 +8,7 @@ import '../output/output_engine.dart';
 import 'add_source.dart';
 import 'dialogs.dart';
 import 'item_menu.dart';
+import 'plugins_screen.dart';
 import 'settings_screen.dart';
 import 'source_properties.dart';
 import 'theme.dart';
@@ -599,6 +600,13 @@ class ControlsDock extends StatelessWidget {
             active: studio.studioMode,
             activeColor: ObsColors.accent,
             onPressed: () => studio.setStudioMode(!studio.studioMode),
+          ),
+          _BigButton(
+            label: 'Plugins',
+            icon: Icons.extension_outlined,
+            active: out.ndiActive,
+            activeColor: ObsColors.accentDim,
+            onPressed: () => openPlugins(context),
           ),
           _BigButton(
             label: 'Settings',

@@ -46,3 +46,8 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# NDI SDK runtime (proprietary): fetched by scripts/fetch_ndi_sdk.sh, never committed.
+/android/app/src/main/jniLibs/**/libndi.so
+/ios/NDI/
+/ios/Flutter/NDI.xcconfig

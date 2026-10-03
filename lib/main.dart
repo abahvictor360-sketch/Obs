@@ -4,7 +4,10 @@ import 'package:flutter/services.dart';
 import 'app_scope.dart';
 import 'core/storage.dart';
 import 'core/studio_controller.dart';
+import 'ndi/ndi_controller.dart';
 import 'output/output_engine.dart';
+import 'plugins/plugin_bridge.dart';
+import 'plugins/plugin_manager.dart';
 import 'render/media_services.dart';
 import 'ui/studio_screen.dart';
 import 'ui/theme.dart';
@@ -19,8 +22,12 @@ Future<void> main() async {
   final media = MediaService();
   SourceActivityTracker(studio, cameras, media);
   await output.init();
+  final plugins = PluginManager(createPlatformPluginBackend());
+  await plugins.load();
+  PluginBridge(studio, output, plugins);
+  NdiController(plugins, output);
 
-  runApp(ObsTabletApp(studio: studio, output: output, cameras: cameras, media: media));
+  runApp(ObsTabletApp(studio: studio, output: output, cameras: cameras, media: media, plugins: plugins));
 }
 
 class ObsTabletApp extends StatefulWidget {
@@ -30,12 +37,14 @@ class ObsTabletApp extends StatefulWidget {
     required this.output,
     required this.cameras,
     required this.media,
+    required this.plugins,
   });
 
   final StudioController studio;
   final OutputEngine output;
   final CameraService cameras;
   final MediaService media;
+  final PluginManager plugins;
 
   @override
   State<ObsTabletApp> createState() => _ObsTabletAppState();
@@ -69,6 +78,7 @@ class _ObsTabletAppState extends State<ObsTabletApp> with WidgetsBindingObserver
       output: widget.output,
       cameras: widget.cameras,
       media: widget.media,
+      plugins: widget.plugins,
       child: MaterialApp(
         title: 'OBS Tablet',
         debugShowCheckedModeBanner: false,

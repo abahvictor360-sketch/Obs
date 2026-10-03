@@ -28,6 +28,14 @@ jobs:
       - run: flutter analyze
       - run: flutter test
 
+      # NDI runtime is proprietary: only bundled when the repository variable
+      # NDI_SDK_ACCEPT_LICENSE is set to 1 (= you accept https://ndi.video/sdk/).
+      - name: Bundle NDI runtime (opt-in)
+        if: vars.NDI_SDK_ACCEPT_LICENSE == '1'
+        env:
+          NDI_SDK_ACCEPT_LICENSE: '1'
+        run: scripts/fetch_ndi_sdk.sh android
+
       - name: Build Android APK
         run: flutter build apk --release
 
@@ -54,8 +62,32 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get
+      - name: Link NDI runtime (opt-in)
+        if: vars.NDI_SDK_ACCEPT_LICENSE == '1'
+        env:
+          NDI_SDK_ACCEPT_LICENSE: '1'
+        run: scripts/fetch_ndi_sdk.sh ios
       - name: Build iOS app + broadcast extension (unsigned)
         run: flutter build ios --release --no-codesign
 
       - name: Check the extension is embedded
         run: test -d build/ios/iphoneos/Runner.app/PlugIns/BroadcastExtension.appex
+
+  ndi-sdk:
+    # Sends frames through the real NDI runtime and receives them back,
+    # checking the Dart FFI bindings against the actual SDK.
+    if: vars.NDI_SDK_ACCEPT_LICENSE == '1'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Fetch NDI SDK (Linux)
+        env:
+          NDI_SDK_ACCEPT_LICENSE: '1'
+        run: scripts/fetch_ndi_sdk.sh linux
+      - name: NDI send/receive test (real SDK)
+        run: NDI_LIB=$PWD/build/ndi/linux/libndi.so flutter test test/ndi_test.dart

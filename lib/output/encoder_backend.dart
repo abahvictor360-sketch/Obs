@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 import 'package:flutter/services.dart';
 
 /// One encoded packet from the native encoder.
@@ -48,6 +49,13 @@ class EncoderConfig {
         'sampleRate': sampleRate,
         'channels': channels,
       };
+}
+
+/// Mixed PCM (mic + app audio after mixer gain), for NDI audio.
+class PcmChunk {
+  const PcmChunk(this.samples, this.sampleRate, this.channels);
+  final Float32List samples;
+  final int sampleRate, channels;
 }
 
 class AudioLevel {
@@ -123,6 +131,10 @@ abstract class EncoderBackend {
   /// Gain for other apps' audio captured along with the screen.
   Future<void> setScreenAudioGain(double gain);
 
+  /// Delivers the mixed audio as [pcm] chunks while enabled (NDI output).
+  Future<void> setPcmTap(bool enabled);
+  Stream<PcmChunk> get pcm;
+
   /// Starts writing an MP4 natively. Returns the file path/uri.
   Future<String?> startMp4Recording();
   Future<String?> stopMp4Recording();
@@ -161,6 +173,7 @@ class MethodChannelEncoder implements EncoderBackend {
   final _levels = StreamController<AudioLevel>.broadcast();
   final _errors = StreamController<String>.broadcast();
   final _screen = StreamController<ScreenCaptureState>.broadcast();
+  final _pcm = StreamController<PcmChunk>.broadcast(sync: true);
 
   bool? _supported;
 
@@ -172,6 +185,8 @@ class MethodChannelEncoder implements EncoderBackend {
   Stream<String> get errors => _errors.stream;
   @override
   Stream<ScreenCaptureState> get screenStates => _screen.stream;
+  @override
+  Stream<PcmChunk> get pcm => _pcm.stream;
 
   void _onEvent(dynamic e) {
     if (e is! Map) return;
@@ -188,6 +203,15 @@ class MethodChannelEncoder implements EncoderBackend {
         _levels.add(AudioLevel((e['rms'] as num).toDouble(), (e['peak'] as num).toDouble()));
       case 'error':
         _errors.add('${e['message']}');
+      case 'pcm':
+        final raw = e['data'] as Uint8List;
+        // Copy to an aligned buffer before viewing it as floats.
+        final aligned = Uint8List.fromList(raw);
+        _pcm.add(PcmChunk(
+          aligned.buffer.asFloat32List(0, aligned.length ~/ 4),
+          (e['sampleRate'] as num).toInt(),
+          (e['channels'] as num).toInt(),
+        ));
       case 'screen':
         _screen.add(ScreenCaptureState(
           active: e['state'] == 'active',
@@ -232,6 +256,9 @@ class MethodChannelEncoder implements EncoderBackend {
 
   @override
   Future<void> setMicGain(double gain) => _method.invokeMethod('setMicGain', {'gain': gain});
+
+  @override
+  Future<void> setPcmTap(bool enabled) => _method.invokeMethod('setPcmTap', {'enabled': enabled});
 
   @override
   Future<void> setScreenAudioGain(double gain) => _method.invokeMethod('setScreenAudioGain', {'gain': gain});

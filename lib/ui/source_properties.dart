@@ -4,27 +4,21 @@ import 'package:image_picker/image_picker.dart';
 import '../app_scope.dart';
 import '../core/models.dart';
 import '../core/studio_controller.dart';
+import '../plugins/plugin_manifest.dart';
 import 'dialogs.dart';
 import 'theme.dart';
 
 /// Properties / Transform / Filters for one scene item, in a sheet that
 /// leaves the canvas visible so changes can be seen live.
 Future<void> showSourceProperties(BuildContext context, String itemId, {int initialTab = 0}) {
-  final scope = AppScope.of(context);
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     constraints: const BoxConstraints(maxWidth: 760),
     barrierColor: Colors.black26,
-    builder: (_) => AppScope(
-      studio: scope.studio,
-      output: scope.output,
-      cameras: scope.cameras,
-      media: scope.media,
-      child: FractionallySizedBox(
-        heightFactor: 0.62,
-        child: _PropertiesSheet(itemId: itemId, initialTab: initialTab),
-      ),
+    builder: (_) => FractionallySizedBox(
+      heightFactor: 0.62,
+      child: _PropertiesSheet(itemId: itemId, initialTab: initialTab),
     ),
   );
 }
@@ -97,6 +91,7 @@ IconData sourceIcon(SourceType t) => switch (t) {
       SourceType.text => Icons.text_fields,
       SourceType.color => Icons.format_color_fill,
       SourceType.audioInput => Icons.mic_none,
+      SourceType.plugin => Icons.extension_outlined,
     };
 
 class _SourceSettingsTab extends StatelessWidget {
@@ -230,6 +225,8 @@ class _SourceSettingsTab extends StatelessWidget {
         ]);
       case SourceType.color:
         children.add(ColorPickerField(label: 'Color', value: s['color'] as int, onChanged: (v) => set('color', v)));
+      case SourceType.plugin:
+        children.add(_PluginSettings(source: source));
       case SourceType.audioInput:
         children.addAll(const [
           ListTile(
@@ -514,4 +511,115 @@ class _ScreenCaptureSettings extends StatelessWidget {
       },
     );
   }
+}
+
+/// Form generated from the plugin manifest's settings schema.
+class _PluginSettings extends StatelessWidget {
+  const _PluginSettings({required this.source});
+
+  final Source source;
+
+  @override
+  Widget build(BuildContext context) {
+    final scope = AppScope.of(context);
+    final plugin = scope.plugins.plugin(source.settings['plugin'] as String? ?? '');
+    final type = plugin?.manifest.sourceType(source.settings['type'] as String? ?? '');
+    if (plugin == null || type == null) {
+      return const Text('This plugin is not installed. Install it from Plugins to use this source.',
+          style: TextStyle(color: ObsColors.warn));
+    }
+    final config = {
+      ...type.defaultSettings(),
+      ...((source.settings['config'] as Map?) ?? const {}).cast<String, dynamic>(),
+    };
+    void set(String key, Object? value) {
+      scope.studio.updateSourceSettings(source.id, {'config': {...config, key: value}});
+    }
+
+    final rows = <Widget>[
+      ListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: const Icon(Icons.extension_outlined),
+        title: Text('${type.name} · ${plugin.manifest.name} ${plugin.manifest.version}'),
+        subtitle: plugin.manifest.author.isEmpty ? null : Text('by ${plugin.manifest.author}'),
+      ),
+    ];
+    for (final s in type.settings) {
+      final v = config[s.key];
+      switch (s.type) {
+        case SettingType.text:
+          rows.add(Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: _PluginTextField(label: s.label, initial: '${v ?? ''}', onChanged: (t) => set(s.key, t)),
+          ));
+        case SettingType.number:
+          final min = s.min ?? 0, max = s.max ?? 100;
+          rows.add(LabeledSlider(
+            label: s.label,
+            value: ((v as num?) ?? min).toDouble().clamp(min, max),
+            min: min,
+            max: max,
+            format: (x) => x.toStringAsFixed(x.abs() >= 10 ? 0 : 1),
+            onChanged: (x) => set(s.key, x),
+          ));
+        case SettingType.bool:
+          rows.add(SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(s.label),
+            value: v == true,
+            onChanged: (b) => set(s.key, b),
+          ));
+        case SettingType.color:
+          rows.add(Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: ColorPickerField(
+              label: s.label,
+              value: (v as num?)?.toInt() ?? 0xFFFFFFFF,
+              onChanged: (c) => set(s.key, c),
+            ),
+          ));
+        case SettingType.select:
+          rows.add(Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: DropdownButtonFormField<String>(
+              initialValue: s.options.contains('$v') ? '$v' : s.options.first,
+              decoration: InputDecoration(labelText: s.label),
+              items: [for (final o in s.options) DropdownMenuItem(value: o, child: Text(o))],
+              onChanged: (o) => set(s.key, o),
+            ),
+          ));
+      }
+    }
+    final err = scope.plugins.instanceErrors[source.id];
+    if (err != null) rows.add(Text(err, style: const TextStyle(color: ObsColors.warn, fontSize: 13)));
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: rows);
+  }
+}
+
+class _PluginTextField extends StatefulWidget {
+  const _PluginTextField({required this.label, required this.initial, required this.onChanged});
+
+  final String label;
+  final String initial;
+  final ValueChanged<String> onChanged;
+
+  @override
+  State<_PluginTextField> createState() => _PluginTextFieldState();
+}
+
+class _PluginTextFieldState extends State<_PluginTextField> {
+  late final _ctl = TextEditingController(text: widget.initial);
+
+  @override
+  void dispose() {
+    _ctl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => TextField(
+        controller: _ctl,
+        decoration: InputDecoration(labelText: widget.label),
+        onChanged: widget.onChanged,
+      );
 }

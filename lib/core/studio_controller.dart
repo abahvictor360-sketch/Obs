@@ -272,6 +272,11 @@ class StudioController extends ChangeNotifier {
         return ItemTransform(x: (cw - w) / 2, y: (ch - h) / 2, width: w, height: h, fit: FitMode.contain);
       case SourceType.audioInput:
         return ItemTransform(width: 0, height: 0);
+      case SourceType.plugin:
+        final w = (s.settings['width'] as num?)?.toDouble() ?? cw / 2;
+        final h = (s.settings['height'] as num?)?.toDouble() ?? ch / 2;
+        final k = math.min(1.0, math.min(cw / w, ch / h));
+        return ItemTransform(x: (cw - w * k) / 2, y: (ch - h * k) / 2, width: w * k, height: h * k);
     }
   }
 
