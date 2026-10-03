@@ -11,19 +11,19 @@
 		<true/>
 	</dict>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>ObsPad receives video from phones and IP cameras (DroidCam, IP Webcam) and sends your program to NDI receivers on your network.</string>
+	<string>OBSpad receives video from phones and IP cameras (DroidCam, IP Webcam) and sends your program to NDI receivers on your network.</string>
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_ndi._tcp</string>
 	</array>
 	<key>NSCameraUsageDescription</key>
-	<string>ObsPad uses the camera as a video source in your scenes.</string>
+	<string>OBSpad uses the camera as a video source in your scenes.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>ObsPad uses the microphone as the audio source for streams and recordings.</string>
+	<string>OBSpad uses the microphone as the audio source for streams and recordings.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>ObsPad lets you add images and videos from your library to scenes.</string>
+	<string>OBSpad lets you add images and videos from your library to scenes.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>ObsPad saves your recordings to your photo library.</string>
+	<string>OBSpad saves your recordings to your photo library.</string>
 	<key>UIRequiresFullScreen</key>
 	<false/>
 	<key>UIBackgroundModes</key>
@@ -35,7 +35,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>ObsPad</string>
+	<string>OBSpad</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -43,7 +43,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>ObsPad</string>
+	<string>OBSpad</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>

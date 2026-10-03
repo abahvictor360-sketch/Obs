@@ -91,7 +91,7 @@ void main() {
       expect(() => PluginManifest.fromJson(withField('main', '../evil.js')), throwsA(isA<PluginFormatException>()));
       expect(() => PluginManifest.fromJson(withField('main', null)), throwsA(isA<PluginFormatException>()));
       expect(() => PluginManifest.fromJson(withField('minAppVersion', '99.0.0')),
-          throwsA(predicate((e) => '$e'.contains('Needs ObsPad'))));
+          throwsA(predicate((e) => '$e'.contains('Needs OBSpad'))));
     });
 
     test('version ordering', () {

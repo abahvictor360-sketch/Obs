@@ -139,7 +139,7 @@ jobs:
         with:
           tag_name: build-${{ github.run_number }}
           target_commitish: ${{ github.sha }}
-          name: ObsPad test build ${{ github.run_number }}
+          name: OBSpad test build ${{ github.run_number }}
           make_latest: true
           files: |
             dist/obspad.apk

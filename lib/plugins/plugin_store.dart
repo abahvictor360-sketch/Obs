@@ -199,7 +199,7 @@ class GitHubClient {
   Future<HttpClientResponse> _request(String url, {String? accept}) async {
     try {
       final req = await _http.getUrl(Uri.parse(url));
-      req.headers.set(HttpHeaders.userAgentHeader, 'ObsPad');
+      req.headers.set(HttpHeaders.userAgentHeader, 'OBSpad');
       if (accept != null) req.headers.set(HttpHeaders.acceptHeader, accept);
       return await req.close().timeout(const Duration(seconds: 30));
     } on SocketException catch (e) {

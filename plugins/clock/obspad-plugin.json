@@ -3,7 +3,7 @@
   "name": "Clock",
   "version": "1.0.0",
   "description": "A clean clock and date overlay.",
-  "author": "ObsPad",
+  "author": "OBSpad",
   "main": "main.js",
   "permissions": [],
   "sources": [

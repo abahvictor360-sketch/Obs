@@ -1,4 +1,4 @@
-// Sharpen (unsharp mask) for ObsPad, like OBS's Sharpen filter.
+// Sharpen (unsharp mask) for OBSpad, like OBS's Sharpen filter.
 #include <flutter/runtime_effect.glsl>
 
 uniform vec2 uSize;

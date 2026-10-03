@@ -3,7 +3,7 @@
   "name": "Scene Rotator",
   "version": "1.0.0",
   "description": "A dock with big scene buttons and an automatic scene rotation timer.",
-  "author": "ObsPad",
+  "author": "OBSpad",
   "permissions": ["control"],
   "docks": [
     {"id": "rotator", "name": "Scene Rotator", "page": "dock.html"}

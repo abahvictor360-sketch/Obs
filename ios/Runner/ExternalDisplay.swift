@@ -121,7 +121,7 @@ final class ProgramDisplayView: UIView {
         super.init(frame: frame)
         backgroundColor = .black
         layer.contentsGravity = .resizeAspect
-        label.text = "ObsPad"
+        label.text = "OBSpad"
         label.textColor = UIColor(white: 1, alpha: 0.4)
         label.font = .boldSystemFont(ofSize: 48)
         label.translatesAutoresizingMaskIntoConstraints = false

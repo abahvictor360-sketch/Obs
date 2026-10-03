@@ -1,6 +1,6 @@
-# Writing ObsPad plugins
+# Writing OBSpad plugins
 
-ObsPad plugins are small web packages: a manifest, plus JavaScript and HTML that run in a sandbox
+OBSpad plugins are small web packages: a manifest, plus JavaScript and HTML that run in a sandbox
 inside the app. They work on both Android and iPad, and users install them by pasting a GitHub link.
 
 Desktop OBS plugins (C/C++ built against libobs, like DistroAV or Move Transition) can't run on tablets.
@@ -114,7 +114,7 @@ await obstablet.control.startStreaming();       // also stopStreaming, startReco
 2. Optionally create a release (tag `v1.0.0`). Installs and updates follow the latest release. A `.zip`
    asset on the release is used if present; otherwise the release's source zip.
 3. Share the link. Users paste it in **Plugins → Get plugins**. To appear in the built-in catalog, add
-   an entry to `plugins/catalog.json` in the ObsPad repository (or host your own catalog: the app's
+   an entry to `plugins/catalog.json` in the OBSpad repository (or host your own catalog: the app's
    catalog URL is configurable).
 
 ## Testing in a browser

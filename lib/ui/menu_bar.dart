@@ -141,7 +141,7 @@ class ObsMenuBar extends StatelessWidget {
         ),
         SubmenuButton(
           menuChildren: [
-            item('About ObsPad', () => _about(context), icon: Icons.info_outline),
+            item('About OBSpad', () => _about(context), icon: Icons.info_outline),
           ],
           child: const Text('Help'),
         ),
@@ -192,7 +192,7 @@ class ObsMenuBar extends StatelessWidget {
 
   static void _about(BuildContext context) => showAboutDialog(
         context: context,
-        applicationName: 'ObsPad',
+        applicationName: 'OBSpad',
         applicationVersion: '1.0.0',
         applicationIcon: Image.asset('assets/logo.png', width: 48, height: 48),
         children: const [

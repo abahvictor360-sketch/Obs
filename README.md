@@ -1,4 +1,6 @@
-# ObsPad
+# OBSpad
+
+<img src="assets/wordmark.png" alt="OBSpad" width="360">
 
 A touch-first live streaming and recording studio for **Android tablets and iPads**, modelled on
 [OBS Studio](https://github.com/obsproject/obs-studio). It's built with Flutter: one codebase for both
@@ -79,7 +81,7 @@ _Screenshots are from the browser build, using Chromium's synthetic test camera 
 - Auto-reconnect: up to 10 attempts, 5 s apart.
 - Congestion handling: drops video frames until the next keyframe, like OBS.
 - Streaming and recording can run at the same time and share one hardware encoder.
-- Recording to MP4, saved to the gallery (`Movies/ObsPad` on Android, Photos on iPad), or to FLV,
+- Recording to MP4, saved to the gallery (`Movies/OBSpad` on Android, Photos on iPad), or to FLV,
   which is crash-safe like OBS's MKV.
 
 **Screen capture (stream your games)**
@@ -108,7 +110,7 @@ _Screenshots are from the browser build, using Chromium's synthetic test camera 
   already prefers a wired connection when one is plugged in.
 
 **Docking stations and connected screens**
-- ObsPad recognises a USB-C dock or hub from what comes through it: a screen, Ethernet, USB audio,
+- OBSpad recognises a USB-C dock or hub from what comes through it: a screen, Ethernet, USB audio,
   a capture card, and power. The top bar shows **Docked**; tap it to see what's connected.
 - **Program on the connected screen:** a monitor or TV on the dock (or a USB-C/HDMI adapter) shows
   the program full screen, like OBS's fullscreen projector, while the tablet stays the control

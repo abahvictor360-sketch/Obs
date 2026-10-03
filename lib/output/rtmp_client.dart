@@ -161,7 +161,7 @@ class RtmpPublisher {
         {
           'app': url.app,
           'type': 'nonprivate',
-          'flashVer': 'FMLE/3.0 (compatible; ObsPad)',
+          'flashVer': 'FMLE/3.0 (compatible; OBSpad)',
           'swfUrl': url.tcUrl,
           'tcUrl': url.tcUrl,
         },

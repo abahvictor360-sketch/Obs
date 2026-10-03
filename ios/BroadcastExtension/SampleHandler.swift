@@ -1,4 +1,4 @@
-// ReplayKit broadcast upload extension ("ObsPad Screen").
+// ReplayKit broadcast upload extension ("OBSpad Screen").
 //
 // iOS only lets a broadcast extension see the whole screen, and only lets
 // processes in the foreground (or extensions) use the hardware video encoder.
@@ -29,11 +29,11 @@ class SampleHandler: RPBroadcastSampleHandler {
 
     override func broadcastStarted(withSetupInfo setupInfo: [String: NSObject]?) {
         guard let path = obsSocketPath() else {
-            fail("The App Group for ObsPad is not configured.")
+            fail("The App Group for OBSpad is not configured.")
             return
         }
         guard let fd = unixConnect(path) else {
-            fail("Open ObsPad first, then start the broadcast.")
+            fail("Open OBSpad first, then start the broadcast.")
             return
         }
         let socket = FramedSocket(fd: fd)
@@ -86,7 +86,7 @@ class SampleHandler: RPBroadcastSampleHandler {
                 queue.async { self.encoder?.requestKeyframe() }
             case .finish:
                 socket.close()
-                fail("Screen capture was stopped from ObsPad.")
+                fail("Screen capture was stopped from OBSpad.")
                 return
             default:
                 break
@@ -95,7 +95,7 @@ class SampleHandler: RPBroadcastSampleHandler {
         // The app went away (closed or crashed): nothing left to stream to.
         if link === socket {
             queue.async { self.stopEncoding() }
-            fail("ObsPad was closed.")
+            fail("OBSpad was closed.")
         }
     }
 

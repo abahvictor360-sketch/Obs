@@ -318,7 +318,7 @@ class AudioOutputSettings extends StatelessWidget {
           const SizedBox(height: 16),
           Text(
             ios
-                ? 'iPadOS only shares other apps\' sound through a screen broadcast: choose "ObsPad Screen" '
+                ? 'iPadOS only shares other apps\' sound through a screen broadcast: choose "OBSpad Screen" '
                     'and tap Start Broadcast. Only the sound is used unless a scene also has a Screen Capture '
                     'source.'
                 : 'Android captures other apps\' sound (music, games, videos, browser sources) with its '

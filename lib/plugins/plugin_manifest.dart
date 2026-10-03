@@ -197,7 +197,7 @@ class PluginManifest {
       final need = Version.tryParse(minApp);
       if (need == null) throw PluginFormatException('minAppVersion must be like 1.2.3');
       if (need > Version.parse(kAppVersion)) {
-        throw PluginFormatException('Needs ObsPad $minApp or newer');
+        throw PluginFormatException('Needs OBSpad $minApp or newer');
       }
     }
     final perms = <PluginPermission>{};

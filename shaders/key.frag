@@ -1,4 +1,4 @@
-// Chroma / Color / Luma Key for ObsPad (ImageFilter.shader, Impeller).
+// Chroma / Color / Luma Key for OBSpad (ImageFilter.shader, Impeller).
 // Modeled on OBS's chroma_key_filter / color_key_filter / luma_key_filter.
 #include <flutter/runtime_effect.glsl>
 

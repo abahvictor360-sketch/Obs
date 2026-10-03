@@ -146,7 +146,7 @@ object ScreenCapture {
         val d = display
         if (d == null) {
             display = p.createVirtualDisplay(
-                "ObsPad screen", w, h, dpi,
+                "OBSpad screen", w, h, dpi,
                 DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
                 r.surface, null, handler,
             )
@@ -282,7 +282,7 @@ class ScreenCaptureService : Service() {
             Notification.Builder(this)
         }
         return builder
-            .setContentTitle("ObsPad is capturing your screen")
+            .setContentTitle("OBSpad is capturing your screen")
             .setContentText("Tap to return to the studio")
             .setSmallIcon(applicationInfo.icon)
             .setContentIntent(pending)

@@ -567,7 +567,7 @@ class _ScreenCaptureSettings extends StatelessWidget {
             const SizedBox(height: 16),
             Text(
               ios
-                  ? 'On iPad, choose "ObsPad Screen" in the broadcast sheet and tap Start '
+                  ? 'On iPad, choose "OBSpad Screen" in the broadcast sheet and tap Start '
                       'Broadcast. Then switch to the app or game you want to show; your other '
                       'sources stay on top of it.'
                   : 'Android will ask for permission to capture the screen. Then switch to the '
@@ -814,7 +814,7 @@ class _AudioInputSettings extends StatelessWidget {
             const SizedBox(height: 12),
             const Text(
               'USB microphones, sound cards and audio interfaces show up here when plugged in, '
-              'directly (USB-C / OTG) or through a hub or docking station. On Automatic, ObsPad '
+              'directly (USB-C / OTG) or through a hub or docking station. On Automatic, OBSpad '
               'switches to a USB sound card as soon as it is connected. Adjust the level in the Audio Mixer.',
               style: TextStyle(color: ObsColors.textDim, fontSize: 13),
             ),
