@@ -138,7 +138,7 @@ void main() {
     ));
     await tester.pump();
 
-    expect(find.text('Docked · Program on screen'), findsOneWidget);
+    expect(find.text('Docked · Program'), findsOneWidget);
 
     // The encoder isn't running, so the display captures the program itself,
     // sized for the screen.
@@ -159,7 +159,7 @@ void main() {
     await tester.runAsync(pumpEventQueue);
     await tester.pump();
     expect(studio.settings.externalDisplay, 'multiview');
-    expect(find.text('Docked · Multiview on screen'), findsOneWidget);
+    expect(find.text('Docked · Multiview'), findsOneWidget);
     expect(find.byType(Multiview), findsOneWidget);
     expect(find.text('Program · ${studio.programScene.name}'), findsOneWidget);
     expect(find.text('Preview · ${studio.programScene.name}'), findsOneWidget);

@@ -7,6 +7,7 @@ import '../core/models.dart';
 import '../output/output_engine.dart';
 import 'add_source.dart';
 import 'dialogs.dart';
+import 'dock_layout.dart';
 import 'item_menu.dart';
 import 'plugins_screen.dart';
 import 'settings_screen.dart';
@@ -37,11 +38,32 @@ class Dock extends StatelessWidget {
           if (showTitle)
             Container(
               color: ObsColors.header,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-              child: Text(
-                title,
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: ObsColors.textDim),
-              ),
+              padding: const EdgeInsets.only(left: 12),
+              height: 32,
+              child: Row(children: [
+                Expanded(
+                  child: Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: ObsColors.textDim),
+                  ),
+                ),
+                if (DockSlot.maybeOf(context) case final slot?)
+                  SizedBox(
+                    width: 32,
+                    height: 32,
+                    child: IconButton(
+                      key: ValueKey('close-dock-${slot.id}'),
+                      tooltip: 'Close $title (reopen from the Docks menu)',
+                      padding: EdgeInsets.zero,
+                      iconSize: 16,
+                      color: ObsColors.textDim,
+                      icon: const Icon(Icons.close),
+                      onPressed: slot.onClose,
+                    ),
+                  ),
+              ]),
             ),
           Expanded(child: child),
           if (toolbar.isNotEmpty)

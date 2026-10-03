@@ -91,7 +91,8 @@ Future<void> showAddSource(BuildContext context) async {
       'width': st.width.toDouble(),
       'height': st.height.toDouble(),
     });
-    if (st.settings.isNotEmpty && context.mounted) await showSourceProperties(context, item.id);
+    studio.setItemVisible(item.id, false);
+    if (context.mounted) await showSourceProperties(context, item.id, creating: true);
     return;
   }
   final type = picked as SourceType;
@@ -130,8 +131,13 @@ Future<void> showAddSource(BuildContext context) async {
   final name = await promptText(context, title: 'Create new ${type.label}', initial: studio.uniqueSourceName(type.label));
   if (name == null || !context.mounted) return;
   final item = studio.addNewSource(type, name: name);
-  // Open properties straight away for sources that need configuration.
-  if (type != SourceType.color && type != SourceType.audioInput && context.mounted) {
-    await showSourceProperties(context, item.id);
+  if (!type.isVisual) {
+    // Audio sources have nothing to preview; show their settings.
+    if (type == SourceType.audioOutput && context.mounted) await showSourceProperties(context, item.id);
+    return;
   }
+  // Visual sources stay hidden while they're set up and previewed in their
+  // properties; "Add" puts them in the scene, "Cancel" removes them.
+  studio.setItemVisible(item.id, false);
+  if (context.mounted) await showSourceProperties(context, item.id, creating: true);
 }

@@ -133,15 +133,130 @@ void main() {
     await tester.pump();
     expect(find.text('Preview'), findsOneWidget);
     expect(find.text('Program'), findsOneWidget);
-    expect(find.byIcon(Icons.arrow_forward), findsOneWidget);
+    expect(find.byKey(const ValueKey('transition-button')), findsOneWidget);
+    expect(find.text('Quick Transitions'), findsOneWidget);
+    for (final q in ['Cut', 'Fade (300ms)', 'Fade to Black (300ms)']) {
+      expect(find.text(q), findsOneWidget, reason: q);
+    }
 
     await tester.tap(find.text('Scene').first);
     await tester.pump();
     expect(studio.previewScene.name, 'Scene');
     expect(studio.programScene.name, 'Be Right Back');
-    await tester.tap(find.byIcon(Icons.arrow_forward));
+    await tester.tap(find.byKey(const ValueKey('transition-button')));
     await tester.pump(const Duration(seconds: 1));
     expect(studio.programScene.name, 'Scene');
+
+    // Quick transition: Cut swaps right away.
+    await tester.tap(find.text('Cut'));
+    await tester.pump();
+    expect(studio.programScene.name, 'Be Right Back');
+    expect(studio.activeTransition, TransitionType.cut);
+
+    // T-bar: half way shows the mix and stays; all the way completes.
+    final bar = find.byKey(const ValueKey('t-bar'));
+    final box = tester.getRect(bar);
+    final gesture = await tester.startGesture(box.centerLeft + const Offset(4, 0));
+    await gesture.moveTo(box.center);
+    await tester.pump();
+    expect(studio.tBar, closeTo(0.5, 0.1));
+    expect(studio.programScene.name, 'Be Right Back');
+    await gesture.moveTo(box.centerRight + const Offset(20, 0));
+    await gesture.up();
+    await tester.pump();
+    expect(studio.programScene.name, 'Scene');
+    expect(studio.tBar, 0);
+    expect(tester.takeException(), isNull);
+    await tester.pump(const Duration(seconds: 3)); // autosave
+  });
+
+  testWidgets('docks close, reopen from the Docks menu, and resize', (tester) async {
+    final (studio, output) = await _pump(tester, const Size(1366, 1024));
+    expect(find.text('File'), findsOneWidget);
+    expect(find.text('Docks'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('close-dock-sources')));
+    await tester.pump();
+    expect(studio.settings.hiddenDocks, ['sources']);
+    expect(find.byKey(const ValueKey('dock-sources')), findsNothing);
+
+    await tester.tap(find.text('Docks'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('menu-dock-sources')).first);
+    await tester.pumpAndSettle();
+    expect(studio.settings.hiddenDocks, isEmpty);
+    expect(find.byKey(const ValueKey('dock-sources')), findsOneWidget);
+
+    // Drag the gap after Scenes to the right: Scenes gets wider.
+    final before = tester.getSize(find.byKey(const ValueKey('dock-scenes'))).width;
+    await tester.drag(find.byKey(const ValueKey('dock-gap-scenes')), const Offset(80, 0));
+    await tester.pump();
+    final after = tester.getSize(find.byKey(const ValueKey('dock-scenes'))).width;
+    expect(after, greaterThan(before + 40));
+
+    // Drag the handle above the docks up: the dock row gets taller.
+    final h0 = tester.getSize(find.byKey(const ValueKey('dock-scenes'))).height;
+    await tester.drag(find.byKey(const ValueKey('dock-height-handle')), const Offset(0, -60));
+    await tester.pump();
+    expect(tester.getSize(find.byKey(const ValueKey('dock-scenes'))).height, greaterThan(h0 + 30));
+
+    // Reset Docks restores the defaults.
+    await tester.tap(find.text('Docks'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('menu-reset-docks')).first);
+    await tester.pumpAndSettle();
+    expect(studio.settings.dockWeights, isEmpty);
+    expect(studio.settings.dockHeight, 0);
+    expect(tester.takeException(), isNull);
+    await tester.pump(const Duration(seconds: 3));
+  });
+
+  testWidgets('new sources are previewed in their properties before they go into the scene', (tester) async {
+    final (studio, output) = await _pump(tester, const Size(1366, 1024));
+    final itemsBefore = studio.programScene.items.length;
+    final sourcesBefore = studio.sources.length;
+    for (final label in ['Image Slide Show', 'Browser', 'Audio Output Capture', 'Color Source', 'Audio Input Capture']) {
+      await tester.tap(find.byTooltip('Add source'));
+      await tester.pumpAndSettle();
+      expect(find.text(label), findsOneWidget, reason: label);
+      await tester.tapAt(const Offset(5, 5)); // close the sheet
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> addColor() async {
+      await tester.tap(find.byTooltip('Add source'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Color Source'));
+      await tester.pumpAndSettle();
+      if (find.text('Create new').evaluate().isNotEmpty) {
+        await tester.tap(find.text('Create new'));
+        await tester.pumpAndSettle();
+      }
+      await tester.tap(find.text('OK'));
+      await tester.pumpAndSettle();
+    }
+
+    // Cancel: the source never reaches the scene.
+    await addColor();
+    expect(find.byKey(const ValueKey('source-preview')), findsOneWidget);
+    expect(find.textContaining('nothing goes live'), findsOneWidget);
+    final staged = studio.programScene.items.last;
+    expect(staged.visible, isFalse);
+    expect(studio.inspectedSourceId, staged.sourceId);
+    await tester.tap(find.byKey(const ValueKey('properties-cancel')));
+    await tester.pumpAndSettle();
+    expect(studio.programScene.items, hasLength(itemsBefore));
+    expect(studio.sources, hasLength(sourcesBefore));
+    expect(studio.inspectedSourceId, isNull);
+
+    // Add: it shows up.
+    await addColor();
+    await tester.tap(find.byKey(const ValueKey('properties-add')));
+    await tester.pumpAndSettle();
+    expect(studio.programScene.items, hasLength(itemsBefore + 1));
+    expect(studio.programScene.items.last.visible, isTrue);
+    expect(tester.takeException(), isNull);
+    await tester.pump(const Duration(seconds: 3));
   });
 
   testWidgets('dragging on the canvas moves the selected item', (tester) async {

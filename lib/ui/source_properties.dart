@@ -7,30 +7,52 @@ import '../core/studio_controller.dart';
 import '../network_video/mjpeg.dart';
 import '../network_video/network_video_service.dart';
 import '../plugins/plugin_manifest.dart';
+import '../render/scene_canvas.dart';
 import 'dialogs.dart';
 import 'media_import.dart';
+import 'source_settings_more.dart';
 import 'theme.dart';
 
 /// Properties / Transform / Filters for one scene item, in a sheet that
-/// leaves the canvas visible so changes can be seen live.
-Future<void> showSourceProperties(BuildContext context, String itemId, {int initialTab = 0}) {
-  return showModalBottomSheet<void>(
+/// leaves the canvas visible so changes can be seen live. The source itself
+/// is previewed at the top, like OBS's properties window.
+///
+/// [creating]: the item was just added (hidden). "Add" puts it in the scene,
+/// "Cancel" removes it, so nothing reaches preview or program before the
+/// user is happy with it. Returns true if it was added.
+Future<bool> showSourceProperties(BuildContext context, String itemId, {int initialTab = 0, bool creating = false}) async {
+  final studio = AppScope.of(context).studio;
+  final item = studio.itemById(itemId);
+  studio.setInspectedSource(item?.sourceId);
+  final added = await showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
+    isDismissible: !creating,
+    enableDrag: !creating,
     constraints: const BoxConstraints(maxWidth: 760),
     barrierColor: Colors.black26,
     builder: (_) => FractionallySizedBox(
-      heightFactor: 0.62,
-      child: _PropertiesSheet(itemId: itemId, initialTab: initialTab),
+      heightFactor: 0.8,
+      child: _PropertiesSheet(itemId: itemId, initialTab: initialTab, creating: creating),
     ),
   );
+  if (studio.inspectedSourceId == item?.sourceId) studio.setInspectedSource(null);
+  if (creating) {
+    if (added == true) {
+      studio.setItemVisible(itemId, true);
+    } else {
+      studio.removeItem(itemId);
+    }
+  }
+  return added == true;
 }
 
 class _PropertiesSheet extends StatelessWidget {
-  const _PropertiesSheet({required this.itemId, required this.initialTab});
+  const _PropertiesSheet({required this.itemId, required this.initialTab, this.creating = false});
 
   final String itemId;
   final int initialTab;
+  final bool creating;
 
   @override
   Widget build(BuildContext context) {
@@ -62,10 +84,24 @@ class _PropertiesSheet extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    TextButton(onPressed: () => Navigator.pop(context), child: const Text('Done')),
+                    if (creating) ...[
+                      TextButton(
+                        key: const ValueKey('properties-cancel'),
+                        onPressed: () => Navigator.pop(context, false),
+                        child: const Text('Cancel'),
+                      ),
+                      const SizedBox(width: 6),
+                      FilledButton(
+                        key: const ValueKey('properties-add'),
+                        onPressed: () => Navigator.pop(context, true),
+                        child: Text(studio.studioMode ? 'Add to Preview' : 'Add to Scene'),
+                      ),
+                    ] else
+                      TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Done')),
                   ],
                 ),
               ),
+              if (visual) _SourcePreview(source: source, item: item, creating: creating),
               TabBar(tabs: [
                 const Tab(text: 'Properties'),
                 if (visual) const Tab(text: 'Transform'),
@@ -86,16 +122,70 @@ class _PropertiesSheet extends StatelessWidget {
   }
 }
 
+/// Live preview of the source alone, at the size it has in the scene.
+class _SourcePreview extends StatelessWidget {
+  const _SourcePreview({required this.source, required this.item, required this.creating});
+
+  final Source source;
+  final SceneItem item;
+  final bool creating;
+
+  @override
+  Widget build(BuildContext context) {
+    final studio = AppScope.of(context).studio;
+    final t = item.transform;
+    final w = t.width <= 1 ? studio.settings.canvasWidth.toDouble() : t.width;
+    final h = t.height <= 1 ? studio.settings.canvasHeight.toDouble() : t.height;
+    final live = !creating && item.visible && studio.programScene.items.any((i) => i.id == item.id);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        SizedBox(
+          height: 170,
+          child: Container(
+            key: const ValueKey('source-preview'),
+            decoration: BoxDecoration(
+              color: const Color(0xFF0D0E12),
+              border: Border.all(color: ObsColors.border),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: FittedBox(
+              child: SizedBox(
+                width: w,
+                height: h,
+                child: SourceRenderer(source: source, fit: t.fit, showPlaceholder: true),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          creating
+              ? 'Preview only: nothing goes live until you tap ${studio.studioMode ? '"Add to Preview" and then Transition' : '"Add to Scene"'}.'
+              : live
+                  ? 'This source is live in the program.'
+                  : 'This source is not live.',
+          style: TextStyle(fontSize: 12, color: live ? ObsColors.live : ObsColors.textDim),
+        ),
+      ]),
+    );
+  }
+}
+
 IconData sourceIcon(SourceType t) => switch (t) {
       SourceType.camera => Icons.videocam_outlined,
       SourceType.screen => Icons.screen_share_outlined,
       SourceType.usbVideo => Icons.usb,
       SourceType.networkVideo => Icons.wifi_tethering,
       SourceType.image => Icons.image_outlined,
+      SourceType.imageSlideShow => Icons.collections_outlined,
       SourceType.media => Icons.movie_outlined,
+      SourceType.browser => Icons.language,
       SourceType.text => Icons.text_fields,
       SourceType.color => Icons.format_color_fill,
       SourceType.audioInput => Icons.mic_none,
+      SourceType.audioOutput => Icons.volume_up_outlined,
       SourceType.plugin => Icons.extension_outlined,
     };
 
@@ -249,6 +339,12 @@ class _SourceSettingsTab extends StatelessWidget {
         children.add(_PluginSettings(source: source));
       case SourceType.audioInput:
         children.add(_AudioInputSettings(source: source));
+      case SourceType.imageSlideShow:
+        children.add(SlideShowSettings(source: source));
+      case SourceType.browser:
+        children.add(BrowserSettings(source: source));
+      case SourceType.audioOutput:
+        children.add(const AudioOutputSettings());
     }
     return ListView(padding: const EdgeInsets.all(20), children: children);
   }

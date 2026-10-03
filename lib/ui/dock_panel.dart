@@ -28,8 +28,8 @@ class DockChip extends StatelessWidget {
         : !d.presenting
             ? 'Docked · Mirroring'
             : mode == 'multiview'
-                ? 'Docked · Multiview on screen'
-                : 'Docked · Program on screen';
+                ? 'Docked · Multiview'
+                : 'Docked · Program';
     return Padding(
       padding: const EdgeInsets.only(left: 8),
       child: InkWell(

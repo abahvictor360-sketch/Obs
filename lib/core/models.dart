@@ -33,10 +33,20 @@ enum SourceType {
   /// Phone camera / IP camera over Wi-Fi (DroidCam, IP Webcam, MJPEG, HLS).
   networkVideo('Network Video (phone / IP camera)'),
   image('Image'),
+
+  /// Several images shown one after another with a transition.
+  imageSlideShow('Image Slide Show'),
   media('Media Source'),
+
+  /// A web page (overlays, alerts, chat, widgets) rendered off screen.
+  browser('Browser'),
   text('Text'),
   color('Color Source'),
   audioInput('Audio Input Capture'),
+
+  /// Sound played by other apps (desktop audio). Uses the system's screen
+  /// recording permission, like Screen Capture.
+  audioOutput('Audio Output Capture'),
 
   /// A source type provided by an installed script plugin.
   plugin('Plugin Source');
@@ -45,11 +55,15 @@ enum SourceType {
   final String label;
 
   /// Whether the source produces pixels on the canvas.
-  bool get isVisual => this != SourceType.audioInput;
+  bool get isVisual => this != SourceType.audioInput && this != SourceType.audioOutput;
 
   /// Whether the source shows up in the audio mixer.
   /// Screen Capture carries the audio of other apps (games, videos).
-  bool get hasAudio => this == SourceType.audioInput || this == SourceType.media || this == SourceType.screen;
+  bool get hasAudio =>
+      this == SourceType.audioInput ||
+      this == SourceType.audioOutput ||
+      this == SourceType.media ||
+      this == SourceType.screen;
 
   static SourceType fromName(String name) =>
       SourceType.values.firstWhere((t) => t.name == name, orElse: () => SourceType.color);
@@ -144,6 +158,26 @@ class SourceDefaults {
         return {
           'path': '', // local file path
         };
+      case SourceType.imageSlideShow:
+        return {
+          'paths': <String>[], // local file paths, in order
+          'slideMs': 5000, // time each image is shown
+          'transition': 'fade', // cut | fade | slide | swipe
+          'transitionMs': 700,
+          'loop': true,
+          'random': false,
+        };
+      case SourceType.browser:
+        return {
+          'url': 'https://obsproject.com/browser-source',
+          'width': 1280.0,
+          'height': 720.0,
+          'fps': 15,
+          'css': 'body { background-color: rgba(0, 0, 0, 0); margin: 0px auto; overflow: hidden; }',
+          'shutdown': true, // close the page when it's not in program/preview
+        };
+      case SourceType.audioOutput:
+        return {};
       case SourceType.media:
         return {
           'path': '',
@@ -392,6 +426,35 @@ enum TransitionType {
   final String label;
 }
 
+/// A one-click transition in studio mode (OBS's "Quick Transitions").
+class QuickTransition {
+  const QuickTransition(this.type, this.ms);
+
+  final TransitionType type;
+  final int ms;
+
+  String get label => type == TransitionType.cut ? type.label : '${type.label} (${ms}ms)';
+
+  Map<String, dynamic> toJson() => {'type': type.name, 'ms': ms};
+
+  factory QuickTransition.fromJson(Map<String, dynamic> j) => QuickTransition(
+        TransitionType.values.firstWhere((t) => t.name == j['type'], orElse: () => TransitionType.fade),
+        (j['ms'] as num?)?.toInt() ?? 300,
+      );
+
+  static const defaults = [
+    QuickTransition(TransitionType.cut, 0),
+    QuickTransition(TransitionType.fade, 300),
+    QuickTransition(TransitionType.fadeToBlack, 300),
+  ];
+
+  @override
+  bool operator ==(Object other) => other is QuickTransition && other.type == type && other.ms == ms;
+
+  @override
+  int get hashCode => Object.hash(type, ms);
+}
+
 class SceneCollection {
   SceneCollection({
     required this.name,
@@ -401,7 +464,9 @@ class SceneCollection {
     String? previewSceneId,
     this.transition = TransitionType.fade,
     this.transitionMs = 300,
-  }) : previewSceneId = previewSceneId ?? programSceneId;
+    List<QuickTransition>? quickTransitions,
+  })  : previewSceneId = previewSceneId ?? programSceneId,
+        quickTransitions = quickTransitions ?? List.of(QuickTransition.defaults);
 
   String name;
   final List<Source> sources;
@@ -410,6 +475,7 @@ class SceneCollection {
   String previewSceneId;
   TransitionType transition;
   int transitionMs;
+  final List<QuickTransition> quickTransitions;
 
   /// A fresh collection similar to what OBS Studio creates on first launch,
   /// with a bit of starter content so the canvas isn't empty.
@@ -473,6 +539,7 @@ class SceneCollection {
         'previewSceneId': previewSceneId,
         'transition': transition.name,
         'transitionMs': transitionMs,
+        'quickTransitions': quickTransitions.map((q) => q.toJson()).toList(),
       };
 
   factory SceneCollection.fromJson(Map<String, dynamic> j) {
@@ -503,6 +570,9 @@ class SceneCollection {
         orElse: () => TransitionType.fade,
       ),
       transitionMs: (j['transitionMs'] as num?)?.toInt() ?? 300,
+      quickTransitions: (j['quickTransitions'] as List?)
+          ?.map((e) => QuickTransition.fromJson((e as Map).cast<String, dynamic>()))
+          .toList(),
     );
   }
 }
@@ -526,7 +596,12 @@ class OutputSettings {
     this.confirmStartStop = true,
     this.preferWired = true,
     this.externalDisplay = 'program',
-  });
+    List<String>? hiddenDocks,
+    Map<String, double>? dockWeights,
+    this.dockHeight = 0,
+    this.studioMode = true,
+  })  : hiddenDocks = hiddenDocks ?? [],
+        dockWeights = dockWeights ?? {};
 
   String service;
   String server;
@@ -550,6 +625,20 @@ class OutputSettings {
   /// 'multiview' (preview, program and scene thumbnails, like OBS's
   /// Multiview) or 'mirror' (the tablet's own screen).
   String externalDisplay;
+
+  /// Docks the user closed (ids from `kDocks`); reopen them from the Docks
+  /// menu.
+  final List<String> hiddenDocks;
+
+  /// Relative widths of the docks in the landscape layout.
+  final Map<String, double> dockWeights;
+
+  /// Height of the dock row in logical pixels; 0 = automatic.
+  double dockHeight;
+
+  /// Start in Studio Mode (edit the preview, then transition to program).
+  /// Remembers the last choice.
+  bool studioMode;
 
   /// Full publish URL: server + '/' + key (key may be empty for servers that
   /// embed it in the URL).
@@ -577,6 +666,10 @@ class OutputSettings {
         'confirmStartStop': confirmStartStop,
         'preferWired': preferWired,
         'externalDisplay': externalDisplay,
+        'hiddenDocks': hiddenDocks,
+        'dockWeights': dockWeights,
+        'dockHeight': dockHeight,
+        'studioMode': studioMode,
       };
 
   factory OutputSettings.fromJson(Map<String, dynamic> j) {
@@ -601,6 +694,11 @@ class OutputSettings {
       externalDisplay: const ['program', 'multiview', 'mirror'].contains(j['externalDisplay'])
           ? j['externalDisplay'] as String
           : d.externalDisplay,
+      hiddenDocks: (j['hiddenDocks'] as List?)?.map((e) => '$e').toList(),
+      dockWeights: (j['dockWeights'] as Map?)
+          ?.map((k, v) => MapEntry('$k', (v as num).toDouble())),
+      dockHeight: (j['dockHeight'] as num?)?.toDouble() ?? 0,
+      studioMode: j['studioMode'] as bool? ?? d.studioMode,
     );
   }
 }

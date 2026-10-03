@@ -217,14 +217,10 @@ class NetworkVideoTracker {
   void _sync() {
     if (!service.supported) return;
     final wanted = <String, (NetworkVideoKind, String)>{};
-    for (final scene in {studio.programScene, studio.previewScene}) {
-      for (final item in scene.items) {
-        if (!item.visible) continue;
-        final s = studio.sourceById(item.sourceId);
-        if (s == null || s.type != SourceType.networkVideo) continue;
-        final url = networkVideoUrl(s.settings);
-        if (url != null) wanted[s.id] = (NetworkVideoKind.fromName(s.settings['kind'] as String?), url);
-      }
+    for (final s in studio.activeSources) {
+      if (s.type != SourceType.networkVideo) continue;
+      final url = networkVideoUrl(s.settings);
+      if (url != null) wanted[s.id] = (NetworkVideoKind.fromName(s.settings['kind'] as String?), url);
     }
     service.sync(wanted);
   }

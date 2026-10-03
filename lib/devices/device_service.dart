@@ -315,14 +315,10 @@ class DeviceActivityTracker {
     if (!devices.supported) return;
     String? wanted;
     var wantUsb = false;
-    for (final scene in {studio.programScene, studio.previewScene}) {
-      for (final item in scene.items) {
-        if (!item.visible) continue;
-        final s = studio.sourceById(item.sourceId);
-        if (s?.type == SourceType.usbVideo) {
-          wantUsb = true;
-          wanted ??= s!.settings['device'] as String?;
-        }
+    for (final s in studio.activeSources) {
+      if (s.type == SourceType.usbVideo) {
+        wantUsb = true;
+        wanted ??= s.settings['device'] as String?;
       }
     }
     if (wantUsb) {

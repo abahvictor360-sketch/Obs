@@ -7,9 +7,11 @@ import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
 import '../app_scope.dart';
+import '../browser/browser_source.dart';
 import '../core/models.dart';
 import '../ui/theme.dart';
 import 'platform_media.dart';
+import 'slideshow.dart';
 
 /// Renders a scene at full canvas resolution (e.g. 1920x1080 logical px).
 /// Wrap in a FittedBox to display it at any size.
@@ -153,6 +155,14 @@ class SourceRenderer extends StatelessWidget {
         final path = s['path'] as String? ?? '';
         if (path.isEmpty) return _placeholder(Icons.image_outlined, 'Tap ⚙ to choose an image');
         return imageFromPath(path, fit: _boxFit(fit));
+      case SourceType.imageSlideShow:
+        return SlideShowView(
+          source: source,
+          fit: _boxFit(fit),
+          placeholder: _placeholder(Icons.collections_outlined, 'Tap ⚙ to add images'),
+        );
+      case SourceType.browser:
+        return _BrowserSource(source: source, fit: _boxFit(fit), showPlaceholder: showPlaceholder);
       case SourceType.camera:
         return _CameraSource(source: source, fit: _boxFit(fit), showPlaceholder: showPlaceholder);
       case SourceType.media:
@@ -164,6 +174,7 @@ class SourceRenderer extends StatelessWidget {
       case SourceType.screen:
         return showPlaceholder ? ScreenSourceCard(source: source) : const ColoredBox(color: Colors.black);
       case SourceType.audioInput:
+      case SourceType.audioOutput:
         return const SizedBox.shrink();
       case SourceType.plugin:
         return _PluginSource(source: source, fit: _boxFit(fit), showPlaceholder: showPlaceholder);
@@ -172,6 +183,37 @@ class SourceRenderer extends StatelessWidget {
 
   Widget _placeholder(IconData icon, String text) =>
       showPlaceholder ? SourcePlaceholder(icon: icon, label: source.name, hint: text) : const SizedBox.expand();
+}
+
+/// Latest snapshot of a Browser source's page.
+class _BrowserSource extends StatelessWidget {
+  const _BrowserSource({required this.source, required this.fit, required this.showPlaceholder});
+
+  final Source source;
+  final BoxFit fit;
+  final bool showPlaceholder;
+
+  @override
+  Widget build(BuildContext context) {
+    final service = BrowserSourceService.instance;
+    final feed = service.feed(source.id);
+    Widget placeholder(String hint) => showPlaceholder
+        ? SourcePlaceholder(icon: Icons.language, label: source.name, hint: hint)
+        : const SizedBox.expand();
+    if (feed == null) {
+      if (!service.supported) return placeholder('Browser sources run in the Android and iPad apps');
+      final url = source.settings['url'] as String? ?? '';
+      return placeholder(url.isEmpty ? 'Tap ⚙ to enter a URL' : 'Loading…');
+    }
+    return ListenableBuilder(
+      listenable: feed,
+      builder: (context, _) {
+        final img = feed.image;
+        if (img == null) return placeholder(feed.error ?? 'Loading ${source.settings['url']}…');
+        return RawImage(image: img, fit: fit, filterQuality: FilterQuality.medium);
+      },
+    );
+  }
 }
 
 class SourcePlaceholder extends StatelessWidget {

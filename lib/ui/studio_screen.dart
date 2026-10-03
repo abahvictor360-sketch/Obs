@@ -10,8 +10,11 @@ import '../render/multiview.dart';
 import '../render/program_view.dart';
 import '../render/scene_canvas.dart';
 import 'dock_panel.dart';
+import 'dock_layout.dart';
 import 'docks.dart';
+import 'menu_bar.dart';
 import 'theme.dart';
+import 'transition_panel.dart';
 
 /// The main window. Landscape tablets get OBS's classic layout (canvas on top,
 /// docks in a row below). Portrait tablets and phones get the canvas, a row of
@@ -53,29 +56,12 @@ class _LandscapeLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dockHeight = (height * 0.36).clamp(220.0, 340.0);
     return Column(
       children: [
         const _TopBar(),
-        const Expanded(child: Padding(padding: EdgeInsets.all(6), child: _CanvasArea())),
-        SizedBox(
-          height: dockHeight,
-          child: const Padding(
-            padding: EdgeInsets.fromLTRB(6, 0, 6, 6),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(flex: 4, child: ScenesDock()),
-                SizedBox(width: 6),
-                Expanded(flex: 5, child: SourcesDock()),
-                SizedBox(width: 6),
-                Expanded(flex: 5, child: MixerDock()),
-                SizedBox(width: 6),
-                Expanded(flex: 3, child: TransitionsDock()),
-                SizedBox(width: 6),
-                Expanded(flex: 3, child: ControlsDock()),
-              ],
-            ),
+        Expanded(
+          child: LayoutBuilder(
+            builder: (context, box) => LandscapeWorkspace(height: box.maxHeight, canvas: const _CanvasArea()),
           ),
         ),
         const StatusBar(),
@@ -87,53 +73,50 @@ class _LandscapeLayout extends StatelessWidget {
 class _PortraitLayout extends StatelessWidget {
   const _PortraitLayout();
 
+  static const _tabTitles = {'scenes': 'Scenes', 'sources': 'Sources', 'mixer': 'Mixer', 'transitions': 'Transitions'};
+
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 4,
-      child: Column(
-        children: [
-          const _TopBar(),
-          LayoutBuilder(builder: (context, box) {
-            final studio = AppScope.of(context).studio;
-            final aspect = studio.settings.canvasWidth / studio.settings.canvasHeight;
-            final h = box.maxWidth / aspect;
-            return ListenableBuilder(
-              listenable: studio,
-              builder: (context, _) => SizedBox(
-                height: studio.studioMode ? h * 0.55 + 56 : h + 12,
-                child: const Padding(padding: EdgeInsets.all(6), child: _CanvasArea()),
-              ),
-            );
-          }),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 3, vertical: 4),
-            child: ControlsDock(compact: true),
-          ),
-          const TabBar(
-            tabs: [
-              Tab(text: 'Scenes'),
-              Tab(text: 'Sources'),
-              Tab(text: 'Mixer'),
-              Tab(text: 'Transitions'),
+    final studio = AppScope.of(context).studio;
+    return ListenableBuilder(
+      listenable: studio,
+      builder: (context, _) {
+        final tabs = kDocks.where((d) => _tabTitles.containsKey(d.id) && studio.isDockVisible(d.id)).toList();
+        return DefaultTabController(
+          key: ValueKey(tabs.map((d) => d.id).join(',')),
+          length: tabs.length,
+          child: Column(
+            children: [
+              const _TopBar(),
+              LayoutBuilder(builder: (context, box) {
+                final aspect = studio.settings.canvasWidth / studio.settings.canvasHeight;
+                final h = box.maxWidth / aspect;
+                final canvas = SizedBox(
+                  height: studio.studioMode ? h * 0.55 + 56 : h + 12,
+                  child: const Padding(padding: EdgeInsets.all(6), child: _CanvasArea()),
+                );
+                return canvas;
+              }),
+              if (studio.isDockVisible('controls'))
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 3, vertical: 4),
+                  child: ControlsDock(compact: true),
+                ),
+              if (tabs.isNotEmpty) ...[
+                TabBar(tabs: [for (final d in tabs) Tab(text: _tabTitles[d.id])]),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(6),
+                    child: TabBarView(children: [for (final d in tabs) d.build(showTitle: false)]),
+                  ),
+                ),
+              ] else
+                const Spacer(),
+              const StatusBar(),
             ],
           ),
-          const Expanded(
-            child: Padding(
-              padding: EdgeInsets.all(6),
-              child: TabBarView(
-                children: [
-                  ScenesDock(showTitle: false),
-                  SourcesDock(showTitle: false),
-                  MixerDock(showTitle: false),
-                  TransitionsDock(showTitle: false),
-                ],
-              ),
-            ),
-          ),
-          const StatusBar(),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -154,14 +137,15 @@ class _TopBar extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Row(
             children: [
-              Container(
-                width: 26,
-                height: 26,
-                decoration: const BoxDecoration(color: ObsColors.text, shape: BoxShape.circle),
-                child: const Icon(Icons.radio_button_checked, size: 20, color: ObsColors.header),
+              Image.asset('assets/logo.png', width: 26, height: 26, filterQuality: FilterQuality.medium),
+              const SizedBox(width: 6),
+              Flexible(
+                flex: 3,
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: ObsMenuBar(compact: MediaQuery.sizeOf(context).width < 1000),
+                ),
               ),
-              const SizedBox(width: 10),
-              const Text('ObsPad', style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(width: 12),
               Flexible(
                 child: Text(
@@ -224,16 +208,21 @@ class _CanvasArea extends StatelessWidget {
             content: FittedBox(child: SceneCanvas(scene: studio.previewScene)),
           );
           const program = EditableCanvas(label: 'Program', editable: false, content: ProgramView());
-          final transitionButton = FilledButton.icon(
-            style: FilledButton.styleFrom(
-              backgroundColor: ObsColors.accent,
-              foregroundColor: Colors.white,
-              minimumSize: const Size(140, 48),
-            ),
-            icon: const Icon(Icons.arrow_forward),
-            label: const Text('Transition'),
-            onPressed: studio.transitionToProgram,
-          );
+          // Wide: OBS's column between Preview and Program. Narrow: a strip
+          // below them.
+          if (box.maxWidth >= 760) {
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(child: preview),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                  child: Center(child: TransitionPanel()),
+                ),
+                const Expanded(child: program),
+              ],
+            );
+          }
           return Column(
             children: [
               Expanded(
@@ -245,7 +234,7 @@ class _CanvasArea extends StatelessWidget {
                   ],
                 ),
               ),
-              Padding(padding: const EdgeInsets.only(top: 6), child: transitionButton),
+              const Padding(padding: EdgeInsets.only(top: 6), child: TransitionPanel(vertical: false)),
             ],
           );
         });

@@ -30,9 +30,18 @@ _Screenshots are from the browser build, using Chromium's synthetic test camera 
     closed protocol that only its own desktop driver understands, so it isn't supported.)
   - Image and Media Source (looping video): pick files from the tablet's file manager (Files app, USB
     drive, SD card, cloud) or the photo gallery. Files are copied into the app, so they keep working.
+  - Image Slide Show: many images (files or gallery) with Cut, Fade, Slide or Swipe, timing, loop,
+    random order, and Previous/Next
+  - Browser: any web page or local HTML file (alerts, chat, overlay widgets) drawn off screen at up to
+    30 FPS with transparency, custom size, frame rate and CSS. Pages run only while visible unless
+    "Shut down source when not visible" is off
   - Text (font size, bold, italic, outline, colors, alignment)
   - Color Source
-  - Audio Input Capture (microphone)
+  - Audio Input Capture (microphone, USB audio)
+  - Audio Output Capture (desktop audio: other apps' sound, using the system's screen-recording
+    permission; Android 10+ or the iPad broadcast)
+- New sources are previewed in their properties first: they stay out of the scene until you tap
+  **Add**, and **Cancel** discards them. Every properties sheet shows a live preview of the source.
 - Per item: visibility, lock, ordering (top, up, down, bottom) and duplicate.
 - Transform: position, size, rotation, crop, flip, and fit mode (stretch, fit, fill).
 - Transform presets: Fit to Screen, Stretch, Center, Rotate 90° and others.
@@ -45,8 +54,14 @@ _Screenshots are from the browser build, using Chromium's synthetic test camera 
 - Long-press for the full item menu.
 
 **Live production**
-- Studio Mode: edit the Preview, then press Transition to send it to Program.
+- Studio Mode (on by default): edit the Preview, then press Transition to send it to Program. Between
+  Preview and Program, as in OBS: the Transition button with a ⋮ menu (transition and duration), Quick
+  Transitions (Cut, Fade, Fade to Black, add your own with +, long-press to remove) and a T-bar for
+  manual transitions.
 - Transitions: Cut, Fade, Slide, Swipe, Fade to Black, with adjustable duration.
+- OBS menu bar (File, Edit, View, Docks, Scene Collection, Tools, Help); one ☰ menu on narrow screens.
+- Docks can be closed (✕) and reopened from the Docks menu, resized by dragging the gaps between them,
+  and made taller or shorter by dragging the handle above them. Docks › Reset Docks restores the layout.
 - Audio mixer with logarithmic faders, dB readout, mute, and green/yellow/red level meters.
 - Status bar shows LIVE and REC timers, bitrate, FPS and dropped frames.
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'app_scope.dart';
+import 'browser/browser_source.dart';
 import 'core/storage.dart';
 import 'core/studio_controller.dart';
 import 'devices/device_service.dart';
@@ -35,6 +36,7 @@ Future<void> main() async {
   ExternalDisplayOutput(output: output, devices: devices);
   final networkVideo = NetworkVideoService();
   NetworkVideoTracker(studio, networkVideo);
+  BrowserSourceTracker(studio, BrowserSourceService.instance);
 
   runApp(ObsTabletApp(studio: studio, output: output, cameras: cameras, media: media, plugins: plugins, devices: devices, networkVideo: networkVideo));
 }

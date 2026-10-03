@@ -248,19 +248,13 @@ class SourceActivityTracker {
   final MediaService media;
 
   void _sync() {
-    final scenes = {studio.programScene, studio.previewScene};
     final lenses = <String, CameraOptions>{};
     final mediaSources = <String, Source>{};
-    for (final scene in scenes) {
-      for (final item in scene.items) {
-        if (!item.visible) continue;
-        final s = studio.sourceById(item.sourceId);
-        if (s == null) continue;
-        if (s.type == SourceType.camera) {
-          lenses.putIfAbsent(s.settings['lens'] as String? ?? 'front', () => CameraOptions.fromSettings(s.settings));
-        }
-        if (s.type == SourceType.media) mediaSources[s.id] = s;
+    for (final s in studio.activeSources) {
+      if (s.type == SourceType.camera) {
+        lenses.putIfAbsent(s.settings['lens'] as String? ?? 'front', () => CameraOptions.fromSettings(s.settings));
       }
+      if (s.type == SourceType.media) mediaSources[s.id] = s;
     }
     cameras.sync(lenses);
     media.sync(mediaSources.values);

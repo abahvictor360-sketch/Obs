@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../app_scope.dart';
@@ -61,13 +63,13 @@ class _ProgramViewState extends State<ProgramView> with SingleTickerProviderStat
     if (programId == _toSceneId) return;
     _fromSceneId = _toSceneId;
     _toSceneId = programId;
-    _type = studio.collection.transition;
+    _type = studio.activeTransition;
     if (_type == TransitionType.cut) {
       _fromSceneId = null;
       _anim.value = 1;
       return;
     }
-    _anim.duration = Duration(milliseconds: studio.collection.transitionMs);
+    _anim.duration = Duration(milliseconds: math.max(1, studio.activeTransitionMs));
     _anim.forward(from: 0).whenComplete(() {
       if (mounted) setState(() => _fromSceneId = null);
     });
@@ -114,6 +116,36 @@ class _ProgramViewState extends State<ProgramView> with SingleTickerProviderStat
           ]);
         }
 
+        Widget mix(Scene from, Scene to, TransitionType type, double progress) {
+          final t = Curves.easeInOut.transform(progress);
+          switch (type) {
+            case TransitionType.cut:
+              return canvasFor(progress >= 1 ? to : from);
+            case TransitionType.fade:
+              return Stack(children: [
+                canvasFor(from),
+                Opacity(opacity: t, child: canvasFor(to)),
+              ]);
+            case TransitionType.fadeToBlack:
+              final showTo = t >= 0.5;
+              final o = showTo ? (t - 0.5) * 2 : 1 - t * 2;
+              return ColoredBox(
+                color: Colors.black,
+                child: Opacity(opacity: o.clamp(0, 1), child: canvasFor(showTo ? to : from)),
+              );
+            case TransitionType.slide:
+              return Stack(children: [
+                Transform.translate(offset: Offset(-cw * t, 0), child: canvasFor(from)),
+                Transform.translate(offset: Offset(cw * (1 - t), 0), child: canvasFor(to)),
+              ]);
+            case TransitionType.swipe:
+              return Stack(children: [
+                canvasFor(from),
+                Transform.translate(offset: Offset(cw * (1 - t), 0), child: canvasFor(to)),
+              ]);
+          }
+        }
+
         return RepaintBoundary(
           key: scope.output.programKey,
           child: ColoredBox(
@@ -123,34 +155,13 @@ class _ProgramViewState extends State<ProgramView> with SingleTickerProviderStat
                 child: AnimatedBuilder(
                   animation: _anim,
                   builder: (context, _) {
-                    final t = Curves.easeInOut.transform(_anim.value);
-                    if (from == null || _anim.value >= 1) return settled(to);
-                    switch (_type) {
-                      case TransitionType.cut:
-                        return canvasFor(to);
-                      case TransitionType.fade:
-                        return Stack(children: [
-                          canvasFor(from),
-                          Opacity(opacity: t, child: canvasFor(to)),
-                        ]);
-                      case TransitionType.fadeToBlack:
-                        final showTo = t >= 0.5;
-                        final o = showTo ? (t - 0.5) * 2 : 1 - t * 2;
-                        return ColoredBox(
-                          color: Colors.black,
-                          child: Opacity(opacity: o.clamp(0, 1), child: canvasFor(showTo ? to : from)),
-                        );
-                      case TransitionType.slide:
-                        return Stack(children: [
-                          Transform.translate(offset: Offset(-cw * t, 0), child: canvasFor(from)),
-                          Transform.translate(offset: Offset(cw * (1 - t), 0), child: canvasFor(to)),
-                        ]);
-                      case TransitionType.swipe:
-                        return Stack(children: [
-                          canvasFor(from),
-                          Transform.translate(offset: Offset(cw * (1 - t), 0), child: canvasFor(to)),
-                        ]);
+                    // Studio mode T-bar: a manual mix towards the preview.
+                    final tBar = studio.tBar;
+                    if (studio.studioMode && tBar > 0 && (from == null || _anim.value >= 1)) {
+                      return mix(to, studio.previewScene, studio.collection.transition, tBar);
                     }
+                    if (from == null || _anim.value >= 1) return settled(to);
+                    return mix(from, to, _type, _anim.value);
                   },
                 ),
               ),

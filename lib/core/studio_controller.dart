@@ -22,6 +22,33 @@ class StudioController extends ChangeNotifier {
   /// Studio Mode: edit the preview scene, then transition it to program.
   bool studioMode = false;
 
+  /// The source whose properties are open. Its camera, page or stream runs
+  /// even while the source is hidden, so it can be previewed before it goes
+  /// into the scene.
+  String? inspectedSourceId;
+
+  void setInspectedSource(String? id) {
+    if (inspectedSourceId == id) return;
+    inspectedSourceId = id;
+    notifyListeners();
+  }
+
+  /// Sources that need to run: visible in program or preview, plus the one
+  /// being inspected. Unique, bottom-most first.
+  List<Source> get activeSources {
+    final out = <String, Source>{};
+    for (final scene in {programScene, previewScene}) {
+      for (final item in scene.items) {
+        if (!item.visible) continue;
+        final s = sourceById(item.sourceId);
+        if (s != null) out[s.id] = s;
+      }
+    }
+    final inspected = inspectedSourceId == null ? null : sourceById(inspectedSourceId!);
+    if (inspected != null) out[inspected.id] = inspected;
+    return out.values.toList();
+  }
+
   /// Selected scene item (in the scene being edited).
   String? selectedItemId;
 
@@ -54,7 +81,11 @@ class StudioController extends ChangeNotifier {
     } catch (e) {
       debugPrint('Failed to load settings: $e');
     }
-    return StudioController(storage: storage, collection: collection, settings: settings);
+    final c = StudioController(storage: storage, collection: collection, settings: settings);
+    // A fresh install starts in Studio Mode, so changes are previewed before
+    // they go live; after that the last choice is kept.
+    if (c.settings.studioMode) c.setStudioMode(true);
+    return c;
   }
 
   // ---------------------------------------------------------------------------
@@ -126,37 +157,83 @@ class StudioController extends ChangeNotifier {
     if (sceneById(sceneId) == null) return;
     selectedItemId = null;
     if (studioMode) {
+      if (collection.previewSceneId != sceneId) tBar = 0;
       collection.previewSceneId = sceneId;
     } else {
       if (collection.programSceneId != sceneId) {
         collection.programSceneId = sceneId;
         collection.previewSceneId = sceneId;
+        _active = null;
         transitionSerial++;
       }
     }
     _changed();
   }
 
+  /// The transition used for the latest scene change ([transitionSerial]):
+  /// the selected one, or a quick transition's.
+  TransitionType get activeTransition => _active?.type ?? collection.transition;
+  int get activeTransitionMs => _active?.ms ?? collection.transitionMs;
+  QuickTransition? _active;
+
   /// Studio mode "Transition" button: preview -> program. Like OBS, the old
-  /// program scene becomes the new preview (swap).
-  void transitionToProgram() {
+  /// program scene becomes the new preview (swap). [using] is a quick
+  /// transition; otherwise the selected transition is used.
+  void transitionToProgram({QuickTransition? using}) {
     if (!studioMode) return;
     final oldProgram = collection.programSceneId;
     if (oldProgram == collection.previewSceneId) return;
     collection.programSceneId = collection.previewSceneId;
     collection.previewSceneId = oldProgram;
     selectedItemId = null;
+    _active = using;
+    tBar = 0;
     transitionSerial++;
+    _changed();
+  }
+
+  /// Studio mode T-bar position (0 = program, 1 = preview fully in). Not
+  /// saved. While it's between 0 and 1 the program shows the mix.
+  double tBar = 0;
+
+  void setTBar(double v) {
+    if (!studioMode || collection.programSceneId == collection.previewSceneId) {
+      if (tBar != 0) {
+        tBar = 0;
+        notifyListeners();
+      }
+      return;
+    }
+    tBar = v.clamp(0.0, 1.0);
+    notifyListeners();
+  }
+
+  /// Letting go of the T-bar: at the end it completes the transition (no
+  /// further animation); anywhere else it stays put, like OBS.
+  void releaseTBar() {
+    if (tBar >= 0.97) transitionToProgram(using: const QuickTransition(TransitionType.cut, 0));
+  }
+
+  void addQuickTransition(QuickTransition q) {
+    if (collection.quickTransitions.contains(q)) return;
+    collection.quickTransitions.add(q);
+    _changed();
+  }
+
+  void removeQuickTransition(QuickTransition q) {
+    collection.quickTransitions.remove(q);
     _changed();
   }
 
   void setStudioMode(bool enabled) {
     if (studioMode == enabled) return;
     studioMode = enabled;
+    settings.studioMode = enabled;
+    tBar = 0;
     // Entering studio mode starts with preview == program.
     collection.previewSceneId = collection.programSceneId;
     selectedItemId = null;
-    notifyListeners();
+    _changed();
   }
 
   Scene addScene([String? name]) {
@@ -272,7 +349,15 @@ class StudioController extends ChangeNotifier {
       case SourceType.image:
         final w = cw / 2, h = ch / 2;
         return ItemTransform(x: (cw - w) / 2, y: (ch - h) / 2, width: w, height: h, fit: FitMode.contain);
+      case SourceType.imageSlideShow:
+        return ItemTransform(width: cw, height: ch, fit: FitMode.contain);
+      case SourceType.browser:
+        final w = (s.settings['width'] as num?)?.toDouble() ?? cw;
+        final h = (s.settings['height'] as num?)?.toDouble() ?? ch;
+        final k = math.min(cw / w, ch / h);
+        return ItemTransform(x: (cw - w * k) / 2, y: (ch - h * k) / 2, width: w * k, height: h * k);
       case SourceType.audioInput:
+      case SourceType.audioOutput:
         return ItemTransform(width: 0, height: 0);
       case SourceType.plugin:
         final w = (s.settings['width'] as num?)?.toDouble() ?? cw / 2;
@@ -481,11 +566,13 @@ class StudioController extends ChangeNotifier {
     return m.muted ? 0 : m.volume;
   }
 
-  /// Gain for other apps' audio captured with the screen (first Screen
-  /// Capture source's fader).
+  /// Gain for other apps' audio captured with the screen: the Audio Output
+  /// Capture fader if there is one, otherwise the first Screen Capture's.
   double get screenAudioGain {
-    for (final s in collection.sources) {
-      if (s.type == SourceType.screen) return s.muted ? 0 : s.volume;
+    for (final type in [SourceType.audioOutput, SourceType.screen]) {
+      for (final s in collection.sources) {
+        if (s.type == type) return s.muted ? 0 : s.volume;
+      }
     }
     return 1;
   }
