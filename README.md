@@ -2,6 +2,8 @@
 
 <img src="assets/wordmark.png" alt="OBSpad" width="360">
 
+**Download page:** https://abahvictor360-sketch.github.io/Obs/
+
 A touch-first live streaming and recording studio for **Android tablets and iPads**, modelled on
 [OBS Studio](https://github.com/obsproject/obs-studio). It's built with Flutter: one codebase for both
 platforms, plus a small native encoder layer.
