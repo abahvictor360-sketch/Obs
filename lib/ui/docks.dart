@@ -1,0 +1,687 @@
+import 'dart:math' as math;
+
+import 'package:flutter/material.dart';
+
+import '../app_scope.dart';
+import '../core/models.dart';
+import '../output/output_engine.dart';
+import 'add_source.dart';
+import 'dialogs.dart';
+import 'item_menu.dart';
+import 'settings_screen.dart';
+import 'source_properties.dart';
+import 'theme.dart';
+
+/// A panel with a title bar and an optional bottom toolbar, like OBS docks.
+class Dock extends StatelessWidget {
+  const Dock({super.key, required this.title, required this.child, this.toolbar = const [], this.showTitle = true});
+
+  final String title;
+  final Widget child;
+  final List<Widget> toolbar;
+  final bool showTitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: ObsColors.panel,
+        border: Border.all(color: ObsColors.border),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (showTitle)
+            Container(
+              color: ObsColors.header,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+              child: Text(
+                title,
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: ObsColors.textDim),
+              ),
+            ),
+          Expanded(child: child),
+          if (toolbar.isNotEmpty)
+            Container(
+              height: 48,
+              decoration: const BoxDecoration(
+                color: ObsColors.header,
+                border: Border(top: BorderSide(color: ObsColors.border)),
+              ),
+              child: Row(children: toolbar),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class DockButton extends StatelessWidget {
+  const DockButton({super.key, required this.icon, required this.tooltip, this.onPressed});
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) => IconButton(
+        icon: Icon(icon, size: 22),
+        tooltip: tooltip,
+        onPressed: onPressed,
+        color: ObsColors.text,
+        disabledColor: ObsColors.border,
+      );
+}
+
+// -----------------------------------------------------------------------------
+
+class ScenesDock extends StatelessWidget {
+  const ScenesDock({super.key, this.showTitle = true});
+
+  final bool showTitle;
+
+  @override
+  Widget build(BuildContext context) {
+    final studio = AppScope.of(context).studio;
+    return ListenableBuilder(
+      listenable: studio,
+      builder: (context, _) {
+        final scenes = studio.scenes;
+        final selectedId = studio.studioMode ? studio.collection.previewSceneId : studio.collection.programSceneId;
+        final selIndex = scenes.indexWhere((s) => s.id == selectedId);
+        return Dock(
+          title: 'Scenes',
+          showTitle: showTitle,
+          toolbar: [
+            DockButton(
+              icon: Icons.add,
+              tooltip: 'Add scene',
+              onPressed: () async {
+                final name = await promptText(context, title: 'Add Scene', initial: 'Scene ${scenes.length + 1}');
+                if (name != null) studio.addScene(name);
+              },
+            ),
+            DockButton(
+              icon: Icons.remove,
+              tooltip: 'Remove scene',
+              onPressed: scenes.length <= 1 ? null : () => _remove(context, selectedId),
+            ),
+            DockButton(
+              icon: Icons.more_horiz,
+              tooltip: 'Scene options',
+              onPressed: () => _sceneMenu(context, selectedId, null),
+            ),
+            const Spacer(),
+            DockButton(
+              icon: Icons.keyboard_arrow_up,
+              tooltip: 'Move up',
+              onPressed: selIndex > 0 ? () => studio.moveScene(selIndex, selIndex - 1) : null,
+            ),
+            DockButton(
+              icon: Icons.keyboard_arrow_down,
+              tooltip: 'Move down',
+              onPressed: selIndex >= 0 && selIndex < scenes.length - 1
+                  ? () => studio.moveScene(selIndex, selIndex + 1)
+                  : null,
+            ),
+          ],
+          child: ReorderableListView.builder(
+            buildDefaultDragHandles: false,
+            itemCount: scenes.length,
+            onReorderItem: studio.moveScene,
+            itemBuilder: (context, i) {
+              final s = scenes[i];
+              final isProgram = s.id == studio.collection.programSceneId;
+              final isSelected = s.id == selectedId;
+              return ReorderableDelayedDragStartListener(
+                key: ValueKey(s.id),
+                index: i,
+                child: Material(
+                  color: isSelected ? ObsColors.accentDim : Colors.transparent,
+                  child: InkWell(
+                    onTap: () => studio.selectScene(s.id),
+                    onDoubleTap: studio.studioMode
+                        ? () {
+                            studio.selectScene(s.id);
+                            studio.transitionToProgram();
+                          }
+                        : null,
+                    child: GestureDetector(
+                      onSecondaryTapUp: (d) => _sceneMenu(context, s.id, d.globalPosition),
+                      child: Container(
+                        height: 48,
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: BoxDecoration(
+                          border: Border(
+                            left: BorderSide(
+                              color: isProgram ? ObsColors.live : Colors.transparent,
+                              width: 4,
+                            ),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(child: Text(s.name, overflow: TextOverflow.ellipsis)),
+                            if (isProgram && studio.studioMode)
+                              const Padding(
+                                padding: EdgeInsets.only(right: 4),
+                                child: Text('PGM', style: TextStyle(fontSize: 11, color: ObsColors.live)),
+                              ),
+                            IconButton(
+                              icon: const Icon(Icons.more_vert, size: 20),
+                              tooltip: 'Scene menu',
+                              onPressed: () {
+                                final box = context.findRenderObject() as RenderBox?;
+                                final pos = box?.localToGlobal(Offset(box.size.width - 24, 24));
+                                _sceneMenu(context, s.id, pos);
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _remove(BuildContext context, String sceneId) async {
+    final studio = AppScope.of(context).studio;
+    final s = studio.sceneById(sceneId);
+    if (s == null) return;
+    if (await confirm(context, title: 'Remove Scene', message: 'Remove "${s.name}"?')) {
+      studio.removeScene(sceneId);
+    }
+  }
+
+  Future<void> _sceneMenu(BuildContext context, String sceneId, Offset? at) async {
+    final studio = AppScope.of(context).studio;
+    final s = studio.sceneById(sceneId);
+    if (s == null) return;
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final pos = at ?? overlay.size.center(Offset.zero);
+    final choice = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromRect(pos & const Size(1, 1), Offset.zero & overlay.size),
+      items: const [
+        PopupMenuItem(value: 'rename', child: Text('Rename')),
+        PopupMenuItem(value: 'dup', child: Text('Duplicate')),
+        PopupMenuItem(value: 'remove', child: Text('Remove')),
+      ],
+    );
+    if (!context.mounted) return;
+    switch (choice) {
+      case 'rename':
+        final name = await promptText(context, title: 'Rename Scene', initial: s.name);
+        if (name != null) studio.renameScene(sceneId, name);
+      case 'dup':
+        studio.duplicateScene(sceneId);
+      case 'remove':
+        if (studio.scenes.length > 1) await _remove(context, sceneId);
+    }
+  }
+}
+
+// -----------------------------------------------------------------------------
+
+class SourcesDock extends StatelessWidget {
+  const SourcesDock({super.key, this.showTitle = true});
+
+  final bool showTitle;
+
+  @override
+  Widget build(BuildContext context) {
+    final studio = AppScope.of(context).studio;
+    return ListenableBuilder(
+      listenable: studio,
+      builder: (context, _) {
+        final scene = studio.editingScene;
+        final items = scene.items.reversed.toList(); // top-most first, like OBS
+        final selected = studio.selectedItem;
+        final selIndex = selected == null ? -1 : items.indexOf(selected);
+        return Dock(
+          title: 'Sources',
+          showTitle: showTitle,
+          toolbar: [
+            DockButton(icon: Icons.add, tooltip: 'Add source', onPressed: () => showAddSource(context)),
+            DockButton(
+              icon: Icons.remove,
+              tooltip: 'Remove source',
+              onPressed: selected == null ? null : () => confirmRemoveItem(context, selected.id),
+            ),
+            DockButton(
+              icon: Icons.settings_outlined,
+              tooltip: 'Properties',
+              onPressed: selected == null ? null : () => showSourceProperties(context, selected.id),
+            ),
+            const Spacer(),
+            DockButton(
+              icon: Icons.keyboard_arrow_up,
+              tooltip: 'Move up',
+              onPressed: selIndex > 0 ? () => studio.moveItemDisplay(selIndex, selIndex - 1) : null,
+            ),
+            DockButton(
+              icon: Icons.keyboard_arrow_down,
+              tooltip: 'Move down',
+              onPressed: selIndex >= 0 && selIndex < items.length - 1
+                  ? () => studio.moveItemDisplay(selIndex, selIndex + 1)
+                  : null,
+            ),
+          ],
+          child: items.isEmpty
+              ? const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Text(
+                      'No sources yet.\nTap + to add a camera, image, text…',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: ObsColors.textDim),
+                    ),
+                  ),
+                )
+              : ReorderableListView.builder(
+                  buildDefaultDragHandles: false,
+                  itemCount: items.length,
+                  onReorderItem: studio.moveItemDisplay,
+                  itemBuilder: (context, i) {
+                    final item = items[i];
+                    final src = studio.sourceById(item.sourceId);
+                    final isSel = item.id == selected?.id;
+                    return ReorderableDelayedDragStartListener(
+                      key: ValueKey(item.id),
+                      index: i,
+                      child: Material(
+                        color: isSel ? ObsColors.accentDim : Colors.transparent,
+                        child: InkWell(
+                          onTap: () => studio.selectItem(item.id),
+                          onDoubleTap: () => showSourceProperties(context, item.id),
+                          child: SizedBox(
+                            height: 48,
+                            child: Row(
+                              children: [
+                                const SizedBox(width: 12),
+                                Icon(sourceIcon(src?.type ?? SourceType.color), size: 20, color: ObsColors.textDim),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    src?.name ?? '?',
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(color: item.visible ? ObsColors.text : ObsColors.textDim),
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: Icon(item.visible ? Icons.visibility : Icons.visibility_off, size: 20),
+                                  tooltip: item.visible ? 'Hide' : 'Show',
+                                  onPressed: () => studio.setItemVisible(item.id, !item.visible),
+                                ),
+                                IconButton(
+                                  icon: Icon(item.locked ? Icons.lock : Icons.lock_open, size: 20),
+                                  tooltip: item.locked ? 'Unlock' : 'Lock',
+                                  color: item.locked ? ObsColors.text : ObsColors.border,
+                                  onPressed: () => studio.setItemLocked(item.id, !item.locked),
+                                ),
+                                Builder(
+                                  builder: (btnCtx) => IconButton(
+                                    icon: const Icon(Icons.more_vert, size: 20),
+                                    tooltip: 'More',
+                                    onPressed: () {
+                                      final box = btnCtx.findRenderObject() as RenderBox;
+                                      studio.selectItem(item.id);
+                                      showItemMenu(context, box.localToGlobal(box.size.center(Offset.zero)), item.id);
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+        );
+      },
+    );
+  }
+}
+
+// -----------------------------------------------------------------------------
+
+/// Converts linear amplitude to dBFS.
+double ampToDb(double a) => a <= 0.00001 ? -100 : 20 * math.log(a) / math.ln10;
+
+/// OBS-style fader position <-> gain mapping (log taper, -inf .. 0 dB).
+double faderToGain(double f) => f <= 0 ? 0 : math.pow(10, (f * 60 - 60) / 20).toDouble();
+double gainToFader(double g) => g <= 0.001 ? 0 : ((ampToDb(g) + 60) / 60).clamp(0.0, 1.0);
+
+class MixerDock extends StatelessWidget {
+  const MixerDock({super.key, this.showTitle = true});
+
+  final bool showTitle;
+
+  @override
+  Widget build(BuildContext context) {
+    final scope = AppScope.of(context);
+    final studio = scope.studio;
+    return ListenableBuilder(
+      listenable: Listenable.merge([studio, scope.output]),
+      builder: (context, _) {
+        final sources = studio.audioSources;
+        return Dock(
+          title: 'Audio Mixer',
+          showTitle: showTitle,
+          child: sources.isEmpty
+              ? const Center(
+                  child: Text('No audio sources', style: TextStyle(color: ObsColors.textDim)),
+                )
+              : ListView.separated(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  itemCount: sources.length,
+                  separatorBuilder: (_, _) => const Divider(),
+                  itemBuilder: (context, i) => _MixerChannel(source: sources[i]),
+                ),
+        );
+      },
+    );
+  }
+}
+
+class _MixerChannel extends StatelessWidget {
+  const _MixerChannel({required this.source});
+
+  final Source source;
+
+  @override
+  Widget build(BuildContext context) {
+    final scope = AppScope.of(context);
+    final studio = scope.studio;
+    final isMic = source.type == SourceType.audioInput;
+    final level = isMic ? scope.output.micLevel : null;
+    final db = ampToDb(source.volume);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(children: [
+            Expanded(child: Text(source.name, overflow: TextOverflow.ellipsis)),
+            Text(
+              source.volume <= 0.001 ? '-inf dB' : '${db.toStringAsFixed(1)} dB',
+              style: const TextStyle(color: ObsColors.textDim, fontSize: 12, fontFeatures: [FontFeature.tabularFigures()]),
+            ),
+          ]),
+          const SizedBox(height: 4),
+          _LevelMeter(rms: level?.rms ?? 0, peak: level?.peak ?? 0, muted: source.muted),
+          Row(
+            children: [
+              Expanded(
+                child: Slider(
+                  value: gainToFader(source.volume),
+                  onChanged: (f) => studio.setVolume(source.id, faderToGain(f)),
+                ),
+              ),
+              IconButton(
+                icon: Icon(source.muted ? Icons.volume_off : Icons.volume_up),
+                color: source.muted ? ObsColors.live : ObsColors.text,
+                tooltip: source.muted ? 'Unmute' : 'Mute',
+                onPressed: () => studio.setMuted(source.id, !source.muted),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Green/yellow/red segmented meter (-60..0 dBFS).
+class _LevelMeter extends StatelessWidget {
+  const _LevelMeter({required this.rms, required this.peak, required this.muted});
+
+  final double rms, peak;
+  final bool muted;
+
+  @override
+  Widget build(BuildContext context) {
+    double pos(double a) => ((ampToDb(a) + 60) / 60).clamp(0.0, 1.0);
+    return SizedBox(
+      height: 8,
+      child: CustomPaint(painter: _MeterPainter(pos(rms), pos(peak), muted)),
+    );
+  }
+}
+
+class _MeterPainter extends CustomPainter {
+  _MeterPainter(this.level, this.peak, this.muted);
+
+  final double level, peak;
+  final bool muted;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width, h = size.height;
+    // Background zones like OBS: green < -20 dB, yellow < -9 dB, red above.
+    const zones = [(0.0, 40 / 60, Color(0xFF2B5C2E)), (40 / 60, 51 / 60, Color(0xFF6B5E21)), (51 / 60, 1.0, Color(0xFF6B2525))];
+    const active = [Color(0xFF4CD964), Color(0xFFFFD60A), Color(0xFFFF453A)];
+    for (var i = 0; i < zones.length; i++) {
+      final (a, b, bg) = zones[i];
+      canvas.drawRect(Rect.fromLTRB(a * w, 0, b * w, h), Paint()..color = muted ? ObsColors.border : bg);
+      if (!muted && level > a) {
+        canvas.drawRect(Rect.fromLTRB(a * w, 0, math.min(level, b) * w, h), Paint()..color = active[i]);
+      }
+    }
+    if (!muted && peak > 0) {
+      canvas.drawRect(Rect.fromLTWH(peak * w - 2, 0, 2, h), Paint()..color = Colors.white);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_MeterPainter old) => old.level != level || old.peak != peak || old.muted != muted;
+}
+
+// -----------------------------------------------------------------------------
+
+class TransitionsDock extends StatelessWidget {
+  const TransitionsDock({super.key, this.showTitle = true});
+
+  final bool showTitle;
+
+  @override
+  Widget build(BuildContext context) {
+    final studio = AppScope.of(context).studio;
+    return ListenableBuilder(
+      listenable: studio,
+      builder: (context, _) {
+        final c = studio.collection;
+        return Dock(
+          title: 'Scene Transitions',
+          showTitle: showTitle,
+          child: ListView(
+            padding: const EdgeInsets.all(12),
+            children: [
+              DropdownButtonFormField<TransitionType>(
+                initialValue: c.transition,
+                decoration: const InputDecoration(labelText: 'Transition', isDense: true),
+                items: [
+                  for (final t in TransitionType.values) DropdownMenuItem(value: t, child: Text(t.label)),
+                ],
+                onChanged: (t) => t == null ? null : studio.setTransition(t),
+              ),
+              const SizedBox(height: 8),
+              if (c.transition != TransitionType.cut)
+                LabeledSlider(
+                  label: 'Duration',
+                  value: c.transitionMs.toDouble(),
+                  min: 100,
+                  max: 3000,
+                  divisions: 29,
+                  format: (v) => '${v.round()} ms',
+                  onChanged: (v) => studio.setTransitionDuration(v.round()),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+// -----------------------------------------------------------------------------
+
+class ControlsDock extends StatelessWidget {
+  const ControlsDock({super.key, this.showTitle = true, this.compact = false});
+
+  final bool showTitle;
+
+  /// A single horizontal row of buttons (portrait layout).
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final scope = AppScope.of(context);
+    final studio = scope.studio;
+    final out = scope.output;
+    return ListenableBuilder(
+      listenable: Listenable.merge([studio, out]),
+      builder: (context, _) {
+        final buttons = <Widget>[
+          _BigButton(
+            label: switch (out.streamStatus) {
+              OutputStatus.idle => 'Start Streaming',
+              OutputStatus.starting => 'Connecting…',
+              OutputStatus.active => 'Stop Streaming',
+              OutputStatus.reconnecting => 'Reconnecting (${out.reconnectAttempt})…',
+              OutputStatus.stopping => 'Stopping…',
+            },
+            icon: Icons.podcasts,
+            active: out.isStreaming,
+            activeColor: ObsColors.live,
+            onPressed: () => toggleStreaming(context),
+          ),
+          _BigButton(
+            label: switch (out.recordStatus) {
+              OutputStatus.idle => 'Start Recording',
+              OutputStatus.starting => 'Starting…',
+              OutputStatus.active => 'Stop Recording',
+              OutputStatus.reconnecting || OutputStatus.stopping => 'Stopping…',
+            },
+            icon: Icons.fiber_manual_record,
+            active: out.isRecording,
+            activeColor: ObsColors.rec,
+            onPressed: () => toggleRecording(context),
+          ),
+          _BigButton(
+            label: 'Studio Mode',
+            icon: Icons.view_column_outlined,
+            active: studio.studioMode,
+            activeColor: ObsColors.accent,
+            onPressed: () => studio.setStudioMode(!studio.studioMode),
+          ),
+          _BigButton(
+            label: 'Settings',
+            icon: Icons.settings_outlined,
+            active: false,
+            onPressed: () => openSettings(context),
+          ),
+        ];
+        if (compact) {
+          return Row(
+            children: [
+              for (final b in buttons)
+                Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 3), child: b)),
+            ],
+          );
+        }
+        return Dock(
+          title: 'Controls',
+          showTitle: showTitle,
+          child: ListView(
+            padding: const EdgeInsets.all(8),
+            children: [
+              for (final b in buttons) Padding(padding: const EdgeInsets.only(bottom: 6), child: b),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _BigButton extends StatelessWidget {
+  const _BigButton({
+    required this.label,
+    required this.icon,
+    required this.active,
+    required this.onPressed,
+    this.activeColor = ObsColors.accent,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool active;
+  final Color activeColor;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 48,
+      child: FilledButton.icon(
+        style: FilledButton.styleFrom(
+          backgroundColor: active ? activeColor : ObsColors.panelAlt,
+          foregroundColor: ObsColors.text,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+        ),
+        icon: Icon(icon, size: 20),
+        label: FittedBox(fit: BoxFit.scaleDown, child: Text(label)),
+        onPressed: onPressed,
+      ),
+    );
+  }
+}
+
+Future<void> toggleStreaming(BuildContext context) async {
+  final scope = AppScope.of(context);
+  final out = scope.output;
+  final ask = scope.studio.settings.confirmStartStop;
+  if (out.isStreaming) {
+    if (!ask || await confirm(context, title: 'Stop Streaming', message: 'Are you sure you want to stop streaming?')) {
+      await out.stopStreaming();
+    }
+  } else {
+    if (scope.studio.settings.publishUrl.isEmpty) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: const Text('Add your stream server and key first.'),
+        action: SnackBarAction(label: 'Settings', onPressed: () => openSettings(context)),
+      ));
+      return;
+    }
+    if (!ask ||
+        await confirm(context,
+            title: 'Start Streaming', message: 'Are you sure you want to start streaming?', destructive: false)) {
+      await out.startStreaming();
+    }
+  }
+}
+
+Future<void> toggleRecording(BuildContext context) async {
+  final out = AppScope.of(context).output;
+  if (out.isRecording) {
+    await out.stopRecording();
+    final path = out.lastRecordingPath;
+    if (path != null && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Recording saved: $path')));
+    }
+  } else {
+    await out.startRecording();
+  }
+}
