@@ -56,7 +56,8 @@ p { margin: 0; }
 
 /* Store-style download badges (our own files, not a store) */
 .badges { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
-.badge { display: inline-flex; align-items: center; gap: 12px; background: var(--ink); color: #fff; text-decoration: none; padding: 10px 18px 10px 14px; border-radius: 14px; min-width: 210px; transition: transform .15s ease; }
+.badge { display: inline-flex; align-items: center; justify-content: flex-start; gap: 12px; background: var(--ink); color: #fff; text-decoration: none; text-align: left; padding: 11px 22px 11px 16px; border-radius: 14px; min-width: 214px; transition: transform .15s ease; }
+.badge > span { display: grid; gap: 2px; }
 .badge:hover { transform: translateY(-2px); }
 .badge svg { width: 28px; height: 28px; flex: none; }
 .badge small { display: block; font: 500 .7rem/1.2 var(--body); opacity: .75; }
@@ -64,7 +65,7 @@ p { margin: 0; }
 .badge.light { background: var(--surface); color: var(--ink); border: 1px solid var(--line); }
 
 /* Hero */
-.hero { text-align: center; padding-block: clamp(24px, 5vw, 56px) 0; display: grid; justify-items: center; gap: 18px; }
+.hero { position: relative; z-index: 2; text-align: center; padding-block: clamp(24px, 5vw, 56px) 0; display: grid; justify-items: center; gap: 18px; }
 .hero h1 { font-size: clamp(2.5rem, 6.4vw, 4.6rem); font-weight: 800; line-height: 1.04; max-width: 15ch; }
 .hero h1 span { background: linear-gradient(90deg, var(--brand), var(--brand-2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .hero .lede { color: var(--muted); font-size: 1.12rem; max-width: 40rem; }
@@ -76,7 +77,7 @@ p { margin: 0; }
 .tablet.portrait { border-radius: 30px; padding: 10px; }
 
 .stage { position: relative; margin-top: clamp(36px, 5vw, 64px); padding-top: clamp(40px, 6vw, 80px); overflow-x: clip; overflow-y: visible; }
-.arc { position: absolute; left: 50%; bottom: 8%; width: min(1100px, 125%); aspect-ratio: 2 / 1; transform: translateX(-50%); border-radius: 1100px 1100px 0 0; background: linear-gradient(180deg, var(--brand-2) 0%, var(--brand) 85%); opacity: .95; }
+.arc { position: absolute; left: 50%; top: 22%; bottom: 0; width: min(1100px, 125%); transform: translateX(-50%); border-radius: 50% 50% 0 0 / 100% 100% 0 0; background: linear-gradient(180deg, var(--brand-2) 0%, var(--brand) 85%); opacity: .95; }
 .fan { position: relative; display: grid; grid-template-columns: 1fr minmax(0, 2.6fr) 1fr; align-items: end; gap: 0; max-width: 1080px; margin-inline: auto; }
 .fan .side { position: relative; z-index: 1; }
 .fan .left { transform: translate(18%, 0) rotate(-8deg); }
