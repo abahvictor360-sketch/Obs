@@ -6,6 +6,7 @@ import '../app_scope.dart';
 import '../devices/device_service.dart';
 import '../output/output_engine.dart';
 import '../render/editable_canvas.dart';
+import '../render/multiview.dart';
 import '../render/program_view.dart';
 import '../render/scene_canvas.dart';
 import 'dock_panel.dart';
@@ -21,22 +22,27 @@ class StudioScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final out = AppScope.of(context).output;
-    return Scaffold(
-      body: SafeArea(
-        child: _ErrorListener(
-          output: out,
-          child: DockListener(
-            devices: AppScope.of(context).devices,
-            child: LayoutBuilder(
-              builder: (context, box) {
-                final landscape = box.maxWidth > box.maxHeight && box.maxWidth >= 900;
-                return landscape ? _LandscapeLayout(height: box.maxHeight) : const _PortraitLayout();
-              },
+    // The Multiview for a connected screen sits behind the (opaque) studio,
+    // where it's laid out and painted for capture but never seen.
+    return Stack(children: [
+      const Positioned.fill(child: MultiviewHost()),
+      Scaffold(
+        body: SafeArea(
+          child: _ErrorListener(
+            output: out,
+            child: DockListener(
+              devices: AppScope.of(context).devices,
+              child: LayoutBuilder(
+                builder: (context, box) {
+                  final landscape = box.maxWidth > box.maxHeight && box.maxWidth >= 900;
+                  return landscape ? _LandscapeLayout(height: box.maxHeight) : const _PortraitLayout();
+                },
+              ),
             ),
           ),
         ),
       ),
-    );
+    ]);
   }
 }
 

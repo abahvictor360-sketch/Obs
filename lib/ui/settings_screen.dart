@@ -386,12 +386,18 @@ class _GeneralPage extends StatelessWidget {
             ),
           );
         }),
-        SwitchListTile(
-          title: const Text('Show program on a connected screen'),
-          subtitle: const Text('A monitor or TV on a docking station, USB-C or HDMI shows the program full screen. '
-              'Off: the screen mirrors the tablet.'),
-          value: s.externalDisplay == 'program',
-          onChanged: (v) => studio.updateSettings((s) => s.externalDisplay = v ? 'program' : 'mirror'),
+        ListTile(
+          title: const Text('Connected screen'),
+          subtitle: const Text('What a monitor or TV on a docking station, USB-C or HDMI shows'),
+          trailing: DropdownButton<String>(
+            value: s.externalDisplay,
+            items: const [
+              DropdownMenuItem(value: 'program', child: Text('Program (full screen)')),
+              DropdownMenuItem(value: 'multiview', child: Text('Multiview')),
+              DropdownMenuItem(value: 'mirror', child: Text('Mirror tablet')),
+            ],
+            onChanged: (v) => studio.updateSettings((s) => s.externalDisplay = v ?? 'program'),
+          ),
         ),
         SwitchListTile(
           title: const Text('Confirm before starting/stopping a stream'),

@@ -546,8 +546,9 @@ class OutputSettings {
   bool preferWired;
 
   /// What a screen connected through a docking station / USB-C / HDMI shows:
-  /// 'program' (full-screen program output, like OBS's fullscreen projector)
-  /// or 'mirror' (the tablet's own screen).
+  /// 'program' (full-screen program output, like OBS's fullscreen projector),
+  /// 'multiview' (preview, program and scene thumbnails, like OBS's
+  /// Multiview) or 'mirror' (the tablet's own screen).
   String externalDisplay;
 
   /// Full publish URL: server + '/' + key (key may be empty for servers that
@@ -597,7 +598,9 @@ class OutputSettings {
       keepScreenOn: j['keepScreenOn'] as bool? ?? d.keepScreenOn,
       confirmStartStop: j['confirmStartStop'] as bool? ?? d.confirmStartStop,
       preferWired: j['preferWired'] as bool? ?? d.preferWired,
-      externalDisplay: j['externalDisplay'] == 'mirror' ? 'mirror' : d.externalDisplay,
+      externalDisplay: const ['program', 'multiview', 'mirror'].contains(j['externalDisplay'])
+          ? j['externalDisplay'] as String
+          : d.externalDisplay,
     );
   }
 }

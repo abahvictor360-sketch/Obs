@@ -12,14 +12,24 @@ class DockChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final devices = AppScope.of(context).devices;
-    return ListenableBuilder(listenable: devices, builder: (context, _) => _build(context, devices));
+    return ListenableBuilder(
+      listenable: Listenable.merge([devices, AppScope.of(context).studio]),
+      builder: (context, _) => _build(context, devices),
+    );
   }
 
   Widget _build(BuildContext context, DeviceService devices) {
     final dock = devices.dock;
     if (!devices.supported || !dock.docked) return const SizedBox.shrink();
     final d = dock.display;
-    final label = d == null ? 'Docked' : (d.presenting ? 'Docked · Program on screen' : 'Docked · Mirroring');
+    final mode = AppScope.of(context).studio.settings.externalDisplay;
+    final label = d == null
+        ? 'Docked'
+        : !d.presenting
+            ? 'Docked · Mirroring'
+            : mode == 'multiview'
+                ? 'Docked · Multiview on screen'
+                : 'Docked · Program on screen';
     return Padding(
       padding: const EdgeInsets.only(left: 8),
       child: InkWell(
@@ -101,8 +111,8 @@ class DockPanel extends StatelessWidget {
   }
 }
 
-/// "Program output" (full screen, like OBS's fullscreen projector) or
-/// "Mirror tablet".
+/// "Program" (full screen, like OBS's fullscreen projector), "Multiview"
+/// (preview, program and scenes) or "Mirror tablet".
 class DisplayModeSelector extends StatelessWidget {
   const DisplayModeSelector({super.key, required this.display});
 
@@ -115,7 +125,8 @@ class DisplayModeSelector extends StatelessWidget {
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       SegmentedButton<String>(
         segments: const [
-          ButtonSegment(value: 'program', icon: Icon(Icons.live_tv), label: Text('Program output')),
+          ButtonSegment(value: 'program', icon: Icon(Icons.live_tv), label: Text('Program')),
+          ButtonSegment(value: 'multiview', icon: Icon(Icons.grid_view), label: Text('Multiview')),
           ButtonSegment(value: 'mirror', icon: Icon(Icons.tablet), label: Text('Mirror tablet')),
         ],
         selected: {mode},
@@ -123,9 +134,12 @@ class DisplayModeSelector extends StatelessWidget {
       ),
       const SizedBox(height: 6),
       Text(
-        mode == 'program'
+        mode != 'mirror'
             ? (display.presenting
-                ? 'The screen shows the program full screen. The tablet stays your control surface.'
+                ? (mode == 'multiview'
+                    ? 'The screen shows Preview and Program on top and your scenes below (red: program, '
+                        'green: preview).'
+                    : 'The screen shows the program full screen. The tablet stays your control surface.')
                 : display.needsReconnect
                     ? 'To show the program, unplug and reconnect the screen (with Stage Manager, turn off its '
                         'extended display first).'

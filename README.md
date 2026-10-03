@@ -86,7 +86,9 @@ _Screenshots are from the browser build, using Chromium's synthetic test camera 
   a capture card, and power. The top bar shows **Docked**; tap it to see what's connected.
 - **Program on the connected screen:** a monitor or TV on the dock (or a USB-C/HDMI adapter) shows
   the program full screen, like OBS's fullscreen projector, while the tablet stays the control
-  surface. Turn this off (Settings, or the Docked panel) to mirror the tablet instead.
+  surface. Or pick **Multiview**: Preview and Program on top and the first 8 scenes below, with the
+  program scene outlined in red and the preview scene in green, plus LIVE/REC/NDI badges, like OBS's
+  Multiview. Or pick *Mirror tablet* (Settings, or the Docked panel) to mirror the tablet instead.
   - Android uses a `Presentation` window on the external display. Samsung DeX takes over the screen
     when it's on, so turn DeX off (or use "screen mirroring" mode) for the program output.
   - iPad uses an external-display scene. iPadOS only offers it when Stage Manager isn't using the
@@ -223,7 +225,7 @@ flutter test
 | Script plugins (GitHub install, sandbox, sources, docks, control), example plugins | ✅ Unit-tested; examples tested in a headless browser; needs device testing |
 | NDI output (built-in plugin) | ✅ Tested against a stand-in NDI library; real-SDK test runs in CI once enabled |
 | USB OTG: UVC capture cards/webcams, USB audio inputs, wired network | ✅ Builds in CI; needs testing with real devices |
-| Docking stations: dock recognition, program output on the connected screen | ✅ Unit/widget-tested; builds in CI; needs testing with real docks |
+| Docking stations: dock recognition, program or Multiview on the connected screen | ✅ Unit/widget-tested; builds in CI; needs testing with real docks |
 | NDI source (receive), NDI per-source filter output | Planned |
 | Browser source, chroma key, more filters, hotkeys/Stream Deck, multiple audio tracks | Planned |
 | Zero-copy GPU frame path (avoid reading RGBA back to the CPU) | Planned. Current path suits 720p30 on recent tablets |

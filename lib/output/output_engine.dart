@@ -50,6 +50,9 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
   final GlobalKey underKey = GlobalKey(debugLabel: 'under-screen');
   final GlobalKey overKey = GlobalKey(debugLabel: 'over-screen');
 
+  /// Multiview for a connected screen (see render/multiview.dart).
+  final GlobalKey multiviewKey = GlobalKey(debugLabel: 'multiview');
+
   ScreenCaptureState screenState = const ScreenCaptureState();
   bool screenCaptureSupported = false;
 

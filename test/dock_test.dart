@@ -11,6 +11,7 @@ import 'package:obs_tablet/network_video/network_video_service.dart';
 import 'package:obs_tablet/output/external_display_output.dart';
 import 'package:obs_tablet/output/output_engine.dart';
 import 'package:obs_tablet/plugins/plugin_manager.dart';
+import 'package:obs_tablet/render/multiview.dart';
 import 'package:obs_tablet/render/media_services.dart';
 
 import 'widget_test.dart' show FakeEncoder;
@@ -41,7 +42,7 @@ void main() {
         case 'getDock':
           return dock;
         case 'setDisplayMode':
-          final program = (call.arguments as Map)['mode'] == 'program';
+          final program = (call.arguments as Map)['mode'] != 'mirror';
           return {
             ...dock,
             'display': {...screen, 'presenting': program},
@@ -148,11 +149,30 @@ void main() {
     expect(frames.single.$2, 1080);
     expect(frames.single.$3, 1920 * 1080 * 4);
 
-    // Panel: switch the screen to mirroring.
+    // Panel: switch to Multiview, then to mirroring.
+    expect(find.byType(Multiview), findsNothing);
     await tester.tap(find.byKey(const ValueKey('dock-chip')));
     await tester.pumpAndSettle();
     expect(find.text('Docking station connected'), findsOneWidget);
     expect(find.text('HDMI · 1920×1080'), findsOneWidget);
+    await tester.tap(find.text('Multiview'));
+    await tester.runAsync(pumpEventQueue);
+    await tester.pump();
+    expect(studio.settings.externalDisplay, 'multiview');
+    expect(find.text('Docked · Multiview on screen'), findsOneWidget);
+    expect(find.byType(Multiview), findsOneWidget);
+    expect(find.text('Program · ${studio.programScene.name}'), findsOneWidget);
+    expect(find.text('Preview · ${studio.programScene.name}'), findsOneWidget);
+    for (final (i, scene) in studio.scenes.take(8).indexed) {
+      expect(find.text('${i + 1}. ${scene.name}'), findsOneWidget);
+    }
+    // The Multiview is captured instead of the program, even while the
+    // encoder would provide program frames.
+    final before = frames.length;
+    await tester.runAsync(display.debugTick);
+    expect(frames, hasLength(before + 1));
+    expect((frames.last.$1, frames.last.$2), (1920, 1080));
+
     await tester.tap(find.text('Mirror tablet'));
     await tester.runAsync(pumpEventQueue);
     await tester.pump();
@@ -161,9 +181,12 @@ void main() {
     expect(find.text('Docked · Mirroring'), findsOneWidget);
     expect(find.text('The screen mirrors the tablet.'), findsOneWidget);
 
+    expect(find.byType(Multiview), findsNothing);
+
     // No longer presenting: nothing is sent.
+    final sent = frames.length;
     await tester.runAsync(display.debugTick);
-    expect(frames, hasLength(1));
+    expect(frames, hasLength(sent));
 
     display.dispose();
     tracker.dispose();

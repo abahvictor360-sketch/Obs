@@ -15,7 +15,8 @@ import 'output_engine.dart';
 /// The native side shows the frames full screen on the external display
 /// (Android Presentation, iPad external display scene). While the encoder is
 /// running its frames are reused; otherwise the program view is captured
-/// here at up to [maxFps].
+/// here at up to [maxFps]. In Multiview mode the Multiview (preview, program
+/// and scene thumbnails) is captured instead.
 class ExternalDisplayOutput {
   ExternalDisplayOutput({
     required this.output,
@@ -41,6 +42,8 @@ class ExternalDisplayOutput {
 
   bool get active => devices.dock.display?.presenting == true;
 
+  bool get multiview => output.studio.settings.externalDisplay == 'multiview';
+
   void _sync() {
     final on = active;
     output.externalPresenting = on;
@@ -63,7 +66,7 @@ class ExternalDisplayOutput {
   }
 
   void _onEncoderFrame(Uint8List rgba, int w, int h) {
-    if (!active) return;
+    if (!active || multiview) return;
     _send(rgba, w, h);
   }
 
@@ -72,8 +75,9 @@ class ExternalDisplayOutput {
 
   Future<void> _tick() async {
     // The encoder already captures the whole program: _onEncoderFrame sends it.
-    if (output.pumpingProgramFrames || _capturing || _sending) return;
-    final ro = output.programKey.currentContext?.findRenderObject();
+    if ((output.pumpingProgramFrames && !multiview) || _capturing || _sending) return;
+    final key = multiview ? output.multiviewKey : output.programKey;
+    final ro = key.currentContext?.findRenderObject();
     if (ro is! RenderRepaintBoundary || !ro.attached || ro.size.isEmpty) return;
     _capturing = true;
     try {
