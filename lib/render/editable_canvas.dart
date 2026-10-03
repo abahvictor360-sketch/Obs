@@ -38,6 +38,12 @@ class EditableCanvas extends StatelessWidget {
           child: Stack(
             children: [
               Positioned.fill(child: content),
+              // Canvas edge, so the output area is visible even on dark scenes.
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: DecoratedBox(decoration: BoxDecoration(border: Border.all(color: ObsColors.border))),
+                ),
+              ),
               if (editable) Positioned.fill(child: _EditorOverlay(scale: s)),
               if (label != null)
                 Positioned(

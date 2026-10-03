@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:camera/camera.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
@@ -259,9 +260,9 @@ class _CameraSource extends StatelessWidget {
         final ps = c.value.previewSize ?? const Size(1280, 720);
         var w = math.max(ps.width, ps.height), h = math.min(ps.width, ps.height);
         // CameraPreview rotates the texture to match the device orientation.
-        if (MediaQuery.orientationOf(context) == Orientation.portrait) (w, h) = (h, w);
+        if (!kIsWeb && MediaQuery.orientationOf(context) == Orientation.portrait) (w, h) = (h, w);
         Widget preview = SizedBox(width: w, height: h, child: CameraPreview(c));
-        final mirror = (source.settings['mirror'] as bool? ?? true) &&
+        final mirror = (source.settings['mirror'] as bool? ?? false) &&
             c.description.lensDirection == CameraLensDirection.front;
         if (mirror) {
           preview = Transform(

@@ -127,7 +127,7 @@ class _SourceSettingsTab extends StatelessWidget {
           ),
           SwitchListTile(
             title: const Text('Mirror front camera'),
-            value: s['mirror'] as bool? ?? true,
+            value: s['mirror'] as bool? ?? false,
             onChanged: (v) => set('mirror', v),
           ),
           const Text(

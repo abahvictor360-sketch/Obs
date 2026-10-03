@@ -161,24 +161,38 @@ class LabeledSlider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        SizedBox(width: 120, child: Text(label, style: const TextStyle(color: ObsColors.textDim))),
-        Expanded(
-          child: Slider(
-            value: value.clamp(min, max),
-            min: min,
-            max: max,
-            divisions: divisions,
-            onChanged: onChanged,
-            onChangeEnd: onChangeEnd,
-          ),
-        ),
-        SizedBox(
-          width: 64,
-          child: Text(format?.call(value) ?? value.toStringAsFixed(2), textAlign: TextAlign.right),
-        ),
-      ],
+    final slider = Slider(
+      value: value.clamp(min, max),
+      min: min,
+      max: max,
+      divisions: divisions,
+      onChanged: onChanged,
+      onChangeEnd: onChangeEnd,
     );
+    final valueText = Text(format?.call(value) ?? value.toStringAsFixed(2), textAlign: TextAlign.right);
+    return LayoutBuilder(builder: (context, box) {
+      if (box.maxWidth < 320) {
+        // Narrow docks: label and value above the slider.
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(children: [
+              Expanded(
+                child: Text(label, overflow: TextOverflow.ellipsis, style: const TextStyle(color: ObsColors.textDim)),
+              ),
+              valueText,
+            ]),
+            slider,
+          ],
+        );
+      }
+      return Row(
+        children: [
+          SizedBox(width: 120, child: Text(label, style: const TextStyle(color: ObsColors.textDim))),
+          Expanded(child: slider),
+          SizedBox(width: 72, child: valueText),
+        ],
+      );
+    });
   }
 }

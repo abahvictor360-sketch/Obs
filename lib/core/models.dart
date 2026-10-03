@@ -106,7 +106,8 @@ class SourceDefaults {
       case SourceType.camera:
         return {
           'lens': 'front', // front | back | external
-          'mirror': true,
+          // Off by default like OBS: a mirrored feed shows text backwards to viewers.
+          'mirror': false,
         };
       case SourceType.image:
         return {

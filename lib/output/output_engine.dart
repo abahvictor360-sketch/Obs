@@ -295,6 +295,7 @@ class OutputEngine extends ChangeNotifier {
     _lastMicGain = -1;
     _onStudioChanged();
     _encoderRunning = true;
+    _capturing = false;
     renderedFrames = 0;
     laggedFrames = 0;
     _pumpTimer = Timer.periodic(Duration(microseconds: 1000000 ~/ config.fps), (_) => _captureFrame());
@@ -338,7 +339,7 @@ class OutputEngine extends ChangeNotifier {
       final w = image.width, h = image.height;
       image.dispose();
       if (data != null && _encoderRunning) {
-        await backend.pushFrame(data.buffer.asUint8List(), w, h);
+        await backend.pushFrame(data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes), w, h);
         renderedFrames++;
         _framesThisSecond++;
       }

@@ -76,11 +76,7 @@ abstract class EncoderBackend {
 }
 
 class MethodChannelEncoder implements EncoderBackend {
-  MethodChannelEncoder() {
-    _sub = _events.receiveBroadcastStream().listen(_onEvent, onError: (Object e) {
-      _errors.add('$e');
-    });
-  }
+  MethodChannelEncoder();
 
   static const _method = MethodChannel('obs_tablet/encoder');
   static const _events = EventChannel('obs_tablet/encoder_events');
@@ -122,6 +118,12 @@ class MethodChannelEncoder implements EncoderBackend {
     if (_supported != null) return _supported!;
     try {
       _supported = await _method.invokeMethod<bool>('isSupported') ?? false;
+      // Only listen when a native side exists (avoids errors on web).
+      if (_supported! && _sub == null) {
+        _sub = _events.receiveBroadcastStream().listen(_onEvent, onError: (Object e) {
+          _errors.add('$e');
+        });
+      }
     } on MissingPluginException {
       _supported = false;
     } catch (_) {

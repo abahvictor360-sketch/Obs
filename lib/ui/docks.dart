@@ -142,12 +142,6 @@ class ScenesDock extends StatelessWidget {
                   color: isSelected ? ObsColors.accentDim : Colors.transparent,
                   child: InkWell(
                     onTap: () => studio.selectScene(s.id),
-                    onDoubleTap: studio.studioMode
-                        ? () {
-                            studio.selectScene(s.id);
-                            studio.transitionToProgram();
-                          }
-                        : null,
                     child: GestureDetector(
                       onSecondaryTapUp: (d) => _sceneMenu(context, s.id, d.globalPosition),
                       child: Container(
@@ -508,6 +502,7 @@ class TransitionsDock extends StatelessWidget {
             children: [
               DropdownButtonFormField<TransitionType>(
                 initialValue: c.transition,
+                isExpanded: true,
                 decoration: const InputDecoration(labelText: 'Transition', isDense: true),
                 items: [
                   for (final t in TransitionType.values) DropdownMenuItem(value: t, child: Text(t.label)),

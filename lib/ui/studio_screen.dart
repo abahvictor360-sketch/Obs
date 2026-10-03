@@ -215,6 +215,7 @@ class _CanvasArea extends StatelessWidget {
           final transitionButton = FilledButton.icon(
             style: FilledButton.styleFrom(
               backgroundColor: ObsColors.accent,
+              foregroundColor: Colors.white,
               minimumSize: const Size(140, 48),
             ),
             icon: const Icon(Icons.arrow_forward),
