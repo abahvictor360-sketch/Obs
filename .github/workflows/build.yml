@@ -2,6 +2,10 @@ name: Build
 
 on:
   push:
+    # The landing page has its own workflow (pages.yml).
+    paths-ignore:
+      - 'site/**'
+      - '.github/workflows/pages.yml'
   pull_request:
   workflow_dispatch:
 
