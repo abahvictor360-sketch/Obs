@@ -7,8 +7,10 @@ import '../core/studio_controller.dart';
 import '../network_video/mjpeg.dart';
 import '../network_video/network_video_service.dart';
 import '../plugins/plugin_manifest.dart';
+import '../render/filter_view.dart';
 import '../render/scene_canvas.dart';
 import 'dialogs.dart';
+import 'filters_panel.dart';
 import 'media_import.dart';
 import 'source_settings_more.dart';
 import 'theme.dart';
@@ -47,6 +49,15 @@ Future<bool> showSourceProperties(BuildContext context, String itemId, {int init
   return added == true;
 }
 
+/// Opens the properties sheet on the Filters tab.
+Future<void> showSourceFilters(BuildContext context, String itemId) async {
+  final studio = AppScope.of(context).studio;
+  final item = studio.itemById(itemId);
+  final source = item == null ? null : studio.sourceById(item.sourceId);
+  if (source == null) return;
+  await showSourceProperties(context, itemId, initialTab: source.type.isVisual ? 2 : 1);
+}
+
 class _PropertiesSheet extends StatelessWidget {
   const _PropertiesSheet({required this.itemId, required this.initialTab, this.creating = false});
 
@@ -66,9 +77,11 @@ class _PropertiesSheet extends StatelessWidget {
           return const Center(child: Text('This source was removed.'));
         }
         final visual = source.type.isVisual;
+        final filters = visual || source.type.hasAudio;
+        final tabs = 1 + (visual ? 1 : 0) + (filters ? 1 : 0);
         return DefaultTabController(
-          length: visual ? 3 : 1,
-          initialIndex: visual ? initialTab : 0,
+          length: tabs,
+          initialIndex: initialTab.clamp(0, tabs - 1),
           child: Column(
             children: [
               Padding(
@@ -105,13 +118,13 @@ class _PropertiesSheet extends StatelessWidget {
               TabBar(tabs: [
                 const Tab(text: 'Properties'),
                 if (visual) const Tab(text: 'Transform'),
-                if (visual) const Tab(text: 'Filters'),
+                if (filters) const Tab(text: 'Filters'),
               ]),
               Expanded(
                 child: TabBarView(children: [
                   _SourceSettingsTab(source: source, item: item),
                   if (visual) _TransformTab(item: item),
-                  if (visual) _FiltersTab(item: item),
+                  if (filters) FiltersPanel(source: source, item: item),
                 ]),
               ),
             ],
@@ -154,7 +167,7 @@ class _SourcePreview extends StatelessWidget {
               child: SizedBox(
                 width: w,
                 height: h,
-                child: SourceRenderer(source: source, fit: t.fit, showPlaceholder: true),
+                child: applySourceFilters(source, SourceRenderer(source: source, fit: t.fit, showPlaceholder: true)),
               ),
             ),
           ),
@@ -520,50 +533,6 @@ class _TransformTab extends StatelessWidget {
   }
 }
 
-class _FiltersTab extends StatelessWidget {
-  const _FiltersTab({required this.item});
-
-  final SceneItem item;
-
-  @override
-  Widget build(BuildContext context) {
-    final studio = AppScope.of(context).studio;
-    final c = item.color;
-    void edit(void Function(ColorCorrection c) f) => studio.updateColor(item.id, f);
-    String signed(double v) => '${v >= 0 ? '+' : ''}${(v * 100).round()}';
-    return ListView(
-      padding: const EdgeInsets.all(20),
-      children: [
-        const Text('Color Correction', style: TextStyle(fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
-        LabeledSlider(label: 'Opacity', value: c.opacity, min: 0, max: 1,
-            format: (v) => '${(v * 100).round()}%', onChanged: (v) => edit((c) => c.opacity = v)),
-        LabeledSlider(label: 'Brightness', value: c.brightness, min: -1, max: 1, format: signed,
-            onChanged: (v) => edit((c) => c.brightness = v)),
-        LabeledSlider(label: 'Contrast', value: c.contrast, min: -1, max: 1, format: signed,
-            onChanged: (v) => edit((c) => c.contrast = v)),
-        LabeledSlider(label: 'Saturation', value: c.saturation, min: -1, max: 1, format: signed,
-            onChanged: (v) => edit((c) => c.saturation = v)),
-        const SizedBox(height: 12),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: OutlinedButton.icon(
-            icon: const Icon(Icons.restart_alt),
-            label: const Text('Reset'),
-            onPressed: () => edit((c) {
-              c
-                ..opacity = 1
-                ..brightness = 0
-                ..contrast = 0
-                ..saturation = 0;
-            }),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _ScreenCaptureSettings extends StatelessWidget {
   const _ScreenCaptureSettings();
 
@@ -822,7 +791,7 @@ class _AudioInputSettings extends StatelessWidget {
                   isExpanded: true,
                   decoration: const InputDecoration(labelText: 'Input device'),
                   items: [
-                    const DropdownMenuItem(value: 'default', child: Text('Default (system choice)')),
+                    const DropdownMenuItem(value: 'default', child: Text('Automatic (USB sound card when plugged in)')),
                     for (final i in devices.audioInputs)
                       DropdownMenuItem(
                         value: i.id,
@@ -844,8 +813,9 @@ class _AudioInputSettings extends StatelessWidget {
             ]),
             const SizedBox(height: 12),
             const Text(
-              'USB microphones and audio interfaces show up here when plugged in (USB-C / OTG). '
-              'Adjust the level in the Audio Mixer.',
+              'USB microphones, sound cards and audio interfaces show up here when plugged in, '
+              'directly (USB-C / OTG) or through a hub or docking station. On Automatic, ObsPad '
+              'switches to a USB sound card as soon as it is connected. Adjust the level in the Audio Mixer.',
               style: TextStyle(color: ObsColors.textDim, fontSize: 13),
             ),
           ],

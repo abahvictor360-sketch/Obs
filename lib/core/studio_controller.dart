@@ -142,6 +142,13 @@ class StudioController extends ChangeNotifier {
   }
 
   /// Audio-capable sources, in the order they appear in the mixer.
+  /// Scene items that show [sourceId] (editing scene first).
+  List<SceneItem> itemsOf(String sourceId) => [
+        for (final scene in {editingScene, ...collection.scenes})
+          for (final i in scene.items)
+            if (i.sourceId == sourceId) i,
+      ];
+
   List<Source> get audioSources => collection.sources.where((s) => s.type.hasAudio).toList();
 
   /// Number of scene items across all scenes that reference [sourceId].
@@ -167,6 +174,45 @@ class StudioController extends ChangeNotifier {
         transitionSerial++;
       }
     }
+    _changed();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Filters
+
+  SourceFilter addFilter(String sourceId, FilterKind kind) {
+    final s = sourceById(sourceId)!;
+    var name = kind.label;
+    for (var n = 2; s.filters.any((f) => f.name == name); n++) {
+      name = '${kind.label} $n';
+    }
+    final f = SourceFilter(id: newId('filter'), kind: kind, name: name);
+    s.filters.add(f);
+    _changed();
+    return f;
+  }
+
+  void removeFilter(String sourceId, String filterId) {
+    sourceById(sourceId)?.filters.removeWhere((f) => f.id == filterId);
+    _changed();
+  }
+
+  /// Moves a filter to [index] in the chain.
+  void moveFilter(String sourceId, String filterId, int index) {
+    final list = sourceById(sourceId)?.filters;
+    if (list == null) return;
+    final i = list.indexWhere((f) => f.id == filterId);
+    if (i < 0) return;
+    list.insert(index.clamp(0, list.length - 1), list.removeAt(i));
+    _changed();
+  }
+
+  void updateFilter(String sourceId, String filterId, {bool? enabled, String? name, Map<String, dynamic>? values}) {
+    final f = sourceById(sourceId)?.filters.where((f) => f.id == filterId).firstOrNull;
+    if (f == null) return;
+    if (enabled != null) f.enabled = enabled;
+    if (name != null && name.trim().isNotEmpty) f.name = name.trim();
+    if (values != null) f.settings.addAll(values);
     _changed();
   }
 
@@ -563,7 +609,7 @@ class StudioController extends ChangeNotifier {
     final mics = collection.sources.where((s) => s.type == SourceType.audioInput);
     if (mics.isEmpty) return 0;
     final m = mics.first;
-    return m.muted ? 0 : m.volume;
+    return m.muted ? 0 : m.volume * m.filterGain;
   }
 
   /// Gain for other apps' audio captured with the screen: the Audio Output
@@ -571,7 +617,7 @@ class StudioController extends ChangeNotifier {
   double get screenAudioGain {
     for (final type in [SourceType.audioOutput, SourceType.screen]) {
       for (final s in collection.sources) {
-        if (s.type == type) return s.muted ? 0 : s.volume;
+        if (s.type == type) return s.muted ? 0 : s.volume * s.filterGain;
       }
     }
     return 1;

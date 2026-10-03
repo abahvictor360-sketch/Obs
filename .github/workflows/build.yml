@@ -42,7 +42,14 @@ jobs:
         run: scripts/fetch_ndi_sdk.sh android
 
       - name: Build Android APK
-        run: flutter build apk --release
+        # Retries only cover network errors while downloading Gradle or Maven
+        # dependencies (e.g. HTTP 503); a compile error fails every attempt.
+        run: |
+          for i in 1 2 3; do
+            flutter build apk --release && exit 0
+            echo "APK build failed (attempt $i), retrying in $((i * 20)) s…"; sleep $((i * 20))
+          done
+          exit 1
 
       - name: Name the APK
         run: cp build/app/outputs/flutter-apk/app-release.apk obspad.apk

@@ -207,6 +207,22 @@ class DeviceService extends ChangeNotifier {
           AudioInput('${m['id']}', '${m['name']}', '${m['type']}'),
       ];
 
+  /// USB microphones, sound cards and audio interfaces (direct, through a
+  /// hub or a docking station).
+  List<AudioInput> get usbAudioInputs => audioInputs.where((i) => i.type == 'usb').toList();
+
+  /// The input a Mic/Aux source with device [setting] actually records from.
+  /// 'default' is automatic: a USB sound card when one is plugged in,
+  /// otherwise the system's choice (null). A device that was unplugged also
+  /// falls back to automatic.
+  AudioInput? resolveAudioInput(String? setting) {
+    if (setting != null && setting != 'default') {
+      final picked = audioInputs.where((i) => i.id == setting).firstOrNull;
+      if (picked != null) return picked;
+    }
+    return usbAudioInputs.firstOrNull;
+  }
+
   Future<void> refreshUsbCameras() async {
     if (!supported) return;
     try {
@@ -308,8 +324,17 @@ class DeviceActivityTracker {
     if (devices.usbCameras.length != _lastCameraCount) {
       _lastCameraCount = devices.usbCameras.length;
       _sync();
+      return;
+    }
+    // A sound card was plugged in or out: re-route the microphone.
+    final inputs = devices.audioInputs.map((i) => i.id).join(',');
+    if (inputs != _lastInputs) {
+      _lastInputs = inputs;
+      _sync();
     }
   }
+
+  String _lastInputs = '';
 
   void _sync() {
     if (!devices.supported) return;
@@ -328,7 +353,7 @@ class DeviceActivityTracker {
     }
 
     final mic = studio.sources.where((s) => s.type == SourceType.audioInput).firstOrNull;
-    final input = mic?.settings['device'] as String? ?? 'default';
+    final input = devices.resolveAudioInput(mic?.settings['device'] as String?)?.id ?? 'default';
     if (input != _lastInput) {
       _lastInput = input;
       devices.setAudioInput(input);

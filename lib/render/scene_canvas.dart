@@ -10,6 +10,7 @@ import '../app_scope.dart';
 import '../browser/browser_source.dart';
 import '../core/models.dart';
 import '../ui/theme.dart';
+import 'filter_view.dart';
 import 'platform_media.dart';
 import 'slideshow.dart';
 
@@ -81,7 +82,7 @@ class SceneItemView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = item.transform;
-    Widget child = SourceRenderer(source: source, fit: t.fit, showPlaceholder: showPlaceholder);
+    Widget child = applySourceFilters(source, SourceRenderer(source: source, fit: t.fit, showPlaceholder: showPlaceholder));
 
     // Crop: show only the inner part of the source, scaled to the box.
     if (t.cropLeft > 0 || t.cropTop > 0 || t.cropRight > 0 || t.cropBottom > 0) {

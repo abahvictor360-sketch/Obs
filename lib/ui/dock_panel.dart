@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../app_scope.dart';
+import '../core/models.dart';
 import '../devices/device_service.dart';
 import 'theme.dart';
 
@@ -165,6 +166,7 @@ class DockListener extends StatefulWidget {
 class _DockListenerState extends State<DockListener> {
   late bool _docked = widget.devices.dock.docked;
   late bool _screen = widget.devices.dock.display != null;
+  late Set<String> _usbAudio = {for (final i in widget.devices.usbAudioInputs) i.id};
 
   @override
   void initState() {
@@ -180,6 +182,7 @@ class _DockListenerState extends State<DockListener> {
 
   void _check() {
     if (!mounted) return;
+    _checkUsbAudio();
     final dock = widget.devices.dock;
     final screen = dock.display;
     String? msg;
@@ -201,6 +204,39 @@ class _DockListenerState extends State<DockListener> {
         action: dock.docked ? SnackBarAction(label: 'Details', onPressed: () => showDockSheet(context)) : null,
       ));
     }
+  }
+
+  /// A USB sound card / mic / interface appeared (directly, through a hub or
+  /// a docking station): say where it's used, or offer to add it.
+  void _checkUsbAudio() {
+    final usb = widget.devices.usbAudioInputs;
+    final added = usb.where((i) => !_usbAudio.contains(i.id)).toList();
+    _usbAudio = {for (final i in usb) i.id};
+    if (added.isEmpty) return;
+    final device = added.first;
+    final studio = AppScope.of(context).studio;
+    final mic = studio.sources.where((s) => s.type == SourceType.audioInput).firstOrNull;
+    final auto = mic != null && (mic.settings['device'] as String? ?? 'default') == 'default';
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(
+      content: Text(mic == null
+          ? 'USB audio connected: ${device.name}'
+          : auto
+              ? 'USB audio connected: ${device.name}. ${mic.name} now records from it.'
+              : 'USB audio connected: ${device.name}'),
+      backgroundColor: ObsColors.panelAlt,
+      action: mic == null
+          ? SnackBarAction(
+              label: 'Add to Mixer',
+              onPressed: () => studio.addNewSource(SourceType.audioInput,
+                  name: studio.uniqueSourceName(device.name), settings: {'device': device.id}),
+            )
+          : auto
+              ? null
+              : SnackBarAction(
+                  label: 'Use it',
+                  onPressed: () => studio.updateSourceSettings(mic.id, {'device': device.id}),
+                ),
+    ));
   }
 
   @override

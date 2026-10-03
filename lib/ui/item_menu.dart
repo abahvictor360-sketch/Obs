@@ -30,6 +30,7 @@ Future<void> showItemMenu(BuildContext context, Offset globalPosition, String it
     position: position,
     items: [
       entry(Icons.tune, 'Properties', () => showSourceProperties(context, itemId)),
+      entry(Icons.auto_awesome_outlined, 'Filters', () => showSourceFilters(context, itemId)),
       entry(Icons.edit_outlined, 'Rename', () async {
         final name = await promptText(context, title: 'Rename Source', initial: source.name);
         if (name != null) studio.renameSource(source.id, name);

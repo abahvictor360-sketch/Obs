@@ -45,7 +45,15 @@ _Screenshots are from the browser build, using Chromium's synthetic test camera 
 - Per item: visibility, lock, ordering (top, up, down, bottom) and duplicate.
 - Transform: position, size, rotation, crop, flip, and fit mode (stretch, fit, fill).
 - Transform presets: Fit to Screen, Stretch, Center, Rotate 90° and others.
-- Filters: color correction (opacity, brightness, contrast, saturation).
+- Filters panel, like OBS (Properties › Filters, the item's long-press menu, Edit › Filters, or ✨ on
+  a mixer channel): a chain per source that you can add to, reorder by dragging, switch on and off,
+  rename and remove.
+  - Video: Color Correction (gamma, contrast, brightness, saturation, hue shift, opacity, color
+    multiply), Chroma Key and Color Key (green/blue/magenta/custom, similarity, smoothness, spill),
+    Luma Key, Sharpen, Blur, Scroll (tickers and moving backgrounds), Mask (rounded corners or circle)
+  - Audio: Gain (−30 to +30 dB)
+  - The key and sharpen filters use GPU shaders, which need the Impeller graphics engine (the default
+    on iPad and on Android 10+ devices with Vulkan); elsewhere they show as unsupported.
 
 **Touch canvas editing**
 - Tap to select. Drag to move, with snapping to canvas edges and center.
@@ -66,8 +74,8 @@ _Screenshots are from the browser build, using Chromium's synthetic test camera 
 - Status bar shows LIVE and REC timers, bitrate, FPS and dropped frames.
 
 **Output**
-- Streaming over RTMP and RTMPS. Presets for Twitch, YouTube, Facebook and Kick, or any custom
-  `rtmp://` / `rtmps://` server.
+- Streaming over RTMP and RTMPS. Presets for Twitch, YouTube, Facebook Live and Kick only ask for the
+  stream key (pasting the full URL works too), or use any custom `rtmp://` / `rtmps://` server.
 - Auto-reconnect: up to 10 attempts, 5 s apart.
 - Congestion handling: drops video frames until the next keyframe, like OBS.
 - Streaming and recording can run at the same time and share one hardware encoder.
@@ -91,7 +99,10 @@ _Screenshots are from the browser build, using Chromium's synthetic test camera 
 - **USB Video Capture** source for HDMI capture cards (camera, console or PC → HDMI → tablet) and USB
   webcams. Android uses a built-in generic UVC driver, so it works on any tablet with USB host. iPad
   needs iPadOS 17 or newer.
-- **USB microphones and audio interfaces:** choose the input in the Mic/Aux source's properties.
+- **USB microphones, sound cards and audio interfaces**, plugged in directly, through a USB hub or a
+  docking station: Mic/Aux is on *Automatic*, so it switches to the USB device when it's plugged in
+  and back to the built-in mic when it's unplugged. The Audio Mixer shows which device each channel
+  records from (tap it to pick another), and a notice appears when one is connected.
 - **Wired internet:** plug in a USB Ethernet adapter. The status bar shows Wired, Wi-Fi or Mobile data.
   On Android, *Prefer wired connection* (Settings → General) sends the stream over the cable. iPadOS
   already prefers a wired connection when one is plugged in.

@@ -67,6 +67,8 @@ class ObsMenuBar extends StatelessWidget {
             item('Add Source…', () => showAddSource(context), icon: Icons.add),
             item('Source Properties…', selectedItem == null ? null : () => showSourceProperties(context, selectedItem.id),
                 icon: Icons.tune),
+            item('Filters…', selectedItem == null ? null : () => showSourceFilters(context, selectedItem.id),
+                icon: Icons.auto_awesome_outlined),
             SubmenuButton(
               menuChildren: [
                 for (final p in TransformPreset.values)

@@ -118,6 +118,46 @@ void main() {
     studio.dispose();
   });
 
+  test('a USB sound card (direct, hub or dock) is used automatically and follows plug/unplug', () async {
+    final devices = DeviceService();
+    await devices.init();
+    final studio = StudioController(storage: MemoryStorage());
+    final tracker = DeviceActivityTracker(studio, devices);
+    await Future<void>.delayed(Duration.zero);
+    // Mic/Aux is on Automatic and a USB mic is connected: it records from it.
+    expect(calls.lastWhere((c) => c.method == 'setAudioInput').arguments, {'id': '7'});
+    expect(devices.resolveAudioInput('default')?.name, 'RØDE NT-USB');
+
+    // Unplugged: back to the system default.
+    sink!.success({
+      'type': 'audioInputs',
+      'inputs': [
+        {'id': '1', 'name': 'Built-in mic', 'type': 'builtin'},
+      ],
+    });
+    await Future<void>.delayed(Duration.zero);
+    expect(calls.lastWhere((c) => c.method == 'setAudioInput').arguments, {'id': null});
+
+    // A sound card on the docking station.
+    sink!.success({
+      'type': 'audioInputs',
+      'inputs': [
+        {'id': '1', 'name': 'Built-in mic', 'type': 'builtin'},
+        {'id': '12', 'name': 'USB Audio Device', 'type': 'usb'},
+      ],
+    });
+    await Future<void>.delayed(Duration.zero);
+    expect(calls.lastWhere((c) => c.method == 'setAudioInput').arguments, {'id': '12'});
+
+    // A device picked by hand wins over Automatic.
+    final mic = studio.sources.firstWhere((s) => s.type == SourceType.audioInput);
+    studio.updateSourceSettings(mic.id, {'device': '1'});
+    await Future<void>.delayed(Duration.zero);
+    expect(calls.lastWhere((c) => c.method == 'setAudioInput').arguments, {'id': '1'});
+    tracker.dispose();
+    studio.dispose();
+  });
+
   test('without the native side everything stays off', () async {
     messenger.setMockMethodCallHandler(method, null);
     final devices = DeviceService();

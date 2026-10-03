@@ -13,6 +13,10 @@
 
 import 'dart:math' as math;
 
+import 'filters.dart';
+
+export 'filters.dart';
+
 int _idCounter = 0;
 
 /// Generates a reasonably unique id without extra dependencies.
@@ -79,7 +83,9 @@ class Source {
     Map<String, dynamic>? settings,
     this.volume = 1.0,
     this.muted = false,
-  }) : settings = settings ?? SourceDefaults.forType(type);
+    List<SourceFilter>? filters,
+  })  : settings = settings ?? SourceDefaults.forType(type),
+        filters = filters ?? [];
 
   final String id;
   String name;
@@ -90,6 +96,13 @@ class Source {
   double volume;
   bool muted;
 
+  /// Filter chain (first applied first), like OBS's Filters window.
+  final List<SourceFilter> filters;
+
+  /// Product of the enabled Gain filters.
+  double get filterGain =>
+      filters.where((f) => f.enabled && f.kind == FilterKind.gain).fold(1.0, (g, f) => g * f.linearGain);
+
   Map<String, dynamic> toJson() => {
         'id': id,
         'name': name,
@@ -97,6 +110,7 @@ class Source {
         'settings': settings,
         'volume': volume,
         'muted': muted,
+        if (filters.isNotEmpty) 'filters': filters.map((f) => f.toJson()).toList(),
       };
 
   factory Source.fromJson(Map<String, dynamic> j) {
@@ -111,6 +125,9 @@ class Source {
       },
       volume: (j['volume'] as num?)?.toDouble() ?? 1.0,
       muted: j['muted'] as bool? ?? false,
+      filters: [
+        for (final f in (j['filters'] as List? ?? const [])) ?SourceFilter.fromJson((f as Map).cast<String, dynamic>()),
+      ],
     );
   }
 
@@ -121,6 +138,7 @@ class Source {
         settings: Map<String, dynamic>.from(settings),
         volume: volume,
         muted: muted,
+        filters: [for (final f in filters) f.copy()],
       );
 }
 
@@ -640,13 +658,34 @@ class OutputSettings {
   /// Remembers the last choice.
   bool studioMode;
 
-  /// Full publish URL: server + '/' + key (key may be empty for servers that
-  /// embed it in the URL).
+  /// A known service (Facebook Live, Twitch, YouTube, Kick): the server is
+  /// built in, so only the stream key is needed.
+  bool get usesPresetServer => service != 'Custom' && kStreamingServices.containsKey(service);
+
+  String get effectiveServer => usesPresetServer ? kStreamingServices[service]! : server.trim();
+
+  /// Full publish URL: server + '/' + key (key may be empty for custom
+  /// servers that embed it in the URL). Empty when something is missing.
   String get publishUrl {
-    final s = server.trim();
+    final s = effectiveServer;
     final k = streamKey.trim();
-    if (k.isEmpty) return s;
+    if (k.isEmpty) return usesPresetServer ? '' : s;
     return s.endsWith('/') ? '$s$k' : '$s/$k';
+  }
+
+  /// People often paste the whole URL (server + key) where the key goes.
+  /// If [text] starts with the preset's server, returns just the key.
+  String keyFromPasted(String text) {
+    final t = text.trim();
+    if (!t.contains('://')) return t;
+    for (final server in kStreamingServices.values.where((v) => v.isNotEmpty)) {
+      final base = server.endsWith('/') ? server : '$server/';
+      if (t.startsWith(base)) return t.substring(base.length);
+      // Facebook also shows the URL without the port.
+      final noPort = base.replaceFirst(RegExp(r':\d+/'), '/');
+      if (t.startsWith(noPort)) return t.substring(noPort.length);
+    }
+    return t;
   }
 
   Map<String, dynamic> toJson() => {

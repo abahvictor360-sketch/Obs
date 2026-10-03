@@ -12,6 +12,7 @@ import 'output/external_display_output.dart';
 import 'output/output_engine.dart';
 import 'plugins/plugin_bridge.dart';
 import 'plugins/plugin_manager.dart';
+import 'render/filter_view.dart';
 import 'render/media_services.dart';
 import 'ui/studio_screen.dart';
 import 'ui/theme.dart';
@@ -19,6 +20,7 @@ import 'ui/theme.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  await FilterShaders.load();
 
   final studio = await StudioController.load(StudioStorage.platformDefault());
   final output = OutputEngine(studio: studio);

@@ -177,19 +177,36 @@ class _StreamPage extends StatelessWidget {
             },
           ),
         ),
+        if (s.usesPresetServer)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 4),
+            child: Text(
+              'Server is set automatically for ${s.service}. Just paste your stream key.',
+              key: const ValueKey('preset-server-note'),
+              style: const TextStyle(color: ObsColors.textDim, fontSize: 13),
+            ),
+          )
+        else
+          _Field(
+            key: ValueKey('server-${s.service}'),
+            label: 'Server',
+            value: s.server,
+            hint: 'rtmp://… or rtmps://…',
+            onChanged: (v) => studio.updateSettings((s) => s.server = v.trim()),
+          ),
         _Field(
-          key: ValueKey('server-${s.service}'),
-          label: 'Server',
-          value: s.server,
-          hint: 'rtmp://… or rtmps://…',
-          onChanged: (v) => studio.updateSettings((s) => s.server = v.trim()),
-        ),
-        _Field(
+          key: ValueKey('key-${s.service}'),
           label: 'Stream Key',
           value: s.streamKey,
           obscure: true,
-          hint: 'From your Twitch / YouTube / Facebook dashboard',
-          onChanged: (v) => studio.updateSettings((s) => s.streamKey = v.trim()),
+          hint: switch (s.service) {
+            'Facebook Live' => 'Facebook: Live Producer › Streaming software › Stream key',
+            'Twitch' => 'Twitch: Creator Dashboard › Settings › Stream › Primary stream key',
+            'YouTube (RTMPS)' || 'YouTube (RTMP)' => 'YouTube Studio: Go live › Stream key',
+            'Kick' => 'Kick: Creator Dashboard › Settings › Stream URL & Key',
+            _ => 'From your streaming service',
+          },
+          onChanged: (v) => studio.updateSettings((s) => s.streamKey = s.keyFromPasted(v)),
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -201,7 +218,7 @@ class _StreamPage extends StatelessWidget {
               onPressed: () async {
                 final d = await Clipboard.getData(Clipboard.kTextPlain);
                 final t = d?.text?.trim();
-                if (t != null && t.isNotEmpty) studio.updateSettings((s) => s.streamKey = t);
+                if (t != null && t.isNotEmpty) studio.updateSettings((s) => s.streamKey = s.keyFromPasted(t));
               },
             ),
           ),

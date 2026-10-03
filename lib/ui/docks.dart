@@ -409,7 +409,7 @@ class MixerDock extends StatelessWidget {
     final scope = AppScope.of(context);
     final studio = scope.studio;
     return ListenableBuilder(
-      listenable: Listenable.merge([studio, scope.output]),
+      listenable: Listenable.merge([studio, scope.output, scope.devices]),
       builder: (context, _) {
         final sources = studio.audioSources;
         return Dock(
@@ -455,6 +455,9 @@ class _MixerChannel extends StatelessWidget {
               style: const TextStyle(color: ObsColors.textDim, fontSize: 12, fontFeatures: [FontFeature.tabularFigures()]),
             ),
           ]),
+          if (isMic) _InputDeviceRow(source: source),
+          if (source.type == SourceType.audioOutput)
+            const Text('Desktop audio (other apps)', style: TextStyle(color: ObsColors.textDim, fontSize: 12)),
           const SizedBox(height: 4),
           _LevelMeter(rms: level?.rms ?? 0, peak: level?.peak ?? 0, muted: source.muted),
           Row(
@@ -465,6 +468,16 @@ class _MixerChannel extends StatelessWidget {
                   onChanged: (f) => studio.setVolume(source.id, faderToGain(f)),
                 ),
               ),
+              if (studio.itemsOf(source.id).firstOrNull case final it?)
+                IconButton(
+                  icon: Icon(
+                    Icons.auto_awesome_outlined,
+                    size: 20,
+                    color: source.filters.any((f) => f.enabled) ? ObsColors.accent : ObsColors.textDim,
+                  ),
+                  tooltip: 'Filters',
+                  onPressed: () => showSourceFilters(context, it.id),
+                ),
               IconButton(
                 icon: Icon(source.muted ? Icons.volume_off : Icons.volume_up),
                 color: source.muted ? ObsColors.live : ObsColors.text,
@@ -480,6 +493,68 @@ class _MixerChannel extends StatelessWidget {
 }
 
 /// Green/yellow/red segmented meter (-60..0 dBFS).
+/// Which device a Mic/Aux channel records from, with a picker. A USB sound
+/// card plugged in directly, through a hub or a docking station appears here
+/// and is used automatically.
+class _InputDeviceRow extends StatelessWidget {
+  const _InputDeviceRow({required this.source});
+
+  final Source source;
+
+  static IconData icon(String? type) => switch (type) {
+        'usb' => Icons.usb,
+        'bluetooth' => Icons.bluetooth_audio,
+        'headset' => Icons.headset_mic,
+        _ => Icons.mic_none,
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final scope = AppScope.of(context);
+    final devices = scope.devices;
+    if (!devices.supported) return const SizedBox.shrink();
+    final setting = source.settings['device'] as String? ?? 'default';
+    final active = devices.resolveAudioInput(setting);
+    final auto = setting == 'default' || !devices.audioInputs.any((i) => i.id == setting);
+    final label = active == null
+        ? 'Built-in microphone'
+        : '${active.type == 'usb' ? 'USB · ' : ''}${active.name}';
+    return PopupMenuButton<String>(
+      key: ValueKey('input-device-${source.id}'),
+      tooltip: 'Input device',
+      initialValue: auto ? 'default' : setting,
+      onSelected: (v) => scope.studio.updateSourceSettings(source.id, {'device': v}),
+      itemBuilder: (context) => [
+        const PopupMenuItem(value: 'default', child: Text('Automatic (USB sound card when plugged in)')),
+        for (final i in devices.audioInputs)
+          PopupMenuItem(
+            value: i.id,
+            child: Row(children: [
+              Icon(icon(i.type), size: 18),
+              const SizedBox(width: 8),
+              Flexible(child: Text(i.name, overflow: TextOverflow.ellipsis)),
+            ]),
+          ),
+      ],
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: Row(children: [
+          Icon(icon(active?.type), size: 14, color: active?.type == 'usb' ? ObsColors.ok : ObsColors.textDim),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              auto ? '$label (auto)' : label,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 12, color: active?.type == 'usb' ? ObsColors.ok : ObsColors.textDim),
+            ),
+          ),
+          const Icon(Icons.arrow_drop_down, size: 16, color: ObsColors.textDim),
+        ]),
+      ),
+    );
+  }
+}
+
 class _LevelMeter extends StatelessWidget {
   const _LevelMeter({required this.rms, required this.peak, required this.muted});
 
@@ -706,7 +781,9 @@ Future<void> toggleStreaming(BuildContext context) async {
     if (scope.studio.settings.publishUrl.isEmpty) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: const Text('Add your stream server and key first.'),
+        content: Text(scope.studio.settings.usesPresetServer
+            ? 'Add your ${scope.studio.settings.service} stream key first.'
+            : 'Add your stream server and key first.'),
         action: SnackBarAction(label: 'Settings', onPressed: () => openSettings(context)),
       ));
       return;
