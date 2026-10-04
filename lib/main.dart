@@ -85,7 +85,7 @@ class _ObsTabletAppState extends State<ObsTabletApp> with WidgetsBindingObserver
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     // Persist immediately when the app goes to the background.
-    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+    if (state != AppLifecycleState.resumed) {
       widget.studio.save();
     }
   }

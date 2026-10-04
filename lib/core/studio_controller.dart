@@ -63,29 +63,32 @@ class StudioController extends ChangeNotifier {
 
   /// Loads persisted state, falling back to a starter collection.
   static Future<StudioController> load(StudioStorage storage) async {
-    SceneCollection? collection;
-    OutputSettings? settings;
-    try {
-      final raw = await storage.read(_collectionKey);
-      if (raw != null) {
-        collection = SceneCollection.fromJson(jsonDecode(raw) as Map<String, dynamic>);
-      }
-    } catch (e) {
-      debugPrint('Failed to load scene collection: $e');
-    }
-    try {
-      final raw = await storage.read(_settingsKey);
-      if (raw != null) {
-        settings = OutputSettings.fromJson(jsonDecode(raw) as Map<String, dynamic>);
-      }
-    } catch (e) {
-      debugPrint('Failed to load settings: $e');
-    }
+    final collection = await _read(storage, _collectionKey, SceneCollection.fromJson);
+    final settings = await _read(storage, _settingsKey, OutputSettings.fromJson);
     final c = StudioController(storage: storage, collection: collection, settings: settings);
     // A fresh install starts in Studio Mode, so changes are previewed before
-    // they go live; after that the last choice is kept.
-    if (c.settings.studioMode) c.setStudioMode(true);
+    // they go live; after that the last choice is kept, with the preview
+    // scene the app was closed with.
+    if (c.settings.studioMode) {
+      final preview = c.collection.previewSceneId;
+      c.studioMode = true;
+      if (c.sceneById(preview) != null) c.collection.previewSceneId = preview;
+    }
     return c;
+  }
+
+  /// Reads [key], falling back to the previous version (`<key>.bak`) when
+  /// the file is missing its end or can't be parsed.
+  static Future<T?> _read<T>(StudioStorage storage, String key, T Function(Map<String, dynamic>) parse) async {
+    for (final k in [key, '$key.bak']) {
+      try {
+        final raw = await storage.read(k);
+        if (raw != null) return parse(jsonDecode(raw) as Map<String, dynamic>);
+      } catch (e) {
+        debugPrint('Failed to load $k: $e');
+      }
+    }
+    return null;
   }
 
   // ---------------------------------------------------------------------------
@@ -657,15 +660,27 @@ class StudioController extends ChangeNotifier {
     _saveTimer = Timer(const Duration(milliseconds: 400), save);
   }
 
-  Future<void> save() async {
+  Future<void> _saving = Future.value();
+
+  /// Writes everything to the device. Saves run one after another (never two
+  /// writing the same file at once), each with the latest state.
+  Future<void> save() {
     _saveTimer?.cancel();
     _saveTimer = null;
-    try {
-      await storage.write(_collectionKey, jsonEncode(collection.toJson()));
-      await storage.write(_settingsKey, jsonEncode(settings.toJson()));
-    } catch (e) {
-      debugPrint('Failed to save: $e');
-    }
+    return _saving = _saving.then((_) async {
+      final collectionJson = jsonEncode(collection.toJson());
+      final settingsJson = jsonEncode(settings.toJson());
+      try {
+        await storage.write(_collectionKey, collectionJson);
+      } catch (e) {
+        debugPrint('Failed to save scenes: $e');
+      }
+      try {
+        await storage.write(_settingsKey, settingsJson);
+      } catch (e) {
+        debugPrint('Failed to save settings: $e');
+      }
+    });
   }
 
   String exportCollection() => const JsonEncoder.withIndent('  ').convert(collection.toJson());

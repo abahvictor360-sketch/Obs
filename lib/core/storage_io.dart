@@ -7,6 +7,11 @@ import 'storage.dart';
 StudioStorage createStorage() => FileStorage();
 
 class FileStorage implements StudioStorage {
+  FileStorage();
+
+  /// Stores in [dir] instead of the app documents directory (tests).
+  FileStorage.at(Directory dir) : _dir = dir;
+
   Directory? _dir;
 
   Future<Directory> _base() async {
@@ -27,9 +32,16 @@ class FileStorage implements StudioStorage {
   @override
   Future<void> write(String key, String value) async {
     final dir = await _base();
+    final target = File('${dir.path}/$key');
     // Write to a temp file then rename, so a crash never leaves half a file.
     final tmp = File('${dir.path}/$key.tmp');
     await tmp.writeAsString(value, flush: true);
-    await tmp.rename('${dir.path}/$key');
+    // Keep the previous version as `<key>.bak`, read if the file is damaged.
+    if (await target.exists()) {
+      try {
+        await target.copy('${dir.path}/$key.bak');
+      } catch (_) {}
+    }
+    await tmp.rename(target.path);
   }
 }
