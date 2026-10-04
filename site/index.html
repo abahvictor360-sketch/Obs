@@ -224,6 +224,14 @@ footer .credit { color: var(--ink); font-weight: 600; }
 @media (max-width: 640px) {
   .featlist, .facts { grid-template-columns: minmax(0, 1fr); }
 }
+/* Guides */
+.guides { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; align-items: start; }
+.guides details + details { margin-top: 0; }
+.guides summary > span { display: grid; gap: 2px; }
+.guides summary small { font: 500 .85rem/1.3 var(--body); color: var(--muted); }
+.guides ol { margin: 0 0 16px; padding-left: 1.3em; color: var(--muted); display: grid; gap: 8px; }
+.guides ol b { color: var(--ink); }
+@media (max-width: 760px) { .guides { grid-template-columns: minmax(0, 1fr); } }
 @media (prefers-reduced-motion: reduce) {
   .band .track { animation: none; }
   .btn, .badge, summary::after { transition: none; }
@@ -241,6 +249,7 @@ footer .credit { color: var(--ink); font-weight: 600; }
       <li><a href="#features">Features</a></li>
       <li><a href="#how">How it works</a></li>
       <li><a href="#install">Install</a></li>
+      <li><a href="#guides">Guides</a></li>
       <li><a href="#about">About</a></li>
       <li><a href="#faq">FAQ</a></li>
     </ul>
@@ -483,6 +492,64 @@ footer .credit { color: var(--ink); font-weight: 600; }
           <li>On the iPad, open <b>Settings &rsaquo; General &rsaquo; VPN &amp; Device Management</b>, trust your Apple ID, and turn on Developer Mode if asked.</li>
         </ol>
       </div>
+    </div>
+  </section>
+
+  <section id="guides">
+    <div class="head">
+      <span class="pill solid">Guides</span>
+      <h2>How to do it in OBSpad</h2>
+      <p>Short steps for the things people ask about most. They work the same on Android tablets and iPad unless noted.</p>
+    </div>
+    <div class="guides">
+      <details open>
+        <summary><span>Show the program on a TV or monitor<small>Cable, USB-C or docking station</small></span></summary>
+        <ol><li>Plug the monitor into the tablet with a USB-C to HDMI adapter, or into your docking station.</li><li>OBSpad shows the <b>Program</b> on it full screen. To choose, long-press Program, or use <b>View &rsaquo; Fullscreen Projector</b> or <b>View &rsaquo; Multiview</b>.</li><li>Nothing shows up? Open <b>Tools &rsaquo; Docking Station &amp; Screen</b>: it lists what the tablet detects and why a screen may be missing.</li></ol>
+      </details>
+      <details>
+        <summary><span>Cast to a smart TV<small>Smart View, Miracast or AirPlay</small></span></summary>
+        <ol><li>Long-press Program and tap <b>Cast to a wireless screen&hellip;</b>.</li><li>Android: pick your TV in the Cast or Smart View screen that opens. iPad: open Control Center, tap <b>Screen Mirroring</b> and pick your Apple TV.</li><li>When it connects, the TV shows the Program while you keep working on the tablet. Chromecast mirrors the whole tablet instead.</li></ol>
+      </details>
+      <details>
+        <summary><span>Use two microphones on one USB interface<small>Each input as its own mic</small></span></summary>
+        <ol><li>Plug in the audio interface. OBSpad switches to it automatically.</li><li>Add an <b>Audio Input Capture</b> source for each mic.</li><li>In the Audio Mixer, set each mic to <b>Input 1 (L)</b> or <b>Input 2 (R)</b>. Each gets its own fader, meter and filters.</li></ol>
+      </details>
+      <details>
+        <summary><span>Clean up your voice<small>Noise Suppression, Gate, Compressor</small></span></summary>
+        <ol><li>In the Audio Mixer, tap the mic&rsquo;s <b>Mic adjustments</b> button for one-tap noise suppression and levelling.</li><li>For finer control, open the mic&rsquo;s <b>Filters</b> and add Noise Suppression, Noise Gate, Compressor or Limiter.</li><li>Watch the meter: speech should peak in the yellow, never in the red.</li></ol>
+      </details>
+      <details>
+        <summary><span>Play a video with its sound<small>Media Source and audio monitoring</small></span></summary>
+        <ol><li>Add a <b>Media Source</b> and pick the video. Its sound goes into the stream and recording.</li><li>Under <b>Audio Monitoring</b>, choose <b>Stream + tablet</b> to hear it on the tablet too.</li><li>Use the play, pause and restart buttons in the bar under the canvas.</li></ol>
+      </details>
+      <details>
+        <summary><span>Colour-grade with a LUT<small>Apply LUT filter</small></span></summary>
+        <ol><li>Select a camera or video source and tap <b>Filters</b> in the bar under the canvas.</li><li>Add <b>Apply LUT</b> and browse for a <span class="key">.cube</span> file (or a LUT from a plugin).</li><li>Lower <b>Amount</b> to blend the look with the original picture.</li></ol>
+      </details>
+      <details>
+        <summary><span>Save an instant replay<small>Replay buffer</small></span></summary>
+        <ol><li>Set how many seconds to keep in <b>Settings &rsaquo; Output &rsaquo; Replay buffer</b>.</li><li>Tap <b>Start Replay Buffer</b> in the Controls dock.</li><li>After a great moment, tap <b>Save Replay</b>. The last seconds are saved as a file.</li></ol>
+      </details>
+      <details>
+        <summary><span>Add a stream delay<small>Viewers see it seconds later</small></span></summary>
+        <ol><li>Open <b>Settings &rsaquo; Output</b> and set <b>Stream delay</b>.</li><li>Start streaming: viewers see everything that many seconds late, so you have time to cut away.</li><li>Recordings aren&rsquo;t delayed.</li></ol>
+      </details>
+      <details>
+        <summary><span>Stream or record in 2K<small>2560&times;1440</small></span></summary>
+        <ol><li>In <b>Settings &rsaquo; Video</b>, set the Output resolution to <b>2560x1440 (2K)</b> at 30 FPS.</li><li>In <b>Settings &rsaquo; Output</b>, use 9000&ndash;18000 kbps and a wired or strong Wi-Fi connection.</li><li>YouTube accepts 1440p; Facebook Live and Twitch scale it down, so 1080p is better there.</li></ol>
+      </details>
+      <details>
+        <summary><span>Send video to vMix or OBS over NDI&reg;<small>Same network, no cables</small></span></summary>
+        <ol><li>Open <b>Tools &rsaquo; Plugins</b> and turn on <b>NDI Output</b>.</li><li>Give it a name. It appears as an NDI source in vMix, OBS (DistroAV) or NDI Studio Monitor on the same network.</li><li>The NDI runtime has to be included in the build; see <a href="https://ndi.video">ndi.video</a>.</li></ol>
+      </details>
+      <details>
+        <summary><span>Install an overlay or plugin<small>From GitHub or a .zip</small></span></summary>
+        <ol><li>Open <b>Tools &rsaquo; Plugins &rsaquo; Get plugins</b>.</li><li>Paste a GitHub link (owner/repo works), or tap <b>Install from .zip&hellip;</b>. Repos without an OBSpad manifest are converted.</li><li>Web overlays then appear in <b>Add Source &rsaquo; From plugins</b>, LUTs in Apply LUT, and docks on the Plugins screen. Desktop-only OBS plugins (.dll, C/C++, Lua) can&rsquo;t run on a tablet.</li></ol>
+      </details>
+      <details>
+        <summary><span>Work faster with a keyboard<small>Shortcuts and undo</small></span></summary>
+        <ol><li>Connect a Bluetooth or USB keyboard.</li><li>See every shortcut in <b>Help &rsaquo; Keyboard Shortcuts</b>: switch scenes, transition, start and stop streaming and recording.</li><li><b>Edit &rsaquo; Undo</b> and <b>Redo</b> (Ctrl+Z / Ctrl+Y) take back changes to scenes and sources.</li></ol>
+      </details>
     </div>
   </section>
 
