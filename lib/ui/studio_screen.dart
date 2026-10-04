@@ -85,7 +85,9 @@ class _PortraitLayout extends StatelessWidget {
     return ListenableBuilder(
       listenable: studio,
       builder: (context, _) {
-        final tabs = kDocks.where((d) => _tabTitles.containsKey(d.id) && studio.isDockVisible(d.id)).toList();
+        final tabs = studio.allDocks
+            .where((d) => (_tabTitles.containsKey(d.id) || d.id.startsWith('browser-')) && studio.isDockVisible(d.id))
+            .toList();
         return DefaultTabController(
           key: ValueKey(tabs.map((d) => d.id).join(',')),
           length: tabs.length,
@@ -107,7 +109,10 @@ class _PortraitLayout extends StatelessWidget {
                   child: ControlsDock(compact: true),
                 ),
               if (tabs.isNotEmpty) ...[
-                TabBar(tabs: [for (final d in tabs) Tab(text: _tabTitles[d.id])]),
+                TabBar(
+                  isScrollable: tabs.length > 4,
+                  tabs: [for (final d in tabs) Tab(text: _tabTitles[d.id] ?? d.title)],
+                ),
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.all(6),

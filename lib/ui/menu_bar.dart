@@ -12,6 +12,7 @@ import 'dialogs.dart';
 import 'dock_layout.dart';
 import 'dock_panel.dart';
 import 'docks.dart';
+import 'browser_dock.dart';
 import 'exit.dart';
 import 'update_prompt.dart';
 import 'item_menu.dart';
@@ -116,7 +117,7 @@ class ObsMenuBar extends StatelessWidget {
         SubmenuButton(
           key: const ValueKey('menu-docks'),
           menuChildren: [
-            for (final d in kDocks)
+            for (final d in studio.allDocks)
               CheckboxMenuButton(
                 key: ValueKey('menu-dock-${d.id}'),
                 value: studio.isDockVisible(d.id),
@@ -124,6 +125,8 @@ class ObsMenuBar extends StatelessWidget {
                 child: Text(d.title),
               ),
             const Divider(height: 1),
+            item('Custom Browser Docks…', () => showBrowserDocksDialog(context),
+                icon: Icons.web, key: const ValueKey('menu-browser-docks')),
             item('Reset Docks', studio.resetDocks, icon: Icons.restart_alt, key: const ValueKey('menu-reset-docks')),
           ],
           child: const Text('Docks'),

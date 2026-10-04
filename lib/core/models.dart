@@ -619,8 +619,10 @@ class OutputSettings {
     this.dockHeight = 0,
     this.studioMode = true,
     this.externalDisplayId,
+    List<BrowserDockConfig>? browserDocks,
   })  : hiddenDocks = hiddenDocks ?? [],
-        dockWeights = dockWeights ?? {};
+        dockWeights = dockWeights ?? {},
+        browserDocks = browserDocks ?? [];
 
   String service;
   String server;
@@ -657,6 +659,10 @@ class OutputSettings {
 
   /// Height of the dock row in logical pixels; 0 = automatic.
   double dockHeight;
+
+  /// Docks › Custom Browser Docks: web pages (live chat, dashboards) shown
+  /// as docks.
+  final List<BrowserDockConfig> browserDocks;
 
   /// Start in Studio Mode (edit the preview, then transition to program).
   /// Remembers the last choice.
@@ -714,6 +720,7 @@ class OutputSettings {
         'dockHeight': dockHeight,
         'studioMode': studioMode,
         if (externalDisplayId != null) 'externalDisplayId': externalDisplayId,
+        'browserDocks': [for (final b in browserDocks) b.toJson()],
       };
 
   factory OutputSettings.fromJson(Map<String, dynamic> j) {
@@ -744,8 +751,39 @@ class OutputSettings {
       dockHeight: (j['dockHeight'] as num?)?.toDouble() ?? 0,
       studioMode: j['studioMode'] as bool? ?? d.studioMode,
       externalDisplayId: j['externalDisplayId'] as String?,
+      browserDocks: (j['browserDocks'] as List?)
+          ?.whereType<Map>()
+          .map((e) => BrowserDockConfig.fromJson(e.cast<String, dynamic>()))
+          .toList(),
     );
   }
+}
+
+/// A web page shown as a dock (OBS's Custom Browser Docks).
+class BrowserDockConfig {
+  BrowserDockConfig({required this.id, required this.title, required this.url});
+
+  final String id;
+  String title;
+  String url;
+
+  /// Id used for the dock layout (hidden docks, widths).
+  String get dockId => 'browser-$id';
+
+  /// Adds https:// when the scheme is missing ("youtube.com/live_chat?…").
+  static String normalizeUrl(String url) {
+    final u = url.trim();
+    if (u.isEmpty || u.contains('://') || u.startsWith('about:')) return u;
+    return 'https://$u';
+  }
+
+  Map<String, dynamic> toJson() => {'id': id, 'title': title, 'url': url};
+
+  factory BrowserDockConfig.fromJson(Map<String, dynamic> j) => BrowserDockConfig(
+        id: '${j['id'] ?? DateTime.now().microsecondsSinceEpoch}',
+        title: j['title'] as String? ?? 'Browser',
+        url: j['url'] as String? ?? '',
+      );
 }
 
 /// Well known ingest servers (like OBS's service list). Users can always pick

@@ -305,6 +305,36 @@ void main() {
     await tester.pump(const Duration(seconds: 3));
   });
 
+  testWidgets('Docks › Custom Browser Docks adds a web page as a dock', (tester) async {
+    final (studio, _) = await _pump(tester, const Size(1366, 1024));
+    await tester.tap(find.byKey(const ValueKey('menu-docks')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('menu-browser-docks')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('browser-docks-dialog')), findsOneWidget);
+
+    await tester.enterText(find.byKey(const ValueKey('browser-dock-new-name')), 'Chat');
+    await tester.enterText(find.byKey(const ValueKey('browser-dock-new-url')), 'youtube.com/live_chat?v=abc');
+    await tester.tap(find.byKey(const ValueKey('browser-dock-add')));
+    await tester.pumpAndSettle();
+    final d = studio.settings.browserDocks.single;
+    expect(d.title, 'Chat');
+    expect(d.url, 'https://youtube.com/live_chat?v=abc');
+    await tester.tap(find.text('Close'));
+    await tester.pumpAndSettle();
+
+    // Shown with the other docks, closable, and saved with the settings.
+    expect(find.byKey(ValueKey('dock-${d.dockId}')), findsOneWidget);
+    expect(find.text('Chat'), findsWidgets);
+    final saved = OutputSettings.fromJson(studio.settings.toJson()).browserDocks.single;
+    expect((saved.title, saved.url), ('Chat', d.url));
+    await tester.tap(find.byKey(ValueKey('close-dock-${d.dockId}')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(ValueKey('dock-${d.dockId}')), findsNothing);
+    expect(tester.takeException(), isNull);
+    await tester.pump(const Duration(seconds: 3));
+  });
+
   testWidgets('A newer build shows an update banner until Later', (tester) async {
     final saved = UpdateService.instance;
     final updates = UpdateService(

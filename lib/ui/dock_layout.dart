@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../app_scope.dart';
 import '../core/studio_controller.dart';
+import 'browser_dock.dart';
 import 'docks.dart';
 import 'theme.dart';
 
@@ -27,6 +28,14 @@ final kDocks = <DockSpec>[
 ];
 
 extension DockLayoutControl on StudioController {
+  /// The built-in docks followed by the Custom Browser Docks.
+  List<DockSpec> get allDocks => [
+        ...kDocks,
+        for (final b in settings.browserDocks)
+          DockSpec(b.dockId, b.title, 4,
+              ({showTitle = true}) => BrowserDockView(key: ValueKey(b.dockId), config: b, showTitle: showTitle)),
+      ];
+
   bool isDockVisible(String id) => !settings.hiddenDocks.contains(id);
 
   void setDockVisible(String id, bool visible) => updateSettings((s) {
@@ -41,7 +50,8 @@ extension DockLayoutControl on StudioController {
         s.dockHeight = 0;
       });
 
-  double dockWeight(String id) => settings.dockWeights[id] ?? kDocks.firstWhere((d) => d.id == id).weight;
+  double dockWeight(String id) =>
+      settings.dockWeights[id] ?? allDocks.firstWhere((d) => d.id == id, orElse: () => kDocks.first).weight;
 }
 
 /// Lets a [Dock] show a close button for its slot.
@@ -71,7 +81,7 @@ class LandscapeWorkspace extends StatelessWidget {
     return ListenableBuilder(
       listenable: studio,
       builder: (context, _) {
-        final visible = kDocks.where((d) => studio.isDockVisible(d.id)).toList();
+        final visible = studio.allDocks.where((d) => studio.isDockVisible(d.id)).toList();
         if (visible.isEmpty) return Padding(padding: const EdgeInsets.all(6), child: canvas);
         final auto = (height * 0.36).clamp(220.0, 340.0);
         final dockHeight = (studio.settings.dockHeight > 0 ? studio.settings.dockHeight : auto)

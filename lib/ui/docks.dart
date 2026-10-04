@@ -74,7 +74,15 @@ class Dock extends StatelessWidget {
                 color: ObsColors.header,
                 border: Border(top: BorderSide(color: ObsColors.border)),
               ),
-              child: Row(children: toolbar),
+              child: LayoutBuilder(builder: (context, box) {
+                // Narrow dock (many docks open): scroll the buttons instead
+                // of overflowing; spacers need a bounded width.
+                if (box.maxWidth >= toolbar.length * 56) return Row(children: toolbar);
+                return SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(children: [for (final w in toolbar) if (w is! Spacer) w]),
+                );
+              }),
             ),
         ],
       ),
