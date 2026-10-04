@@ -173,6 +173,11 @@ footer img { height: 26px; width: auto; display: block; }
 }
 @media (max-width: 640px) {
   .nav ul { display: none; }
+  /* Logo and Download App stay on one row on phones. */
+  .nav { flex-wrap: nowrap; gap: 12px; padding-block: 14px; }
+  .nav .logo img { height: 28px; }
+  .nav .btn { padding: 10px 16px; font-size: .88rem; gap: 8px; white-space: nowrap; flex: none; }
+  .nav .btn svg { width: 16px; height: 16px; }
   .fan { grid-template-columns: minmax(0, 1fr); }
   .fan .side { display: none; }
   .benefits, .two, .row4 { grid-template-columns: minmax(0, 1fr); }
