@@ -443,6 +443,7 @@ void main() {
     expect(find.byKey(const ValueKey('about-dialog')), findsOneWidget);
     expect(find.text('Victor Abah'), findsOneWidget);
     expect(find.text('www.victorabah.com'), findsOneWidget);
+    expect(find.byKey(const ValueKey('developer-photo')), findsOneWidget);
     expect(find.textContaining('Version 1.0.0'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.tap(find.text('Close'));

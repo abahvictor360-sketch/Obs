@@ -71,16 +71,29 @@ Future<void> showObsAbout(BuildContext context) {
                 'Capture cards, webcams, USB sound cards, Ethernet and monitors, directly or through a dock.'),
             feature(Icons.extension_outlined, 'Plugins', 'Install from a GitHub link; NDI® output built in.'),
             const Divider(height: 28),
-            const Text('Developed by', style: TextStyle(color: ObsColors.textDim, fontSize: 12)),
-            const SizedBox(height: 2),
-            const Text(kDeveloperName, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
-            TextButton.icon(
-              key: const ValueKey('developer-site'),
-              style: TextButton.styleFrom(padding: EdgeInsets.zero),
-              icon: const Icon(Icons.language, size: 18),
-              label: const Text(kDeveloperSite),
-              onPressed: () => openWebsite(kDeveloperSite),
-            ),
+            Row(children: [
+              const CircleAvatar(
+                key: ValueKey('developer-photo'),
+                radius: 32,
+                backgroundColor: ObsColors.accent,
+                backgroundImage: AssetImage('assets/developer.jpg'),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Text('Developed by', style: TextStyle(color: ObsColors.textDim, fontSize: 12)),
+                  const SizedBox(height: 2),
+                  const Text(kDeveloperName, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+                  TextButton.icon(
+                    key: const ValueKey('developer-site'),
+                    style: TextButton.styleFrom(padding: EdgeInsets.zero),
+                    icon: const Icon(Icons.language, size: 18),
+                    label: const Text(kDeveloperSite),
+                    onPressed: () => openWebsite(kDeveloperSite),
+                  ),
+                ]),
+              ),
+            ]),
             TextButton.icon(
               style: TextButton.styleFrom(padding: EdgeInsets.zero),
               icon: const Icon(Icons.download_outlined, size: 18),

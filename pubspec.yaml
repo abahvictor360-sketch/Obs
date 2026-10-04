@@ -71,6 +71,7 @@ flutter:
 
   assets:
     - assets/logo.png
+    - assets/developer.jpg
 
   shaders:
     - shaders/key.frag
