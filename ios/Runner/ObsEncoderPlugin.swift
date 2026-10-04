@@ -15,6 +15,8 @@ final class ObsEncoderPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
     private var micGain: Float = 1
     private var appGain: Float = 1
     private var pcmTap = false
+    private var meter: MicMeter?
+    private var meterWanted = false
 
     /// True while the broadcast extension encodes the composited screen.
     private var extensionEncoding = false
@@ -71,6 +73,7 @@ final class ObsEncoderPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
             start(args, result)
         case "stop":
             stop()
+            updateMeter()
             result(nil)
         case "frame":
             guard let v = video, let data = (args["data"] as? FlutterStandardTypedData)?.data else {
@@ -98,6 +101,11 @@ final class ObsEncoderPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
         case "setMicGain":
             micGain = Float(args["gain"] as? Double ?? 1)
             audio?.gain = micGain
+            meter?.gain = micGain
+            result(nil)
+        case "setMetering":
+            meterWanted = args["enabled"] as? Bool ?? false
+            updateMeter()
             result(nil)
         case "setPcmTap":
             pcmTap = args["enabled"] as? Bool ?? false
@@ -145,6 +153,7 @@ final class ObsEncoderPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
 
     private func start(_ args: [String: Any], _ result: @escaping FlutterResult) {
         stop()
+        stopMeter() // the encoder takes over the microphone and the levels
         config = args
         let width = args["width"] as? Int ?? 1280
         let height = args["height"] as? Int ?? 720
@@ -160,14 +169,7 @@ final class ObsEncoderPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
 
         // The audio session must allow mixing so games keep their sound, and
         // must stay active so iOS keeps the app running in the background.
-        let session = AVAudioSession.sharedInstance()
-        do {
-            try session.setCategory(.playAndRecord, mode: .videoRecording,
-                                    options: [.mixWithOthers, .defaultToSpeaker, .allowBluetooth])
-            try session.setActive(true)
-        } catch {
-            emitError("Audio session error: \(error.localizedDescription)")
-        }
+        let session = activateAudioSession()
         session.requestRecordPermission { [weak self] granted in
             DispatchQueue.main.async {
                 guard let self = self, self.video != nil else { return }
@@ -214,6 +216,52 @@ final class ObsEncoderPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
         } catch {
             emitError("Microphone unavailable: \(error.localizedDescription)")
         }
+    }
+
+    @discardableResult
+    private func activateAudioSession() -> AVAudioSession {
+        let session = AVAudioSession.sharedInstance()
+        do {
+            try session.setCategory(.playAndRecord, mode: .videoRecording,
+                                    options: [.mixWithOthers, .defaultToSpeaker, .allowBluetooth])
+            try session.setActive(true)
+        } catch {
+            emitError("Audio session error: \(error.localizedDescription)")
+        }
+        return session
+    }
+
+    // MARK: Mixer meter while idle
+
+    /// Runs the MicMeter while it's wanted and no encoder uses the microphone.
+    private func updateMeter() {
+        guard meterWanted, video == nil, audio == nil else {
+            stopMeter()
+            return
+        }
+        guard meter == nil else { return }
+        let session = activateAudioSession()
+        session.requestRecordPermission { [weak self] granted in
+            DispatchQueue.main.async {
+                guard let self = self, granted, self.meterWanted, self.meter == nil,
+                      self.video == nil, self.audio == nil else { return }
+                let m = MicMeter { [weak self] rms, peak in
+                    self?.emit(["type": "level", "rms": Double(rms), "peak": Double(peak)])
+                }
+                m.gain = self.micGain
+                do {
+                    try m.start()
+                    self.meter = m
+                } catch {
+                    // No microphone right now; the next setMetering tries again.
+                }
+            }
+        }
+    }
+
+    private func stopMeter() {
+        meter?.stop()
+        meter = nil
     }
 
     private func stop() {

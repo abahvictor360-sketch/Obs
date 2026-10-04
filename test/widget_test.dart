@@ -30,7 +30,11 @@ class FakeEncoder implements EncoderBackend {
   @override
   Stream<EncodedPacket> get packets => const Stream.empty();
   @override
-  Stream<AudioLevel> get levels => const Stream.empty();
+  Stream<AudioLevel> get levels => levelCtl.stream;
+  final levelCtl = StreamController<AudioLevel>.broadcast(sync: true);
+  final metering = <bool>[];
+  @override
+  Future<void> setMetering(bool enabled) async => metering.add(enabled);
   @override
   Stream<String> get errors => const Stream.empty();
   @override
@@ -258,6 +262,29 @@ void main() {
     expect(studio.programScene.items, hasLength(itemsBefore + 1));
     expect(studio.programScene.items.last.visible, isTrue);
     expect(tester.takeException(), isNull);
+    await tester.pump(const Duration(seconds: 3));
+  });
+
+  testWidgets('the Mic/Aux meter is live while idle, not only when streaming', (tester) async {
+    final enc = FakeEncoder(supported: true);
+    final (studio, output) = await _pump(tester, const Size(1366, 1024), backend: enc);
+    expect(studio.collection.sources.any((s) => s.type == SourceType.audioInput), isTrue);
+    expect(enc.metering, [true]);
+    expect(output.isStreaming || output.isRecording, isFalse);
+
+    enc.levelCtl.add(const AudioLevel(0.3, 0.7));
+    await tester.pump();
+    expect(output.micLevel.rms, 0.3);
+    expect(output.micLevel.peak, 0.7);
+
+    // Off in the background, back on when the app returns.
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    await tester.pump();
+    expect(enc.metering.last, isFalse);
+    expect(output.micLevel.rms, 0);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    expect(enc.metering.last, isTrue);
     await tester.pump(const Duration(seconds: 3));
   });
 

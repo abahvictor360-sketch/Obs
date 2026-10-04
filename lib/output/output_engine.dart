@@ -102,6 +102,7 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
   int _lastStreamBytes = 0;
   int _framesThisSecond = 0;
   double _lastMicGain = -1;
+  bool _metering = false;
   double _lastScreenGain = -1;
 
   /// Called with every program frame sent to the encoder (RGBA), so the
@@ -141,6 +142,7 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
     });
     screenCaptureSupported = await backend.isScreenCaptureSupported();
     WidgetsBinding.instance.addObserver(this);
+    _onStudioChanged();
     notifyListeners();
   }
 
@@ -151,6 +153,22 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
     // (or repeats the last frame).
     _appResumed = state == AppLifecycleState.resumed;
     if (_appResumed) _layersDirty = true;
+    _updateMetering();
+  }
+
+  /// Keeps the Mic/Aux meter live (like OBS) whenever the app is in front and
+  /// the collection has a microphone, not only while streaming or recording.
+  void _updateMetering() {
+    final want = encoderSupported &&
+        _appResumed &&
+        studio.collection.sources.any((s) => s.type == SourceType.audioInput);
+    if (want == _metering) return;
+    _metering = want;
+    if (!want && !_encoderRunning) {
+      micLevel = const AudioLevel(0, 0);
+      notifyListeners();
+    }
+    backend.setMetering(want).catchError((_) {});
   }
 
   /// Test hooks: run the encoder and frame pump steps without real outputs.
@@ -618,7 +636,8 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
   void _onStudioChanged() {
     _layersDirty = true;
     final g = studio.micGain;
-    if (g != _lastMicGain && (_encoderRunning || _lastMicGain < 0)) {
+    // Also while idle: the meter shows the level after the fader, like OBS.
+    if (g != _lastMicGain) {
       _lastMicGain = g;
       if (encoderSupported) backend.setMicGain(g).catchError((_) {});
     }
@@ -627,6 +646,7 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
       _lastScreenGain = sg;
       if (encoderSupported) backend.setScreenAudioGain(sg).catchError((_) {});
     }
+    _updateMetering();
   }
 
   void _updateWakelock() {

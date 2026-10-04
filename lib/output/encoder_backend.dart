@@ -128,6 +128,10 @@ abstract class EncoderBackend {
   Future<void> requestKeyframe();
   Future<void> setMicGain(double gain);
 
+  /// Reports microphone [levels] while no output runs, for the mixer meter.
+  /// Nothing is encoded; the encoder takes over while it runs.
+  Future<void> setMetering(bool enabled);
+
   /// Gain for other apps' audio captured along with the screen.
   Future<void> setScreenAudioGain(double gain);
 
@@ -256,6 +260,9 @@ class MethodChannelEncoder implements EncoderBackend {
 
   @override
   Future<void> setMicGain(double gain) => _method.invokeMethod('setMicGain', {'gain': gain});
+
+  @override
+  Future<void> setMetering(bool enabled) => _method.invokeMethod('setMetering', {'enabled': enabled});
 
   @override
   Future<void> setPcmTap(bool enabled) => _method.invokeMethod('setPcmTap', {'enabled': enabled});
