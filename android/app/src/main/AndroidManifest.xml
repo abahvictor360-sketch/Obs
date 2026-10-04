@@ -83,6 +83,17 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+        <!-- Screen cast: the system's Cast, Smart View and wireless display screens. -->
+        <intent>
+            <action android:name="android.settings.CAST_SETTINGS"/>
+        </intent>
+        <intent>
+            <action android:name="android.settings.WIFI_DISPLAY_SETTINGS"/>
+        </intent>
+        <intent>
+            <action android:name="android.settings.WIRELESS_SETTINGS"/>
+        </intent>
+        <package android:name="com.samsung.android.smartmirroring"/>
         <!-- Open the developer's website and the download page in the browser. -->
         <intent>
             <action android:name="android.intent.action.VIEW"/>

@@ -350,6 +350,18 @@ class DeviceService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Opens the system's screen casting: Cast / Smart View / wireless display
+  /// on Android, the AirPlay picker on iPad. Returns what opened ('cast',
+  /// 'smartview', 'display', 'wireless', 'airplay'), or null.
+  Future<String?> openScreenCast() async {
+    if (!supported) return null;
+    try {
+      return await _method.invokeMethod<String>('openScreenCast');
+    } catch (_) {
+      return null;
+    }
+  }
+
   @override
   void dispose() {
     _sub?.cancel();

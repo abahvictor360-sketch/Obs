@@ -26,6 +26,7 @@ void main() {
   late List<MethodCall> calls;
   late Map<String, Object?> dock;
   late List<(int, int, int)> frames;
+  String? castOpens;
   MockStreamHandlerEventSink? sink;
 
   const screen = {'id': '2', 'name': 'HDMI', 'width': 1920, 'height': 1080, 'refreshRate': 60.0, 'presenting': true};
@@ -34,6 +35,7 @@ void main() {
   setUp(() {
     calls = [];
     frames = [];
+    castOpens = 'cast';
     dock = {'display': screen, 'ethernet': true, 'usbAudio': false, 'usbVideo': false, 'usbDevices': 1, 'charging': true};
     messenger.setMockMethodCallHandler(method, (call) async {
       calls.add(call);
@@ -56,6 +58,8 @@ void main() {
         case 'listUsbCameras':
         case 'listAudioInputs':
           return const [];
+        case 'openScreenCast':
+          return castOpens;
       }
       return null;
     });
@@ -316,6 +320,60 @@ void main() {
     await tester.runAsync(pumpEventQueue);
     await tester.pumpAndSettle();
     expect((studio.settings.externalDisplay, studio.settings.externalDisplayId), ('program', '2'));
+    expect(tester.takeException(), isNull);
+
+    tracker.dispose();
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 3));
+  });
+  testWidgets('Cast to a wireless screen opens the system casting and sends the program there', (tester) async {
+    tester.view.physicalSize = const Size(1366, 1024);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final studio = StudioController(storage: MemoryStorage())..setStudioMode(true);
+    studio.updateSettings((s) {
+      s.externalDisplay = 'mirror';
+      s.externalDisplayId = '2';
+    });
+    final output = OutputEngine(studio: studio, backend: FakeEncoder());
+    await output.init();
+    final devices = DeviceService();
+    await tester.runAsync(devices.init);
+    final tracker = DeviceActivityTracker(studio, devices);
+    await tester.pumpWidget(ObsTabletApp(
+      studio: studio,
+      output: output,
+      cameras: CameraService(),
+      media: MediaService(),
+      plugins: PluginManager(createPlatformPluginBackend()),
+      devices: devices,
+      networkVideo: NetworkVideoService(),
+    ));
+    await tester.pump();
+
+    await tester.longPress(find.text('Program'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('projector-cast')));
+    await tester.runAsync(pumpEventQueue);
+    await tester.pumpAndSettle();
+    expect(calls.where((c) => c.method == 'openScreenCast'), hasLength(1));
+    // The next screen to connect (the TV) shows the program.
+    expect((studio.settings.externalDisplay, studio.settings.externalDisplayId), ('program', null));
+    expect(find.textContaining('Pick your TV'), findsOneWidget);
+
+    // No casting screen on this tablet: explain where to find it.
+    castOpens = null;
+    await tester.tap(find.text('View'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('menu-multiview')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('menu-multiview-cast')));
+    await tester.runAsync(pumpEventQueue);
+    await tester.pumpAndSettle();
+    expect(studio.settings.externalDisplay, 'multiview');
+    expect(find.byKey(const ValueKey('screen-cast-help')), findsOneWidget);
+    await tester.tap(find.text('OK'));
+    await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
 
     tracker.dispose();

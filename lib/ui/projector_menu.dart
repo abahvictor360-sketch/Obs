@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -79,13 +80,56 @@ Future<void> showProjectorMenu(BuildContext context, Offset globalPosition) asyn
             checked: isCurrent(d) && mode == 'multiview',
           ),
         ],
-        if (current?.presenting == true)
-          entry('Stop sending (mirror the tablet)', () => studio.updateSettings((s) => s.externalDisplay = 'mirror'),
-              icon: Icons.cancel_presentation_outlined, key: const ValueKey('projector-stop')),
       ],
+      const PopupMenuDivider(),
+      entry('Cast to a wireless screen…', () => startScreenCast(context, 'program'),
+          icon: Icons.cast, key: const ValueKey('projector-cast'),
+          subtitle: 'Smart TV, Miracast, Smart View or AirPlay'),
+      if (current?.presenting == true)
+        entry('Stop sending (mirror the tablet)', () => studio.updateSettings((s) => s.externalDisplay = 'mirror'),
+            icon: Icons.cancel_presentation_outlined, key: const ValueKey('projector-stop')),
     ],
   );
   action?.call();
+}
+
+/// Screen cast: opens the system's casting (Cast / Smart View / wireless
+/// display on Android; on iPad, explains Screen Mirroring, which only
+/// Control Center can start). A TV connected this way is a screen like any
+/// other: it shows [mode] ('program' or 'multiview') as soon as it connects.
+Future<void> startScreenCast(BuildContext context, String mode) async {
+  final scope = AppScope.of(context);
+  scope.studio.updateSettings((s) {
+    s.externalDisplay = mode;
+    s.externalDisplayId = null;
+  });
+  final what = mode == 'multiview' ? 'the Multiview' : 'the Program';
+  final ios = defaultTargetPlatform == TargetPlatform.iOS;
+  final opened = ios ? null : await scope.devices.openScreenCast();
+  if (!context.mounted) return;
+  if (opened != null) {
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(
+      duration: const Duration(seconds: 8),
+      content: Text('Pick your TV. When it connects, OBSpad shows $what on it. '
+          'Chromecast only mirrors the whole tablet; Miracast and Smart View TVs show $what.'),
+    ));
+    return;
+  }
+  await showDialog<void>(
+    context: context,
+    builder: (context) => AlertDialog(
+      key: const ValueKey('screen-cast-help'),
+      title: const Text('Cast to a wireless screen'),
+      content: Text(ios
+          ? '1. Open Control Center (swipe down from the top-right corner).\n'
+              '2. Tap Screen Mirroring and pick your Apple TV or AirPlay TV.\n\n'
+              'OBSpad then shows $what on the TV while you keep working on the iPad.'
+          : '1. Swipe down twice from the top of the screen for Quick Settings.\n'
+              '2. Tap Screen Cast, Smart View or Cast and pick your TV.\n\n'
+              'When it connects, OBSpad shows $what on the TV.'),
+      actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
+    ),
+  );
 }
 
 /// Shows [mode] ('program' or 'multiview') on connected screen [d].

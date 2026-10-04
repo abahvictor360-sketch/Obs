@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../app_scope.dart';
 import '../core/models.dart';
 import '../devices/device_service.dart';
+import 'projector_menu.dart';
 import 'theme.dart';
 
 /// Top-bar chip shown while a docking station (or anything it brings: a
@@ -93,6 +94,19 @@ class DockPanel extends StatelessWidget {
               ),
               row(Icons.desktop_windows_outlined, 'Screen', d != null,
                   d == null ? 'Connect a monitor or TV via the dock, USB-C or HDMI' : '${d.name} · ${d.width}×${d.height}'),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(72, 0, 16, 8),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton.icon(
+                    key: const ValueKey('dock-cast'),
+                    icon: const Icon(Icons.cast, size: 18),
+                    label: const Text('Cast to a wireless screen…'),
+                    onPressed: () => startScreenCast(
+                        context, scope.studio.settings.externalDisplay == 'multiview' ? 'multiview' : 'program'),
+                  ),
+                ),
+              ),
               if (d == null) _NoScreenHelp(billboard: dock.billboard, ios: defaultTargetPlatform == TargetPlatform.iOS),
               if (d != null)
                 Padding(

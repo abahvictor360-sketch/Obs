@@ -75,6 +75,7 @@ class DevicesPlugin(
                 "setDisplayMode" -> result.success(
                     dock?.setMode(call.argument<String>("mode") ?: "program", call.argument<String>("displayId")),
                 )
+                "openScreenCast" -> result.success(openScreenCast())
                 "setPreferWired" -> {
                     preferWired = call.argument<Boolean>("enabled") ?: false
                     applyRouting()
@@ -85,6 +86,30 @@ class DevicesPlugin(
         } catch (e: Exception) {
             result.error("devices", e.message ?: e.toString(), null)
         }
+    }
+
+    /**
+     * Opens the system's screen casting (Cast, Smart View on Samsung, or
+     * wireless display settings). A TV connected this way (Miracast / Smart
+     * View) becomes a screen the program is sent to. Returns what opened.
+     */
+    private fun openScreenCast(): String? {
+        val pm = activity.packageManager
+        val candidates = listOfNotNull(
+            "cast" to android.content.Intent("android.settings.CAST_SETTINGS"),
+            pm.getLaunchIntentForPackage("com.samsung.android.smartmirroring")?.let { "smartview" to it },
+            "display" to android.content.Intent("android.settings.WIFI_DISPLAY_SETTINGS"),
+            "wireless" to android.content.Intent(android.provider.Settings.ACTION_WIRELESS_SETTINGS),
+        )
+        for ((kind, intent) in candidates) {
+            if (intent.resolveActivity(pm) == null) continue
+            try {
+                activity.startActivity(intent)
+                return kind
+            } catch (_: Exception) {
+            }
+        }
+        return null
     }
 
     // ---------------------------------------------------------------------------------------

@@ -50,13 +50,17 @@ class ObsMenuBar extends StatelessWidget {
     /// One entry per connected screen; the one showing [mode] is checked.
     List<Widget> screenItems(String mode) {
       final screens = devices.dock.displays;
+      final cast = item('Cast to a wireless screen…', () => startScreenCast(context, mode),
+          icon: Icons.cast, key: ValueKey('menu-$mode-cast'));
       if (screens.isEmpty) {
         return [
           item('No screen connected', null, icon: Icons.desktop_access_disabled_outlined),
+          cast,
         ];
       }
       final current = devices.dock.display;
       return [
+        cast,
         for (final d in screens)
           MenuItemButton(
             key: ValueKey('menu-$mode-${d.id}'),
