@@ -729,7 +729,7 @@ class _UsbVideoSettings extends StatelessWidget {
                   onChanged: (v) async {
                     scope.studio.updateSourceSettings(source.id, {'device': v ?? ''});
                     await devices.closeUsbVideo();
-                    await devices.openUsbVideo(v);
+                    await devices.openUsbVideo(v, retry: true);
                   },
                 ),
               ),
@@ -744,7 +744,14 @@ class _UsbVideoSettings extends StatelessWidget {
               Text('Receiving ${devices.usbVideo!.width}x${devices.usbVideo!.height}',
                   style: const TextStyle(color: ObsColors.ok))
             else if (devices.usbError != null)
-              Text(devices.usbError!, style: const TextStyle(color: ObsColors.warn)),
+              Row(children: [
+                Expanded(child: Text(devices.usbError!, style: const TextStyle(color: ObsColors.warn))),
+                TextButton(
+                  key: const ValueKey('usb-retry'),
+                  onPressed: () => devices.openUsbVideo(source.settings['device'] as String?, retry: true),
+                  child: const Text('Try again'),
+                ),
+              ]),
             const SizedBox(height: 12),
             const Text(
               'Plug an HDMI capture card (camera, console, PC) or a USB webcam into the tablet with a '

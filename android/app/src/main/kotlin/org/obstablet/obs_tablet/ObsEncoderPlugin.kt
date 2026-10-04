@@ -125,6 +125,10 @@ class ObsEncoderPlugin(private val activity: Activity, messenger: BinaryMessenge
                     updateMeter()
                     result.success(null)
                 }
+                "setLiveOutput" -> {
+                    OutputService.set(activity.applicationContext, call.argument<String>("text"))
+                    result.success(null)
+                }
                 "setMicProcessing" -> {
                     MicProcessing.configure(call.arguments as? Map<*, *> ?: emptyMap<String, Any>())
                     result.success(null)
@@ -173,7 +177,15 @@ class ObsEncoderPlugin(private val activity: Activity, messenger: BinaryMessenge
                     }
                 }
                 "startRecording" -> result.success(startRecording())
-                "stopRecording" -> result.success(stopRecording())
+                "stopRecording" -> {
+                    // Finishing copies the file into the gallery: not on the UI thread.
+                    val r = recorder
+                    recorder = null
+                    Thread({
+                        val path = try { r?.stop() } catch (_: Exception) { null }
+                        main.post { result.success(path) }
+                    }, "obs-mp4-finish").start()
+                }
                 else -> result.notImplemented()
             }
         } catch (e: Exception) {
@@ -344,13 +356,14 @@ class ObsEncoderPlugin(private val activity: Activity, messenger: BinaryMessenge
         return r.displayPath
     }
 
-    private fun stopRecording(): String? {
-        val r = recorder ?: return null
+    private fun stopRecording() {
+        val r = recorder ?: return
         recorder = null
-        return r.stop()
+        Thread({ try { r.stop() } catch (_: Exception) {} }, "obs-mp4-finish").start()
     }
 
     fun dispose() {
+        OutputService.set(activity.applicationContext, null)
         stop()
         stopMeter()
         outputMeter?.stop()

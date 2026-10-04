@@ -779,7 +779,19 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
     _maybeApplyEncoderSettings();
   }
 
+  String? _liveText;
+
   void _updateWakelock() {
+    final parts = [
+      if (isStreaming) 'Streaming',
+      if (isRecording) 'Recording',
+      if (ndiActive) 'NDI',
+    ];
+    final text = parts.isEmpty ? null : parts.join(' · ');
+    if (text != _liveText && encoderSupported) {
+      _liveText = text;
+      backend.setLiveOutput(text).catchError((_) {});
+    }
     final on = (isStreaming || isRecording || ndiActive || _externalPresenting) && studio.settings.keepScreenOn;
     WakelockPlus.toggle(enable: on).catchError((_) {});
   }

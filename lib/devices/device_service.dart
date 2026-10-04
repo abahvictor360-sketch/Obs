@@ -241,6 +241,7 @@ class DeviceService extends ChangeNotifier {
 
   Future<void> refreshUsbCameras() async {
     if (!supported) return;
+    _usbFailed = null; // plugged in / refreshed: try again
     try {
       final list = await _method.invokeMethod<List>('listUsbCameras') ?? const [];
       usbCameras = [for (final m in list.cast<Map>()) UsbCamera('${m['id']}', '${m['name']}')];
@@ -260,24 +261,41 @@ class DeviceService extends ChangeNotifier {
 
   /// Opens a USB video device ([id] null = first one). Android asks for USB
   /// permission the first time.
-  Future<void> openUsbVideo(String? id) async {
+  /// Device that failed to open (denied permission, error): not retried
+  /// automatically until it's plugged in again, the list is refreshed or the
+  /// user picks it ([retry]); otherwise Android asks again on every redraw.
+  String? _usbFailed;
+  bool _usbCloseWanted = false;
+
+  Future<void> openUsbVideo(String? id, {bool retry = false}) async {
     if (!supported || usbOpening) return;
     if (usbVideo != null && (id == null || id.isEmpty || usbVideo!.id == id)) return;
+    final key = id ?? '';
+    if (!retry && _usbFailed == key) return;
     usbOpening = true;
+    _usbCloseWanted = false;
     usbError = null;
     notifyListeners();
     try {
       final m = await _method.invokeMethod<Map>('openUsbCamera', {'id': (id == null || id.isEmpty) ? null : id});
       if (m != null) usbVideo = _parseOpen(m);
+      _usbFailed = null;
     } on PlatformException catch (e) {
       usbError = e.message ?? e.code;
+      _usbFailed = key;
     } finally {
       usbOpening = false;
       notifyListeners();
     }
+    // The source was hidden or removed while the device was opening.
+    if (_usbCloseWanted) await closeUsbVideo();
   }
 
   Future<void> closeUsbVideo() async {
+    if (usbOpening) {
+      _usbCloseWanted = true;
+      return;
+    }
     if (usbVideo == null) return;
     usbVideo = null;
     notifyListeners();

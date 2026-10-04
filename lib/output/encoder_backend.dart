@@ -136,6 +136,10 @@ abstract class EncoderBackend {
   /// natively to the stream, recordings, NDI and the meter.
   Future<void> setMicProcessing(Map<String, Object> config);
 
+  /// Android: keep the app alive in the background while live, with a
+  /// notification saying what's running ([text]); null when nothing is.
+  Future<void> setLiveOutput(String? text);
+
   /// Level of the sound the tablet plays (video sources, other apps), where
   /// the platform allows measuring it (Android).
   Future<void> setOutputMetering(bool enabled);
@@ -277,6 +281,9 @@ class MethodChannelEncoder implements EncoderBackend {
 
   @override
   Future<void> setMicProcessing(Map<String, Object> config) => _method.invokeMethod('setMicProcessing', config);
+
+  @override
+  Future<void> setLiveOutput(String? text) => _method.invokeMethod('setLiveOutput', {'text': text});
 
   @override
   Future<void> setOutputMetering(bool enabled) => _method.invokeMethod('setOutputMetering', {'enabled': enabled});

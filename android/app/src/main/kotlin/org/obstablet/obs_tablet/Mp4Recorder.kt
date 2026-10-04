@@ -89,18 +89,28 @@ class Mp4Recorder(
         }
     }
 
-    /** Finishes the file and returns where the user can find it. */
-    fun stop(): String {
+    /**
+     * Finishes the file and returns where the user can find it, or null if
+     * nothing was recorded. Copies into the gallery, so call it off the main
+     * thread (long recordings are gigabytes).
+     */
+    fun stop(): String? {
+        var wrote = true
         synchronized(lock) {
             stopped = true
-            if (!started) return file.absolutePath
+            if (!started) return null
             started = false
             try {
                 muxer.stop()
             } catch (_: Exception) {
                 // Thrown if nothing was written (stopped before the first keyframe).
+                wrote = false
             }
             muxer.release()
+        }
+        if (!wrote || startUs < 0) {
+            file.delete()
+            return null
         }
         return publishToGallery() ?: file.absolutePath
     }

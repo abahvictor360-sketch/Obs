@@ -55,6 +55,10 @@
             </intent-filter>
         </activity>
         <service
+            android:name=".OutputService"
+            android:exported="false"
+            android:foregroundServiceType="microphone"/>
+        <service
             android:name=".ScreenCaptureService"
             android:exported="false"
             android:foregroundServiceType="mediaProjection|microphone"/>
