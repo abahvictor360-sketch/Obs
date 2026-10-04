@@ -169,7 +169,13 @@ class _QuickSettingState extends State<_QuickSetting> {
 
     return switch (s.type) {
       SourceType.image => Row(children: [label('Image File'), field(editable: false), browse(MediaKind.image)]),
-      SourceType.media => Row(children: [label('Local File'), field(editable: false), browse(MediaKind.video)]),
+      SourceType.media => Row(children: [
+          _MediaControls(source: s),
+          const SizedBox(width: 10),
+          label('Local File'),
+          field(editable: false),
+          browse(MediaKind.video),
+        ]),
       SourceType.text => Row(children: [label('Text'), field(editable: true, hint: 'Type the text')]),
       SourceType.browser => Row(children: [
           label('URL'),
@@ -197,5 +203,54 @@ class _QuickSettingState extends State<_QuickSetting> {
         ]),
       _ => const SizedBox.shrink(),
     };
+  }
+}
+
+/// Play / pause / restart for a Media Source, with its position, like OBS's
+/// media controls.
+class _MediaControls extends StatelessWidget {
+  const _MediaControls({required this.source});
+
+  final Source source;
+
+  static String _t(Duration d) {
+    String p(int v) => v.toString().padLeft(2, '0');
+    return d.inHours > 0 ? '${d.inHours}:${p(d.inMinutes % 60)}:${p(d.inSeconds % 60)}' : '${p(d.inMinutes)}:${p(d.inSeconds % 60)}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final media = AppScope.of(context).media;
+    return ListenableBuilder(
+      listenable: media,
+      builder: (context, _) {
+        final c = media.controllerFor(source.id);
+        if (c == null) {
+          return const Text('Not playing', style: TextStyle(color: ObsColors.textDim, fontSize: 13));
+        }
+        return ValueListenableBuilder(
+          valueListenable: c,
+          builder: (context, v, _) => Row(mainAxisSize: MainAxisSize.min, children: [
+            IconButton(
+              key: const ValueKey('media-restart'),
+              tooltip: 'Restart',
+              icon: const Icon(Icons.replay, size: 20),
+              onPressed: () {
+                c.seekTo(Duration.zero);
+                c.play();
+              },
+            ),
+            IconButton(
+              key: const ValueKey('media-play-pause'),
+              tooltip: v.isPlaying ? 'Pause' : 'Play',
+              icon: Icon(v.isPlaying ? Icons.pause : Icons.play_arrow, size: 22),
+              onPressed: () => v.isPlaying ? c.pause() : c.play(),
+            ),
+            Text('${_t(v.position)} / ${_t(v.duration)}',
+                style: const TextStyle(fontSize: 12, fontFeatures: [FontFeature.tabularFigures()])),
+          ]),
+        );
+      },
+    );
   }
 }

@@ -401,6 +401,22 @@ void main() {
     await tester.pump(const Duration(seconds: 3));
   });
 
+  testWidgets('View › Stats shows output health', (tester) async {
+    await _pump(tester, const Size(1366, 1024));
+    await tester.tap(find.text('View'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('menu-stats')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('stats-dialog')), findsOneWidget);
+    expect(find.text('Dropped frames (network)'), findsOneWidget);
+    expect(find.text('Inactive'), findsWidgets);
+    await tester.pump(const Duration(seconds: 2));
+    await tester.tap(find.text('Close'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    await tester.pump(const Duration(seconds: 3));
+  });
+
   testWidgets('A newer build shows an update banner until Later', (tester) async {
     final saved = UpdateService.instance;
     final updates = UpdateService(

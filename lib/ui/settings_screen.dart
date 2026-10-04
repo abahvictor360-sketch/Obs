@@ -418,6 +418,13 @@ class _GeneralPage extends StatelessWidget {
     return Column(
       children: [
         SwitchListTile(
+          key: const ValueKey('auto-record'),
+          title: const Text('Automatically record when streaming'),
+          subtitle: const Text('Starts a recording with the stream and stops it when the stream ends'),
+          value: s.autoRecordWithStream,
+          onChanged: (v) => studio.updateSettings((s) => s.autoRecordWithStream = v),
+        ),
+        SwitchListTile(
           title: const Text('Keep screen on while live or recording'),
           value: s.keepScreenOn,
           onChanged: (v) => studio.updateSettings((s) => s.keepScreenOn = v),

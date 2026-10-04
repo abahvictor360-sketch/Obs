@@ -240,4 +240,22 @@ void main() {
     expect(item.transform.x + item.transform.width / 2, closeTo(before.$2, 0.001));
     expect(text.settings['fontSize'], old * 2);
   });
+  test('Copy Filters / Paste Filters: copies that fit the target source', () {
+    final c = StudioController(storage: MemoryStorage());
+    final title = c.sources.firstWhere((s) => s.type == SourceType.text);
+    final mic = c.sources.firstWhere((s) => s.type == SourceType.audioInput);
+    final blur = c.addFilter(title.id, FilterKind.blur);
+    c.updateFilter(title.id, blur.id, values: {'radius': 20.0});
+    c.addFilter(mic.id, FilterKind.noiseGate);
+    c.copyFilters(title.id);
+
+    final bg = c.sources.firstWhere((s) => s.type == SourceType.color);
+    expect(c.pasteFilters(bg.id), 1);
+    expect(bg.filters.single.dbl('radius'), 20.0);
+    expect(bg.filters.single.id, isNot(blur.id));
+    expect(c.pasteFilters(mic.id), 0); // a video filter doesn't fit a mic
+
+    c.copyFilters(mic.id);
+    expect(c.pasteFilters(bg.id), 0); // a mic filter doesn't fit a color
+  });
 }

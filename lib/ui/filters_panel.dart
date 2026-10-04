@@ -117,6 +117,31 @@ class _FiltersPanelState extends State<FiltersPanel> {
             style: const TextStyle(fontWeight: FontWeight.bold),
           ),
         ),
+        PopupMenuButton<String>(
+          key: const ValueKey('filters-more'),
+          tooltip: 'Copy or paste filters',
+          icon: const Icon(Icons.more_horiz),
+          itemBuilder: (context) => [
+            PopupMenuItem(value: 'copy', enabled: filters.isNotEmpty, child: const Text('Copy Filters')),
+            PopupMenuItem(
+              value: 'paste',
+              enabled: studio.filterClipboard?.isNotEmpty ?? false,
+              child: const Text('Paste Filters'),
+            ),
+          ],
+          onSelected: (v) {
+            if (v == 'copy') {
+              studio.copyFilters(source.id);
+            } else {
+              final n = studio.pasteFilters(source.id);
+              if (n == 0) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('None of the copied filters fit this source')));
+              }
+              setState(() {});
+            }
+          },
+        ),
         PopupMenuButton<FilterKind>(
           key: const ValueKey('add-filter'),
           tooltip: 'Add filter',

@@ -14,6 +14,7 @@ import 'dock_panel.dart';
 import 'docks.dart';
 import 'browser_dock.dart';
 import 'exit.dart';
+import 'stats_window.dart';
 import 'filters_panel.dart';
 import 'projector_menu.dart';
 import 'update_prompt.dart';
@@ -125,6 +126,7 @@ class ObsMenuBar extends StatelessWidget {
               onChanged: (v) => studio.setStudioMode(v ?? false),
               child: const Text('Studio Mode'),
             ),
+            item('Stats', () => showStats(context), icon: Icons.query_stats, key: const ValueKey('menu-stats')),
             const Divider(height: 1),
             // Like OBS: pick the screen for the Multiview or the Program.
             SubmenuButton(

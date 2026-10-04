@@ -82,6 +82,9 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
   bool get initialized => _supported != null;
 
   EncoderConfig? _config;
+
+  /// The settings the running encoder uses (null when it's off).
+  EncoderConfig? get encoderConfig => _encoderRunning ? _config : null;
   bool _encoderRunning = false;
   Timer? _pumpTimer;
   Timer? _statsTimer;
@@ -245,6 +248,10 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
       droppedFrames = 0;
       reconnectAttempt = 0;
       await backend.requestKeyframe();
+      if (studio.settings.autoRecordWithStream && !isRecording) {
+        _autoRecording = true;
+        unawaited(startRecording());
+      }
     } catch (e) {
       if (gen != _streamGen) return;
       _streamSink = null;
@@ -260,6 +267,9 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
   /// Bumped by every start and stop, so a connect that finishes after the
   /// user pressed Stop is closed instead of going live.
   int _streamGen = 0;
+
+  /// The recording was started by "Automatically record when streaming".
+  bool _autoRecording = false;
 
   /// Opens the RTMP connection. False (and the socket closed) if the stream
   /// was stopped meanwhile.
@@ -337,6 +347,8 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
     streamStatus = OutputStatus.idle;
     streamStartedAt = null;
     streamKbps = 0;
+    if (_autoRecording && isRecording) await stopRecording();
+    _autoRecording = false;
     await _maybeStopEncoder();
     _updateWakelock();
     notifyListeners();

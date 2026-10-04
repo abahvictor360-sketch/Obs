@@ -31,6 +31,15 @@ Future<void> showItemMenu(BuildContext context, Offset globalPosition, String it
     items: [
       entry(Icons.tune, 'Properties', () => showSourceProperties(context, itemId)),
       entry(Icons.auto_awesome_outlined, 'Filters', () => showSourceFilters(context, itemId)),
+      if (source.filters.isNotEmpty)
+        entry(Icons.content_copy, 'Copy Filters', () => studio.copyFilters(source.id)),
+      if (studio.filterClipboard?.isNotEmpty ?? false)
+        entry(Icons.content_paste, 'Paste Filters', () {
+          final n = studio.pasteFilters(source.id);
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(n == 0 ? 'None of the copied filters fit this source' : 'Pasted $n filter${n == 1 ? '' : 's'}'),
+          ));
+        }),
       entry(Icons.edit_outlined, 'Rename', () async {
         final name = await promptText(context, title: 'Rename Source', initial: source.name);
         if (name != null) studio.renameSource(source.id, name);

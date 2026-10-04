@@ -218,6 +218,41 @@ class StudioController extends ChangeNotifier {
   // ---------------------------------------------------------------------------
   // Filters
 
+  /// Copy Filters / Paste Filters, like OBS (not saved).
+  List<SourceFilter>? filterClipboard;
+
+  void copyFilters(String sourceId) {
+    final s = sourceById(sourceId);
+    if (s == null) return;
+    filterClipboard = [for (final f in s.filters) f.copy()];
+    notifyListeners();
+  }
+
+  /// Adds copies of the copied filters that suit [sourceId] (video filters
+  /// to video sources, audio filters to audio ones). Returns how many.
+  int pasteFilters(String sourceId) {
+    final s = sourceById(sourceId);
+    final clip = filterClipboard;
+    if (s == null || clip == null) return 0;
+    var n = 0;
+    for (final f in clip) {
+      final fits = f.kind.isAudio
+          ? (f.kind.micOnly ? s.type == SourceType.audioInput : s.type.hasAudio)
+          : s.type.isVisual;
+      if (!fits) continue;
+      s.filters.add(SourceFilter(
+        id: newId('filter'),
+        kind: f.kind,
+        name: f.name,
+        enabled: f.enabled,
+        settings: Map.of(f.settings),
+      ));
+      n++;
+    }
+    if (n > 0) _changed();
+    return n;
+  }
+
   SourceFilter addFilter(String sourceId, FilterKind kind) {
     final s = sourceById(sourceId)!;
     var name = kind.label;

@@ -611,6 +611,7 @@ class OutputSettings {
     this.keyframeIntervalSec = 2,
     this.recordingFormat = 'mp4',
     this.keepScreenOn = true,
+    this.autoRecordWithStream = false,
     this.confirmStartStop = true,
     this.preferWired = true,
     this.externalDisplay = 'program',
@@ -636,6 +637,10 @@ class OutputSettings {
   int keyframeIntervalSec;
   String recordingFormat;
   bool keepScreenOn;
+
+  /// Start recording when streaming starts, stop it with the stream (OBS:
+  /// "Automatically record when streaming").
+  bool autoRecordWithStream;
   bool confirmStartStop;
 
   /// Send traffic over a USB Ethernet adapter when one is connected (Android;
@@ -716,6 +721,7 @@ class OutputSettings {
         'keyframeIntervalSec': keyframeIntervalSec,
         'recordingFormat': recordingFormat,
         'keepScreenOn': keepScreenOn,
+        'autoRecordWithStream': autoRecordWithStream,
         'confirmStartStop': confirmStartStop,
         'preferWired': preferWired,
         'externalDisplay': externalDisplay,
@@ -745,6 +751,7 @@ class OutputSettings {
       keyframeIntervalSec: i('keyframeIntervalSec', d.keyframeIntervalSec),
       recordingFormat: j['recordingFormat'] as String? ?? d.recordingFormat,
       keepScreenOn: j['keepScreenOn'] as bool? ?? d.keepScreenOn,
+      autoRecordWithStream: j['autoRecordWithStream'] as bool? ?? d.autoRecordWithStream,
       confirmStartStop: j['confirmStartStop'] as bool? ?? d.confirmStartStop,
       preferWired: j['preferWired'] as bool? ?? d.preferWired,
       externalDisplay: const ['program', 'multiview', 'mirror'].contains(j['externalDisplay'])
