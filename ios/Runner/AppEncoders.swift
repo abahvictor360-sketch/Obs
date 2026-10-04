@@ -165,7 +165,28 @@ final class AppAudioEncoder {
         converter.bitRate = bitrate
     }
 
+    private var observers: [NSObjectProtocol] = []
+
     func start() throws {
+        try startEngine()
+        if observers.isEmpty {
+            // A microphone plugged in or out, Bluetooth, or a call stops the
+            // engine; without this the stream would carry on with no audio.
+            let nc = NotificationCenter.default
+            observers.append(nc.addObserver(forName: .AVAudioEngineConfigurationChange, object: engine,
+                                            queue: .main) { [weak self] _ in self?.restartInput() })
+            observers.append(nc.addObserver(forName: AVAudioSession.interruptionNotification, object: nil,
+                                            queue: .main) { [weak self] note in
+                let raw = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt
+                if raw == AVAudioSession.InterruptionType.ended.rawValue {
+                    try? AVAudioSession.sharedInstance().setActive(true)
+                    self?.restartInput()
+                }
+            })
+        }
+    }
+
+    private func startEngine() throws {
         AudioRouting.apply() // USB / chosen microphone
         MicProcessing.applyVoiceProcessing(engine) // Noise Suppression filter
         let input = engine.inputNode
@@ -180,12 +201,18 @@ final class AppAudioEncoder {
     /// Noise Suppression turned on/off: voice processing can only change
     /// while the engine is stopped, so restart the input (a short gap).
     func restartInput() {
+        guard !stopped else { return }
         engine.inputNode.removeTap(onBus: 0)
         engine.stop()
-        try? start()
+        try? startEngine()
     }
 
+    private var stopped = false
+
     func stop() {
+        stopped = true
+        observers.forEach { NotificationCenter.default.removeObserver($0) }
+        observers.removeAll()
         engine.inputNode.removeTap(onBus: 0)
         engine.stop()
     }
@@ -195,10 +222,17 @@ final class AppAudioEncoder {
         let n = Int(buffer.frameLength)
         let chCount = Int(buffer.format.channelCount)
         guard n > 0, chCount > 0 else { return }
+        let hostUs = when.isHostTimeValid
+            ? Int64(AVAudioTime.seconds(forHostTime: when.hostTime) * 1_000_000)
+            : hostNowUs()
         if baseUs < 0 {
-            baseUs = when.isHostTimeValid
-                ? Int64(AVAudioTime.seconds(forHostTime: when.hostTime) * 1_000_000)
-                : hostNowUs()
+            baseUs = hostUs
+        } else {
+            // After a gap (input restarted for Noise Suppression, route change,
+            // interruption) move the timeline forward so audio stays in sync
+            // with video instead of being stamped early by the gap.
+            let expected = baseUs + samplesQueued * 1_000_000 / Int64(AppAudioEncoder.sampleRate)
+            if hostUs - expected > 100_000 { baseUs += hostUs - expected }
         }
 
         var mono = [Float](repeating: 0, count: n)

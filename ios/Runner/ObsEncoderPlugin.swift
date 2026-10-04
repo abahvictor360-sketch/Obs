@@ -15,6 +15,7 @@ final class ObsEncoderPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
     private var micGain: Float = 1
     private var appGain: Float = 1
     private var pcmTap = false
+    private var lastVideoConfig: Data?
     private var meter: MicMeter?
     private var meterWanted = false
 
@@ -111,6 +112,9 @@ final class ObsEncoderPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
             audio?.gain = micGain
             meter?.gain = micGain
             result(nil)
+        case "setLiveOutput":
+            // iOS keeps the app alive in the background through its audio session.
+            result(nil)
         case "setMicProcessing":
             MicProcessing.shared.configure(args)
             result(nil)
@@ -134,6 +138,8 @@ final class ObsEncoderPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
                 return
             }
             let r = Mp4Writer(audioBitrate: (config["audioBitrate"] as? Int) ?? 160_000)
+            // The encoder sends SPS/PPS once; a recording started mid-stream needs them.
+            if let c = lastVideoConfig { r.setVideoConfig(c) }
             recorder = r
             requestKeyframe()
             result(r.displayName)
@@ -299,6 +305,7 @@ final class ObsEncoderPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
         if let c = config {
             emitPacket(video: true, config: true, key: false, ptsUs: ptsUs, data: c)
             recorder?.setVideoConfig(c)
+            lastVideoConfig = c
         }
         guard !annexB.isEmpty else { return }
         emitPacket(video: true, config: false, key: isKey, ptsUs: ptsUs, data: annexB)

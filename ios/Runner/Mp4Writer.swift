@@ -23,7 +23,12 @@ final class Mp4Writer {
         f.dateFormat = "yyyy-MM-dd HH-mm-ss"
         f.locale = Locale(identifier: "en_US_POSIX")
         name = "OBS \(f.string(from: Date())).mp4"
-        url = FileManager.default.temporaryDirectory.appendingPathComponent(name)
+        // Documents/Recordings (visible in the Files app): if Photos access is
+        // denied the file stays there instead of a purged temp folder.
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let dir = docs.appendingPathComponent("Recordings", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        url = dir.appendingPathComponent(name)
         self.audioBitrate = audioBitrate
         try? FileManager.default.removeItem(at: url)
     }

@@ -24,6 +24,10 @@
 	<string>OBSpad lets you add images and videos from your library to scenes.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>OBSpad saves your recordings to your photo library.</string>
+	<key>UIFileSharingEnabled</key>
+	<true/>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<true/>
 	<key>UIRequiresFullScreen</key>
 	<true/>
 	<key>UIBackgroundModes</key>

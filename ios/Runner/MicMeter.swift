@@ -20,7 +20,22 @@ final class MicMeter {
         self.onLevel = onLevel
     }
 
+    private var observer: NSObjectProtocol?
+
     func start() throws {
+        try startEngine()
+        // A mic plugged in or out stops the engine: start it again.
+        observer = NotificationCenter.default.addObserver(
+            forName: .AVAudioEngineConfigurationChange, object: engine, queue: .main
+        ) { [weak self] _ in
+            guard let self = self else { return }
+            self.engine.inputNode.removeTap(onBus: 0)
+            self.engine.stop()
+            try? self.startEngine()
+        }
+    }
+
+    private func startEngine() throws {
         AudioRouting.apply() // USB / Bluetooth / chosen microphone
         MicProcessing.applyVoiceProcessing(engine) // Noise Suppression filter
         let input = engine.inputNode
@@ -37,6 +52,8 @@ final class MicMeter {
     }
 
     func stop() {
+        if let o = observer { NotificationCenter.default.removeObserver(o) }
+        observer = nil
         engine.inputNode.removeTap(onBus: 0)
         engine.stop()
         onLevel(0, 0)
