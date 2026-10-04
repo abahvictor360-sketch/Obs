@@ -184,6 +184,15 @@ footer img { height: 26px; width: auto; display: block; }
   .row4 > div { border-right: 0; border-bottom: 1px solid var(--line); }
   .row4 > div:last-child { border-bottom: 0; }
   .badge { width: 100%; }
+  /* Stat numbers fit their half-width cards. */
+  .specs { gap: 12px; }
+  .spec { padding: 18px 10px; }
+  .spec b { font-size: clamp(1.1rem, 5.6vw, 1.6rem); white-space: nowrap; }
+  .spec span { font-size: .85rem; line-height: 1.35; display: block; }
+}
+@media (max-width: 360px) {
+  .nav .logo img { height: 24px; }
+  .nav .btn { padding: 9px 12px; font-size: .8rem; }
 }
 /* Full feature list */
 .featlist { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
@@ -242,7 +251,7 @@ footer .credit { color: var(--ink); font-weight: 600; }
   </header>
 
   <div class="hero">
-    <span class="pill"><span class="dot"></span>New: long-press Program to send it to any screen</span>
+    <span class="pill"><span class="dot"></span>New: stereo sound, several mics and video audio in the stream</span>
     <h1>Your live studio, <span>on a tablet.</span></h1>
     <p class="lede">OBSpad turns an Android tablet or iPad into a full production desk, modeled on OBS Studio. Build scenes, preview in Studio Mode, key out a green screen and go live on Facebook, YouTube or Twitch with just your stream key.</p>
     <div class="badges" id="download">
@@ -260,7 +269,7 @@ footer .credit { color: var(--ink); font-weight: 600; }
   <div class="stage" aria-hidden="false">
     <div class="arc"></div>
     <div class="fan">
-      <div class="side left"><div class="tablet portrait"><img src="img/portrait.jpg" alt="OBSpad in portrait, with Preview and Program on top and tabbed docks below." loading="lazy"></div></div>
+      <div class="side left"><div class="tablet"><img src="img/settings.jpg" alt="Stream settings with Facebook Live selected and only a Stream Key to paste." loading="lazy"></div></div>
       <div class="center"><div class="tablet"><img src="img/main.jpg" alt="OBSpad in Studio Mode during a church service: the We Love Because scene in Preview, the Hosanna artwork live in Program, quick transitions and a T-bar between them, and the docks below."></div></div>
       <div class="side right"><div class="tablet"><img src="img/add-source.jpg" alt="The Add Source sheet with Video Capture Device, Screen Capture, USB Video Capture, Network Video, Image, Image Slide Show, Media Source, Browser, Text, Color Source, Audio Input Capture and Audio Output Capture." loading="lazy"></div></div>
     </div>
@@ -269,8 +278,8 @@ footer .credit { color: var(--ink); font-weight: 600; }
 
 <div class="band" aria-label="Highlights">
   <div class="track">
-    <span>Studio Mode</span><span>Quick Transitions &amp; T-bar</span><span>Multiview</span><span>Chroma Key</span><span>USB Capture Cards</span><span>Facebook Live</span><span>Docking Stations</span><span>NDI® Output</span><span>Plugins from GitHub</span>
-    <span aria-hidden="true">Studio Mode</span><span aria-hidden="true">Quick Transitions &amp; T-bar</span><span aria-hidden="true">Multiview</span><span aria-hidden="true">Chroma Key</span><span aria-hidden="true">USB Capture Cards</span><span aria-hidden="true">Facebook Live</span><span aria-hidden="true">Docking Stations</span><span aria-hidden="true">NDI® Output</span><span aria-hidden="true">Plugins from GitHub</span>
+    <span>Studio Mode</span><span>Quick Transitions &amp; T-bar</span><span>Multiview</span><span>Undo &amp; Redo</span><span>Stereo Audio</span><span>Several Mics</span><span>Replay Buffer</span><span>Apply LUT</span><span>Chroma Key</span><span>USB Capture Cards</span><span>Facebook Live</span><span>Docking Stations</span><span>NDI&reg; Output</span><span>Plugins from GitHub</span>
+    <span aria-hidden="true">Studio Mode</span><span aria-hidden="true">Quick Transitions &amp; T-bar</span><span aria-hidden="true">Multiview</span><span aria-hidden="true">Undo &amp; Redo</span><span aria-hidden="true">Stereo Audio</span><span aria-hidden="true">Several Mics</span><span aria-hidden="true">Replay Buffer</span><span aria-hidden="true">Apply LUT</span><span aria-hidden="true">Chroma Key</span><span aria-hidden="true">USB Capture Cards</span><span aria-hidden="true">Facebook Live</span><span aria-hidden="true">Docking Stations</span><span aria-hidden="true">NDI&reg; Output</span><span aria-hidden="true">Plugins from GitHub</span>
   </div>
 </div>
 
@@ -291,27 +300,27 @@ footer .credit { color: var(--ink); font-weight: 600; }
         <div class="card">
           <div class="icon alt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l2.4 5 5.6.8-4 3.9 1 5.5-5-2.7-5 2.7 1-5.5-4-3.9 5.6-.8z"/></svg></div>
           <h3>Filters that matter</h3>
-          <p>Chroma Key for green screens, Color Correction, Sharpen, Blur, a Scroll filter for tickers, and rounded or circle masks for webcams.</p>
+          <p>Chroma Key, Color Correction, Apply LUT, Sharpen, Blur, Scroll and masks for video; Noise Suppression, Noise Gate, Compressor and Limiter for mics.</p>
         </div>
       </div>
-      <div class="device"><div class="tablet portrait"><img src="img/portrait.jpg" alt="" loading="lazy"></div></div>
+      <div class="device"><div class="tablet"><img src="img/main.jpg" alt="" loading="lazy"></div></div>
       <div class="col">
         <div class="card">
           <div class="icon alt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></div>
           <h3>Any screen you plug in</h3>
-          <p>Long-press Program to send it, or a Multiview, to a monitor on your docking station, USB-C or HDMI, or fullscreen on the tablet.</p>
+          <p>Send Program or a Multiview to a monitor on your docking station, USB-C or HDMI. Tools &rsaquo; Docking Station &amp; Screen shows what the tablet detects.</p>
         </div>
         <div class="card">
           <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13v-3a2 2 0 012-2h0a2 2 0 012 2v3M8 13h8v3a4 4 0 01-4 4h0a4 4 0 01-4-4v-3zM12 3v2"/></svg></div>
           <h3>Hardware just works</h3>
-          <p>HDMI capture cards, webcams, USB sound cards and Ethernet adapters, plugged in directly or through a hub. Sound cards appear in the Audio Mixer.</p>
+          <p>HDMI capture cards, webcams, USB sound cards and Ethernet adapters, plugged in directly or through a hub. Each input of a USB interface can be its own mic.</p>
         </div>
       </div>
     </div>
   </section>
 
   <div class="row4" aria-label="More features">
-    <div><h3>12 source types</h3><p>Cameras, screen capture, capture cards, phones as webcams, images, slide shows, media, browser pages, text, color and audio.</p></div>
+    <div><h3>13 source types</h3><p>Cameras, screen capture, capture cards, phones as webcams, images, slide shows, media, browser pages, text, color, audio and nested scenes.</p></div>
     <div><h3>Facebook Live ready</h3><p>Pick Facebook Live, YouTube, Twitch or Kick and paste your stream key. The server is filled in for you.</p></div>
     <div><h3>Record while live</h3><p>MP4 straight to your gallery, or crash-safe FLV, from the same hardware encoder as the stream.</p></div>
     <div><h3>Plugins from GitHub</h3><p>Paste a GitHub link to add overlays, chat, scene rotators and control panels, in a sandbox.</p></div>
@@ -347,7 +356,7 @@ footer .credit { color: var(--ink); font-weight: 600; }
           <div class="num">3</div>
           <h3>Paste your stream key</h3>
           <p>Open Settings, choose your service and paste the key. Pasted the whole URL by mistake? OBSpad keeps just the key.</p>
-          <ul class="checks"><li>Facebook: Live Producer › Streaming software › Stream key</li><li>Server set to <span class="key">rtmps://live-api-s.facebook.com:443/rtmp</span></li><li>Custom RTMP and RTMPS servers too</li></ul>
+          <ul class="checks"><li>Facebook: Live Producer &rsaquo; Streaming software &rsaquo; Stream key</li><li>Server set to <span class="key">rtmps://live-api-s.facebook.com:443/rtmp</span></li><li>Custom RTMP and RTMPS servers too</li></ul>
         </div>
         <div class="shot"><div class="tablet"><img src="img/settings.jpg" alt="Stream settings with Facebook Live selected and only a Stream Key field." loading="lazy"></div></div>
       </div>
@@ -358,7 +367,7 @@ footer .credit { color: var(--ink); font-weight: 600; }
           <p>Tap Start Streaming. Switch scenes with Transition, a quick transition or the T-bar, and keep an eye on bitrate and dropped frames in the status bar.</p>
           <ul class="checks"><li>Auto-reconnect if the network drops</li><li>Program or Multiview on a second screen</li><li>Record at the same time</li></ul>
         </div>
-        <div class="shot"><div class="tablet portrait" style="max-width:340px;margin-inline:auto"><img src="img/portrait.jpg" alt="" loading="lazy"></div></div>
+        <div class="shot"><div class="tablet"><img src="img/main.jpg" alt="" loading="lazy"></div></div>
       </div>
     </div>
   </section>
@@ -377,6 +386,7 @@ footer .credit { color: var(--ink); font-weight: 600; }
         <li>Scenes with unlimited sources, reordering and duplicating</li>
         <li>Pinch to scale, twist to rotate, snap to edges</li>
         <li>Menu bar, closable and resizable docks</li>
+        <li><b>Undo/Redo</b>, keyboard shortcuts and nested scenes</li>
       </ul></div>
       <div class="card"><h3><i></i>Sources</h3><ul>
         <li>Front and back cameras up to 4K, with zoom, torch and exposure</li>
@@ -391,7 +401,9 @@ footer .credit { color: var(--ink); font-weight: 600; }
         <li>Microphones, <b>USB sound cards</b> and audio interfaces</li>
         <li>Automatic switch to a USB device when plugged in</li>
         <li><b>Audio Output Capture</b> for other apps' sound</li>
-        <li>Gain filter per source</li>
+        <li><b>Video sound in the stream</b>, with audio monitoring</li>
+        <li><b>Several mics</b> on a 2-input interface, in stereo</li>
+        <li>Noise Suppression, Noise Gate, Compressor, Limiter</li>
       </ul></div>
       <div class="card"><h3><i></i>Filters</h3><ul>
         <li><b>Chroma Key</b> and Color Key for green screens</li>
@@ -399,12 +411,14 @@ footer .credit { color: var(--ink); font-weight: 600; }
         <li>Color Correction: gamma, contrast, saturation, hue</li>
         <li>Scroll for tickers and crawls</li>
         <li>Rounded and circle masks for webcams</li>
+        <li><b>Apply LUT</b> (.cube and PNG) for colour grading</li>
       </ul></div>
       <div class="card"><h3><i></i>Output</h3><ul>
         <li>Stream to <b>Facebook Live</b>, YouTube, Twitch and Kick</li>
         <li>Any RTMP or RTMPS server, with auto-reconnect</li>
-        <li>Record to MP4 or FLV while streaming</li>
-        <li>NDI® output to vMix and OBS on your network (<a href="https://ndi.video">ndi.video</a>)</li>
+        <li>Record to MP4 or FLV while streaming, up to <b>2K</b></li>
+        <li>Stream delay and <b>replay buffer</b></li>
+        <li>NDI&reg; output to vMix and OBS on your network (<a href="https://ndi.video">ndi.video</a>)</li>
         <li>Program or <b>Multiview</b> on a second screen</li>
       </ul></div>
       <div class="card"><h3><i></i>Hardware &amp; plugins</h3><ul>
@@ -418,10 +432,10 @@ footer .credit { color: var(--ink); font-weight: 600; }
   </section>
 
   <div class="specs" aria-label="Specifications">
-    <div class="spec"><b>1920×1080</b><span>Canvas</span></div>
+    <div class="spec"><b>1080p</b><span>Canvas &middot; up to 2K output</span></div>
     <div class="spec"><b>RTMPS</b><span>Secure streaming</span></div>
-    <div class="spec"><b>12</b><span>Source types</span></div>
-    <div class="spec"><b>9</b><span>Filters</span></div>
+    <div class="spec"><b>13</b><span>Source types</span></div>
+    <div class="spec"><b>14</b><span>Filters</span></div>
   </div>
 
   <section>
@@ -466,7 +480,7 @@ footer .credit { color: var(--ink); font-weight: 600; }
           <li>On a Mac or Windows PC, install <a href="https://sideloadly.io">Sideloadly</a> or <a href="https://altstore.io">AltStore</a>.</li>
           <li>Download <b>obspad-unsigned.ipa</b> on that computer and connect the iPad with a cable.</li>
           <li>Drag the IPA into Sideloadly, sign in with your Apple ID and press <b>Start</b>.</li>
-          <li>On the iPad, open <b>Settings › General › VPN &amp; Device Management</b>, trust your Apple ID, and turn on Developer Mode if asked.</li>
+          <li>On the iPad, open <b>Settings &rsaquo; General &rsaquo; VPN &amp; Device Management</b>, trust your Apple ID, and turn on Developer Mode if asked.</li>
         </ol>
       </div>
     </div>
@@ -514,11 +528,15 @@ footer .credit { color: var(--ink); font-weight: 600; }
         </details>
         <details>
           <summary>How do I stream to Facebook Live?</summary>
-          <p>In Settings › Stream, choose Facebook Live and paste the stream key from Live Producer (Streaming software). The server address is filled in for you.</p>
+          <p>In Settings &rsaquo; Stream, choose Facebook Live and paste the stream key from Live Producer (Streaming software). The server address is filled in for you.</p>
         </details>
         <details>
           <summary>Can I use an HDMI camera or a USB sound card?</summary>
           <p>Yes. Plug in a UVC capture card, webcam or USB sound card directly, or through a USB-C hub or docking station. Add a USB Video Capture source for video; sound cards are picked up by Mic/Aux automatically. On iPad, USB video needs iPadOS 17.</p>
+        </details>
+        <details>
+          <summary>Why doesn't my USB-C to HDMI adapter or dock show a screen?</summary>
+          <p>The tablet's USB-C port must support video out (DisplayPort Alt Mode). Many Android tablets only charge and transfer data over USB-C; if the TV shows no picture even before you open OBSpad, the tablet can't send video that way. On Samsung tablets choose DeX or Screen mirroring when you plug in. Tools &rsaquo; Docking Station &amp; Screen lists every screen and USB device the tablet reports.</p>
         </details>
         <details>
           <summary>Why does the iPad app stop opening after a week?</summary>
@@ -534,7 +552,7 @@ footer .credit { color: var(--ink); font-weight: 600; }
 
   <footer>
     <img src="img/wordmark.png" alt="OBSpad" width="117" height="26">
-    <span><span class="credit">© 2026 Victor Abah · <a href="https://www.victorabah.com">www.victorabah.com</a></span><br>Independent project inspired by OBS Studio; not affiliated with the OBS Project. NDI® is a registered trademark of Vizrt NDI AB, <a href="https://ndi.video">ndi.video</a>.</span>
+    <span><span class="credit">&copy; 2026 Victor Abah &middot; <a href="https://www.victorabah.com">www.victorabah.com</a></span><br>Independent project inspired by OBS Studio; not affiliated with the OBS Project. NDI&reg; is a registered trademark of Vizrt NDI AB, <a href="https://ndi.video">ndi.video</a>.</span>
     <a href="https://github.com/abahvictor360-sketch/Obs/releases">All releases</a>
   </footer>
 </div>

@@ -88,6 +88,16 @@ void main() {
     expect(const DockInfo(ethernet: true).docked, isTrue);
     expect(const DockInfo(usbDevices: 3).docked, isTrue);
     expect(const DockInfo(usbAudio: true, usbVideo: true).docked, isTrue);
+    // A USB device while charging only works through a hub or dock.
+    expect(const DockInfo(usbDevices: 1, charging: true).docked, isTrue);
+    // A dock whose video the tablet refused (USB-C Billboard device).
+    final refused = DockInfo.fromMap({
+      'billboard': true,
+      'seen': ['USB: Dock Billboard'],
+    });
+    expect(refused.docked, isTrue);
+    expect(refused.display, isNull);
+    expect(refused.seen, ['USB: Dock Billboard']);
     final d = DockInfo.fromMap({
       'display': {'name': 'DELL U2723', 'width': 2560, 'height': 1440, 'presenting': true},
       'charging': true,

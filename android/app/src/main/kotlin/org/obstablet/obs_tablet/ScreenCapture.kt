@@ -52,6 +52,9 @@ object ScreenCapture {
     @Volatile var projection: MediaProjection? = null
         private set
     private var display: VirtualDisplay? = null
+
+    /** The capture's own virtual screen, never offered as an external display. */
+    val virtualDisplayId: Int get() = display?.display?.displayId ?: -1
     private var reader: ImageReader? = null
     private var thread: HandlerThread? = null
     private var handler: Handler? = null

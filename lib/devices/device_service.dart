@@ -101,6 +101,8 @@ class DockInfo {
     this.usbVideo = false,
     this.usbDevices = 0,
     this.charging = false,
+    this.billboard = false,
+    this.seen = const [],
   });
 
   /// The screen the app uses (the chosen one, or the first).
@@ -113,9 +115,24 @@ class DockInfo {
   /// USB devices attached (Android only; 0 on iPad).
   final int usbDevices;
 
-  /// A dock or hub is connected: a wired screen, a wired network, or several
-  /// USB devices at once.
-  bool get docked => display != null || ethernet || usbDevices >= 2 || (usbAudio && usbVideo);
+  /// Android: a dock or adapter asked for video over USB-C (DisplayPort alt
+  /// mode) and the tablet couldn't provide it.
+  final bool billboard;
+
+  /// Android: every screen and USB device the tablet reports, for the dock
+  /// window ("Screen: …", "USB: …").
+  final List<String> seen;
+
+  /// A dock or hub is connected: a wired screen, a wired network, several
+  /// USB devices at once, a USB device while charging (only possible
+  /// through a hub), or a dock that couldn't get video.
+  bool get docked =>
+      display != null ||
+      ethernet ||
+      billboard ||
+      usbDevices >= 2 ||
+      (usbDevices >= 1 && charging) ||
+      (usbAudio && usbVideo);
 
   /// What the dock provides, for display ("Screen", "Ethernet", ...).
   List<String> get features => [
@@ -139,6 +156,8 @@ class DockInfo {
         usbVideo: m['usbVideo'] == true,
         usbDevices: (m['usbDevices'] as num?)?.toInt() ?? 0,
         charging: m['charging'] == true,
+        billboard: m['billboard'] == true,
+        seen: [for (final x in (m['seen'] as List? ?? const [])) '$x'],
       );
   }
 }

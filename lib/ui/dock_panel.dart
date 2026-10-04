@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../app_scope.dart';
@@ -92,6 +93,7 @@ class DockPanel extends StatelessWidget {
               ),
               row(Icons.desktop_windows_outlined, 'Screen', d != null,
                   d == null ? 'Connect a monitor or TV via the dock, USB-C or HDMI' : '${d.name} · ${d.width}×${d.height}'),
+              if (d == null) _NoScreenHelp(billboard: dock.billboard, ios: defaultTargetPlatform == TargetPlatform.iOS),
               if (d != null)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -104,10 +106,66 @@ class DockPanel extends StatelessWidget {
               row(Icons.videocam_outlined, 'Capture card / USB camera', dock.usbVideo,
                   dock.usbVideo ? 'Add a "USB Video" source to use it' : null),
               row(Icons.battery_charging_full, 'Power', dock.charging, dock.charging ? 'Charging' : 'Not charging'),
+              if (dock.seen.isNotEmpty)
+                ExpansionTile(
+                  key: const ValueKey('dock-seen'),
+                  dense: true,
+                  title: const Text('What the tablet sees'),
+                  subtitle: Text('${dock.seen.length} item${dock.seen.length == 1 ? '' : 's'}',
+                      style: const TextStyle(color: ObsColors.textDim)),
+                  children: [
+                    for (final line in dock.seen)
+                      ListTile(
+                          dense: true,
+                          visualDensity: VisualDensity.compact,
+                          title: Text(line, style: const TextStyle(fontSize: 13))),
+                  ],
+                ),
             ]),
           ),
         );
       },
+    );
+  }
+}
+
+/// Why no screen shows up, and what to try.
+class _NoScreenHelp extends StatelessWidget {
+  const _NoScreenHelp({required this.billboard, required this.ios});
+
+  final bool billboard;
+  final bool ios;
+
+  @override
+  Widget build(BuildContext context) {
+    final tips = [
+      if (billboard)
+        'The dock or adapter reports that this tablet refused video over USB-C: its USB-C port has no '
+            'video output (DisplayPort Alt Mode). The dock\'s USB devices, network and charging still work.',
+      if (!billboard && !ios)
+        'If the TV shows no picture at all (not even the tablet mirrored), the tablet\'s USB-C port '
+            'doesn\'t send video. Many tablets only charge and transfer data over USB-C: check that the '
+            'model supports "DisplayPort Alt Mode" / video out, or cast wirelessly instead.',
+      if (!ios)
+        'Samsung tablets: after plugging in, pull down the notification shade and pick "Samsung DeX" or '
+            '"Screen mirroring"; OBSpad then shows the program on the TV.',
+      if (ios)
+        'iPad: if the screen is mirroring or used by Stage Manager, unplug it and plug it in again with '
+            'OBSpad open.',
+      'Plug the HDMI cable into the dock before connecting the dock to the tablet, and power the dock '
+          'with its own charger.',
+    ];
+    return Padding(
+      key: const ValueKey('dock-no-screen-help'),
+      padding: const EdgeInsets.fromLTRB(72, 0, 16, 8),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        for (final (i, t) in tips.indexed)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Text('• $t',
+                style: TextStyle(fontSize: 12, color: billboard && i == 0 ? ObsColors.warn : ObsColors.textDim)),
+          ),
+      ]),
     );
   }
 }

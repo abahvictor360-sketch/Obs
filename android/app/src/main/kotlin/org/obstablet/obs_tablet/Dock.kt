@@ -76,11 +76,35 @@ class DockMonitor(
         }
     }
 
-    /** First external screen that can show app content. */
-    /** Screens that can show app content (HDMI / USB-C / dock, wireless). */
-    private fun externalDisplays(): List<Display> =
-        displays.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION)
-            .filter { it.displayId != Display.DEFAULT_DISPLAY && it.isValid }
+    /** The screen the app itself is on (the tablet, or the DeX screen). */
+    private fun ownDisplayId(): Int = try {
+        if (Build.VERSION.SDK_INT >= 30) activity.display?.displayId ?: Display.DEFAULT_DISPLAY
+        else @Suppress("DEPRECATION") activity.windowManager.defaultDisplay.displayId
+    } catch (_: Exception) {
+        Display.DEFAULT_DISPLAY
+    }
+
+    /** Display.getType() (hidden API): 2 external (HDMI / USB-C), 3 Wi-Fi, 5 virtual; -1 unknown. */
+    private fun typeOf(d: Display): Int = try {
+        Display::class.java.getMethod("getType").invoke(d) as Int
+    } catch (_: Throwable) {
+        -1
+    }
+
+    /**
+     * Screens that can show app content: HDMI / USB-C / dock, wireless.
+     * Not only "presentation" screens: Samsung DeX and Android's desktop
+     * mode use the connected screen as a second desktop, without that flag.
+     */
+    private fun externalDisplays(): List<Display> {
+        val own = ownDisplayId()
+        return displays.displays.filter { d ->
+            d.displayId != own && d.displayId != Display.DEFAULT_DISPLAY && d.isValid &&
+                d.displayId != ScreenCapture.virtualDisplayId &&
+                (d.flags and Display.FLAG_PRIVATE) == 0 &&
+                ((d.flags and Display.FLAG_PRESENTATION) != 0 || typeOf(d) == TYPE_EXTERNAL || typeOf(d) == TYPE_WIFI)
+        }
+    }
 
     /** The chosen screen, or the first one if it isn't connected. */
     private fun externalDisplay(): Display? {
@@ -117,7 +141,43 @@ class DockMonitor(
             "usbVideo" to usbVideoConnected(),
             "usbDevices" to (usb?.deviceList?.size ?: 0),
             "charging" to charging,
+            "billboard" to billboard(),
+            "seen" to seen(),
         )
+    }
+
+    /**
+     * A USB-C "Billboard" device appears when a dock or adapter asked the
+     * tablet for DisplayPort video and the tablet couldn't do it.
+     */
+    private fun billboard(): Boolean = usb?.deviceList?.values?.any { d ->
+        d.deviceClass == USB_CLASS_BILLBOARD ||
+            (0 until d.interfaceCount).any { d.getInterface(it).interfaceClass == USB_CLASS_BILLBOARD }
+    } ?: false
+
+    /** Everything the tablet reports (screens and USB devices), for the dock window. */
+    private fun seen(): List<String> {
+        val own = ownDisplayId()
+        val out = ArrayList<String>()
+        for (d in displays.displays) {
+            if (d.displayId == own) continue
+            @Suppress("DEPRECATION")
+            val size = android.graphics.Point().also { p -> d.getRealSize(p) }
+            val kind = when (typeOf(d)) {
+                1 -> "built-in"
+                TYPE_EXTERNAL -> "HDMI / USB-C"
+                TYPE_WIFI -> "wireless"
+                4 -> "overlay"
+                5 -> "virtual"
+                else -> "screen"
+            }
+            out.add("Screen: ${d.name} (${size.x}×${size.y}, $kind)")
+        }
+        usb?.deviceList?.values?.forEach { d ->
+            val name = listOfNotNull(d.manufacturerName, d.productName).joinToString(" ").ifBlank { d.deviceName }
+            out.add("USB: $name")
+        }
+        return out
     }
 
     /** Something connected through the dock may have changed. */
@@ -201,6 +261,9 @@ class DockMonitor(
     companion object {
         const val USB_CLASS_VIDEO = 0x0E
         const val USB_CLASS_MISC = 0xEF // UVC devices often report "miscellaneous" (IAD)
+        const val USB_CLASS_BILLBOARD = 0x11
+        const val TYPE_EXTERNAL = 2
+        const val TYPE_WIFI = 3
     }
 }
 
