@@ -178,6 +178,8 @@ class SourceRenderer extends StatelessWidget {
       case SourceType.audioInput:
       case SourceType.audioOutput:
         return const SizedBox.shrink();
+      case SourceType.scene:
+        return _NestedSceneSource(source: source, showPlaceholder: showPlaceholder);
       case SourceType.plugin:
         return _PluginSource(source: source, fit: _boxFit(fit), showPlaceholder: showPlaceholder);
     }
@@ -565,4 +567,49 @@ class _NetworkVideoSource extends StatelessWidget {
       },
     );
   }
+}
+
+/// A Scene source: the other scene drawn at canvas size and scaled into the
+/// item's box. Nesting stops after a few levels (loops are also prevented
+/// when the scene is picked).
+class _NestedSceneSource extends StatelessWidget {
+  const _NestedSceneSource({required this.source, required this.showPlaceholder});
+
+  final Source source;
+  final bool showPlaceholder;
+
+  @override
+  Widget build(BuildContext context) {
+    final studio = AppScope.of(context).studio;
+    final scene = studio.sceneById(source.settings['sceneId'] as String? ?? '');
+    final depth = _NestDepth.of(context);
+    if (scene == null || depth >= 4) {
+      return showPlaceholder
+          ? SourcePlaceholder(icon: Icons.collections_outlined, label: source.name, hint: 'Choose a scene in Properties')
+          : const SizedBox.expand();
+    }
+    final cw = studio.settings.canvasWidth.toDouble(), ch = studio.settings.canvasHeight.toDouble();
+    return FittedBox(
+      fit: BoxFit.fill,
+      child: SizedBox(
+        width: cw,
+        height: ch,
+        child: _NestDepth(
+          depth: depth + 1,
+          child: SceneCanvas(scene: scene, showPlaceholders: false, transparent: true),
+        ),
+      ),
+    );
+  }
+}
+
+class _NestDepth extends InheritedWidget {
+  const _NestDepth({required this.depth, required super.child});
+
+  final int depth;
+
+  static int of(BuildContext context) => context.dependOnInheritedWidgetOfExactType<_NestDepth>()?.depth ?? 0;
+
+  @override
+  bool updateShouldNotify(_NestDepth old) => depth != old.depth;
 }

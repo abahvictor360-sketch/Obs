@@ -13,7 +13,9 @@ import 'storage.dart';
 class StudioController extends ChangeNotifier {
   StudioController({required this.storage, SceneCollection? collection, OutputSettings? settings})
       : collection = collection ?? SceneCollection.starter(),
-        settings = settings ?? OutputSettings();
+        settings = settings ?? OutputSettings() {
+    _undoBaseline = _undoState();
+  }
 
   final StudioStorage storage;
   SceneCollection collection;
@@ -37,12 +39,23 @@ class StudioController extends ChangeNotifier {
   /// being inspected. Unique, bottom-most first.
   List<Source> get activeSources {
     final out = <String, Source>{};
-    for (final scene in {programScene, previewScene, ?_outgoing}) {
+    final seenScenes = <String>{};
+    void add(Scene scene) {
       for (final item in scene.items) {
         if (!item.visible) continue;
         final s = sourceById(item.sourceId);
-        if (s != null) out[s.id] = s;
+        if (s == null) continue;
+        out[s.id] = s;
+        // A nested scene's sources run too.
+        if (s.type == SourceType.scene) {
+          final inner = sceneById(s.settings['sceneId'] as String? ?? '');
+          if (inner != null && seenScenes.add(inner.id)) add(inner);
+        }
       }
+    }
+
+    for (final scene in {programScene, previewScene, ?_outgoing}) {
+      add(scene);
     }
     final inspected = inspectedSourceId == null ? null : sourceById(inspectedSourceId!);
     if (inspected != null) out[inspected.id] = inspected;
@@ -461,9 +474,32 @@ class StudioController extends ChangeNotifier {
       type: type,
     );
     if (settings != null) source.settings.addAll(settings);
+    if (type == SourceType.scene && (source.settings['sceneId'] as String? ?? '').isEmpty) {
+      // Start with another scene that can be nested here without a loop.
+      final pick = nestableScenes(editingScene.id).firstOrNull;
+      if (pick != null) source.settings['sceneId'] = pick.id;
+    }
     collection.sources.add(source);
     return addExistingSource(source.id);
   }
+
+  /// Scenes that [sceneId] uses as Scene sources, directly or deeper.
+  Set<String> _nestedIn(String sceneId, [Set<String>? seen]) {
+    seen ??= {};
+    final scene = sceneById(sceneId);
+    if (scene == null || !seen.add(sceneId)) return seen;
+    for (final it in scene.items) {
+      final s = sourceById(it.sourceId);
+      if (s?.type == SourceType.scene) _nestedIn(s!.settings['sceneId'] as String? ?? '', seen);
+    }
+    return seen;
+  }
+
+  /// Scenes that can be shown inside [hostSceneId] without a loop.
+  List<Scene> nestableScenes(String hostSceneId) => [
+        for (final s in collection.scenes)
+          if (s.id != hostSceneId && !_nestedIn(s.id).contains(hostSceneId)) s,
+      ];
 
   /// Adds another item for an existing (global) source to the editing scene.
   SceneItem addExistingSource(String sourceId) {
@@ -505,6 +541,8 @@ class StudioController extends ChangeNotifier {
       case SourceType.audioInput:
       case SourceType.audioOutput:
         return ItemTransform(width: 0, height: 0);
+      case SourceType.scene:
+        return ItemTransform(width: cw, height: ch, fit: FitMode.stretch);
       case SourceType.plugin:
         final w = (s.settings['width'] as num?)?.toDouble() ?? cw / 2;
         final h = (s.settings['height'] as num?)?.toDouble() ?? ch / 2;
@@ -822,8 +860,70 @@ class StudioController extends ChangeNotifier {
   // ---------------------------------------------------------------------------
   // Persistence
 
+  // ---------------------------------------------------------------------------
+  // Undo / Redo (Edit menu, Ctrl+Z): the scenes, sources, filters and
+  // layout. Switching scenes isn't undone, so Undo never changes what's live.
+
+  final List<String> _undo = [];
+  final List<String> _redo = [];
+  String? _undoBaseline;
+  DateTime _lastUndoPush = DateTime.fromMillisecondsSinceEpoch(0);
+  bool _restoring = false;
+
+  String _undoState() {
+    final j = collection.toJson()
+      ..remove('programSceneId')
+      ..remove('previewSceneId');
+    return jsonEncode(j);
+  }
+
+  bool get canUndo => _undo.isNotEmpty;
+
+  /// Ends the current group of edits (tests; edits further apart than
+  /// 0.7 s are separate steps anyway).
+  @visibleForTesting
+  void breakUndoGroup() => _lastUndoPush = DateTime.fromMillisecondsSinceEpoch(0);
+  bool get canRedo => _redo.isNotEmpty;
+
+  void _recordUndo() {
+    if (_restoring) return;
+    final now = _undoState();
+    final before = _undoBaseline;
+    _undoBaseline = now;
+    if (before == null || before == now) return;
+    // A burst of edits (dragging, typing) is one step.
+    final t = DateTime.now();
+    if (t.difference(_lastUndoPush) > const Duration(milliseconds: 700) || _undo.isEmpty) {
+      _undo.add(before);
+      if (_undo.length > 50) _undo.removeAt(0);
+    }
+    _lastUndoPush = t;
+    _redo.clear();
+  }
+
+  void undo() => _step(_undo, _redo);
+  void redo() => _step(_redo, _undo);
+
+  void _step(List<String> from, List<String> to) {
+    if (from.isEmpty) return;
+    to.add(_undoState());
+    final j = jsonDecode(from.removeLast()) as Map<String, dynamic>;
+    final keepProgram = collection.programSceneId, keepPreview = collection.previewSceneId;
+    final restored = SceneCollection.fromJson(j);
+    if (restored.scenes.any((s) => s.id == keepProgram)) restored.programSceneId = keepProgram;
+    if (restored.scenes.any((s) => s.id == keepPreview)) restored.previewSceneId = keepPreview;
+    _restoring = true;
+    collection = restored;
+    selectedItemId = null;
+    _undoBaseline = _undoState();
+    _lastUndoPush = DateTime.fromMillisecondsSinceEpoch(0);
+    _changed();
+    _restoring = false;
+  }
+
   void _changed() {
     _revision++;
+    _recordUndo();
     notifyListeners();
     _saveTimer?.cancel();
     _saveTimer = Timer(const Duration(milliseconds: 400), save);

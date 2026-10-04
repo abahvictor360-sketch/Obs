@@ -52,6 +52,10 @@ enum SourceType {
   /// recording permission, like Screen Capture.
   audioOutput('Audio Output Capture'),
 
+  /// Another scene shown inside this one (OBS's nested scenes; also how to
+  /// group items that move together).
+  scene('Scene'),
+
   /// A source type provided by an installed script plugin.
   plugin('Plugin Source');
 
@@ -224,6 +228,8 @@ class SourceDefaults {
         return {
           'device': 'default',
         };
+      case SourceType.scene:
+        return {'sceneId': ''};
       case SourceType.plugin:
         return {
           'plugin': '', // plugin id
@@ -612,6 +618,8 @@ class OutputSettings {
     this.recordingFormat = 'mp4',
     this.keepScreenOn = true,
     this.autoRecordWithStream = false,
+    this.streamDelaySec = 0,
+    this.replaySeconds = 30,
     this.confirmStartStop = true,
     this.preferWired = true,
     this.externalDisplay = 'program',
@@ -641,6 +649,13 @@ class OutputSettings {
   /// Start recording when streaming starts, stop it with the stream (OBS:
   /// "Automatically record when streaming").
   bool autoRecordWithStream;
+
+  /// Stream delay (OBS: Advanced › Stream Delay): viewers see everything this
+  /// many seconds late. 0 = off.
+  int streamDelaySec;
+
+  /// Replay Buffer length in seconds.
+  int replaySeconds;
   bool confirmStartStop;
 
   /// Send traffic over a USB Ethernet adapter when one is connected (Android;
@@ -722,6 +737,8 @@ class OutputSettings {
         'recordingFormat': recordingFormat,
         'keepScreenOn': keepScreenOn,
         'autoRecordWithStream': autoRecordWithStream,
+        'streamDelaySec': streamDelaySec,
+        'replaySeconds': replaySeconds,
         'confirmStartStop': confirmStartStop,
         'preferWired': preferWired,
         'externalDisplay': externalDisplay,
@@ -752,6 +769,8 @@ class OutputSettings {
       recordingFormat: j['recordingFormat'] as String? ?? d.recordingFormat,
       keepScreenOn: j['keepScreenOn'] as bool? ?? d.keepScreenOn,
       autoRecordWithStream: j['autoRecordWithStream'] as bool? ?? d.autoRecordWithStream,
+      streamDelaySec: i('streamDelaySec', d.streamDelaySec).clamp(0, 600),
+      replaySeconds: i('replaySeconds', d.replaySeconds).clamp(5, 300),
       confirmStartStop: j['confirmStartStop'] as bool? ?? d.confirmStartStop,
       preferWired: j['preferWired'] as bool? ?? d.preferWired,
       externalDisplay: const ['program', 'multiview', 'mirror'].contains(j['externalDisplay'])

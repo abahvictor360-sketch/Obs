@@ -14,6 +14,7 @@ import 'dock_panel.dart';
 import 'docks.dart';
 import 'browser_dock.dart';
 import 'exit.dart';
+import 'hotkeys.dart';
 import 'stats_window.dart';
 import 'filters_panel.dart';
 import 'projector_menu.dart';
@@ -100,6 +101,9 @@ class ObsMenuBar extends StatelessWidget {
         ),
         SubmenuButton(
           menuChildren: [
+            item('Undo', studio.canUndo ? studio.undo : null, icon: Icons.undo, key: const ValueKey('menu-undo')),
+            item('Redo', studio.canRedo ? studio.redo : null, icon: Icons.redo, key: const ValueKey('menu-redo')),
+            const Divider(height: 1),
             item('Add Source…', () => showAddSource(context), icon: Icons.add),
             item('Source Properties…', selectedItem == null ? null : () => showSourceProperties(context, selectedItem.id),
                 icon: Icons.tune),
@@ -190,6 +194,7 @@ class ObsMenuBar extends StatelessWidget {
           menuChildren: [
             item('Check for Updates…', () => checkForUpdates(context),
                 icon: Icons.system_update_outlined, key: const ValueKey('menu-check-updates')),
+            item('Keyboard Shortcuts', () => showShortcutsHelp(context), icon: Icons.keyboard_outlined),
             item('About OBSpad', () => _about(context), icon: Icons.info_outline),
           ],
           child: const Text('Help'),

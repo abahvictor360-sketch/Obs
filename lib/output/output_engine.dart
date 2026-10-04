@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:typed_data';
@@ -320,6 +321,7 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
     streamStatus = OutputStatus.reconnecting;
     _streamSink = null;
     _streamPackager = null;
+    _dropDelayed();
     lastError = 'Disconnected: $error';
     final gen = _streamGen;
     notifyListeners();
@@ -354,6 +356,7 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
     final sink = _streamSink;
     _streamSink = null;
     _streamPackager = null;
+    _dropDelayed();
     try {
       await sink?.close();
     } catch (_) {}
@@ -545,7 +548,7 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
   /// time, and Settings says so).
   void _maybeApplyEncoderSettings() {
     final c = _config;
-    if (!_encoderRunning || c == null || isStreaming || isRecording) return;
+    if (!_encoderRunning || c == null || isStreaming || isRecording || replayActive) return;
     if (_sameConfig(c, _wantedConfig())) return;
     _reconfigureTimer?.cancel();
     _reconfigureTimer = Timer(const Duration(milliseconds: 600), () async {
@@ -562,7 +565,7 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   /// Settings that need a restart are in use by a live output.
-  bool get encoderSettingsLocked => _encoderRunning && (isStreaming || isRecording);
+  bool get encoderSettingsLocked => _encoderRunning && (isStreaming || isRecording || replayActive);
 
   /// Starts the shared encoder once, even if several outputs ask at the same
   /// time; a failed start leaves nothing behind so it can be retried.
@@ -602,7 +605,7 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> _maybeStopEncoder() async {
-    if (!_encoderRunning || isStreaming || isRecording || ndiActive) return;
+    if (!_encoderRunning || isStreaming || isRecording || ndiActive || replayActive) return;
     await _stopEncoderNow();
   }
 
@@ -629,8 +632,119 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
         _audioConfig = p;
       }
     }
-    _streamPackager?.push(p);
+    _toStream(p);
     _recordPackager?.push(p);
+    if (replayActive) _keepForReplay(p);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Stream delay
+
+  final _delayed = Queue<(int, EncodedPacket)>();
+  Timer? _delayTimer;
+
+  void _toStream(EncodedPacket p) {
+    final delay = studio.settings.streamDelaySec;
+    if (_streamPackager == null) return;
+    if (delay <= 0 && _delayed.isEmpty) {
+      _streamPackager!.push(p);
+      return;
+    }
+    _delayed.add((DateTime.now().millisecondsSinceEpoch + delay * 1000, p));
+    _delayTimer ??= Timer.periodic(const Duration(milliseconds: 40), (_) => _flushDelayed());
+  }
+
+  void _flushDelayed() {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    while (_delayed.isNotEmpty && _delayed.first.$1 <= now) {
+      _streamPackager?.push(_delayed.removeFirst().$2);
+    }
+    if (_delayed.isEmpty) {
+      _delayTimer?.cancel();
+      _delayTimer = null;
+    }
+  }
+
+  /// Seconds of the stream not sent yet (shown while a delay is set).
+  double get streamDelayPending =>
+      _delayed.isEmpty ? 0 : (_delayed.last.$1 - DateTime.now().millisecondsSinceEpoch) / 1000;
+
+  void _dropDelayed() {
+    _delayed.clear();
+    _delayTimer?.cancel();
+    _delayTimer = null;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Replay Buffer: the last few seconds kept in memory, saved on request.
+
+  bool replayActive = false;
+  final _replay = Queue<EncodedPacket>();
+  String? lastReplayPath;
+
+  Future<void> startReplayBuffer() async {
+    if (replayActive) return;
+    if (!encoderSupported) {
+      _error('Hardware encoder is not available on this device yet.');
+      return;
+    }
+    try {
+      await _ensureEncoder();
+      replayActive = true;
+      _replay.clear();
+      await backend.requestKeyframe();
+    } catch (e) {
+      _error('Could not start the replay buffer: $e');
+    }
+    _updateWakelock();
+    notifyListeners();
+  }
+
+  Future<void> stopReplayBuffer() async {
+    if (!replayActive) return;
+    replayActive = false;
+    _replay.clear();
+    await _maybeStopEncoder();
+    _updateWakelock();
+    notifyListeners();
+  }
+
+  void _keepForReplay(EncodedPacket p) {
+    if (p.isConfig) return; // kept separately
+    _replay.add(p);
+    final keepUs = studio.settings.replaySeconds * 1000000;
+    // Drop whole GOPs from the front while the next keyframe is still old
+    // enough, so the saved clip always starts on a keyframe.
+    while (_replay.isNotEmpty && p.ptsUs - _replay.first.ptsUs > keepUs) {
+      final nextKey = _replay.skip(1).where((x) => x.isVideo && x.isKeyframe).firstOrNull;
+      if (nextKey == null || p.ptsUs - nextKey.ptsUs < keepUs) break;
+      while (_replay.isNotEmpty && !identical(_replay.first, nextKey)) {
+        _replay.removeFirst();
+      }
+    }
+  }
+
+  /// Writes the buffered seconds to an FLV file in the recordings folder.
+  Future<String?> saveReplay() async {
+    if (!replayActive || _replay.isEmpty) return null;
+    final packets = _replay.toList();
+    final dir = await recordingsDirectory();
+    final path = '$dir/Replay ${_timestampName()}.flv';
+    try {
+      final sink = createFlvFileSink(path);
+      await sink.open();
+      final pk = _newPackager(sink);
+      for (final p in packets) {
+        pk.push(p);
+      }
+      await sink.close();
+      lastReplayPath = path;
+      notifyListeners();
+      return path;
+    } catch (e) {
+      _error('Could not save the replay: $e');
+      return null;
+    }
   }
 
   Future<void> _captureFrame() async {
@@ -816,13 +930,15 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
       if (isStreaming) 'Streaming',
       if (isRecording) 'Recording',
       if (ndiActive) 'NDI',
+      if (replayActive) 'Replay buffer',
     ];
     final text = parts.isEmpty ? null : parts.join(' · ');
     if (text != _liveText && encoderSupported) {
       _liveText = text;
       backend.setLiveOutput(text).catchError((_) {});
     }
-    final on = (isStreaming || isRecording || ndiActive || _externalPresenting) && studio.settings.keepScreenOn;
+    final on = (isStreaming || isRecording || ndiActive || replayActive || _externalPresenting) &&
+        studio.settings.keepScreenOn;
     WakelockPlus.toggle(enable: on).catchError((_) {});
   }
 
@@ -840,6 +956,7 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
   void dispose() {
     studio.removeListener(_onStudioChanged);
     _reconfigureTimer?.cancel();
+    _delayTimer?.cancel();
     _pumpTimer?.cancel();
     _statsTimer?.cancel();
     _packetSub?.cancel();

@@ -206,6 +206,7 @@ IconData sourceIcon(SourceType t) => switch (t) {
       SourceType.color => Icons.format_color_fill,
       SourceType.audioInput => Icons.mic_none,
       SourceType.audioOutput => Icons.volume_up_outlined,
+      SourceType.scene => Icons.collections_outlined,
       SourceType.plugin => Icons.extension_outlined,
     };
 
@@ -374,6 +375,24 @@ class _SourceSettingsTab extends StatelessWidget {
         ]);
       case SourceType.color:
         children.add(ColorPickerField(label: 'Color', value: s['color'] as int, onChanged: (v) => set('color', v)));
+      case SourceType.scene:
+        final options = studio.nestableScenes(studio.editingScene.id);
+        final current = s['sceneId'] as String? ?? '';
+        children.addAll([
+          DropdownButtonFormField<String>(
+            key: const ValueKey('nested-scene'),
+            initialValue: options.any((o) => o.id == current) ? current : null,
+            decoration: const InputDecoration(labelText: 'Scene'),
+            items: [for (final o in options) DropdownMenuItem(value: o.id, child: Text(o.name))],
+            onChanged: (v) => v == null ? null : set('sceneId', v),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Shows another scene inside this one, scaled to the box. Edit that scene to change what it shows; '
+            'it updates everywhere it is used. Use it to group items that move together.',
+            style: TextStyle(color: ObsColors.textDim, fontSize: 13),
+          ),
+        ]);
       case SourceType.plugin:
         children.add(_PluginSettings(source: source));
       case SourceType.audioInput:

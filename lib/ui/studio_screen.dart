@@ -13,6 +13,7 @@ import 'dock_panel.dart';
 import 'dock_layout.dart';
 import 'docks.dart';
 import 'exit.dart';
+import 'hotkeys.dart';
 import 'menu_bar.dart';
 import 'projector_menu.dart';
 import 'theme.dart';
@@ -44,6 +45,7 @@ class StudioScreen extends StatelessWidget {
           child: _ErrorListener(
             output: out,
             child: UpdateListener(
+              child: StudioHotkeys(
               child: DockListener(
                 devices: AppScope.of(context).devices,
                 child: LayoutBuilder(
@@ -54,6 +56,7 @@ class StudioScreen extends StatelessWidget {
                     return landscape ? _LandscapeLayout(height: box.maxHeight) : const _PortraitLayout();
                   },
                 ),
+              ),
               ),
             ),
           ),

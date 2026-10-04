@@ -258,4 +258,35 @@ void main() {
     c.copyFilters(mic.id);
     expect(c.pasteFilters(bg.id), 0); // a mic filter doesn't fit a color
   });
+  test('Undo / Redo edits, but never switches what is live', () {
+    final c = StudioController(storage: MemoryStorage())..setStudioMode(false);
+    final item = c.programScene.items.firstWhere((i) => !i.locked);
+    final x = item.transform.x;
+    c.updateTransform(item.id, (t) => t.x += 50, persist: true);
+    c.breakUndoGroup();
+    final program = c.collection.programSceneId;
+    final s2 = c.addScene('Second'); // switches program (not studio mode)
+    expect(c.canUndo, isTrue);
+    c.undo(); // removes the scene again; program stays valid
+    expect(c.scenes.any((s) => s.id == s2.id), isFalse);
+    expect(c.collection.programSceneId, program);
+    double xOf() => c.programScene.items.firstWhere((i) => i.id == item.id).transform.x;
+    c.undo();
+    expect(xOf(), x);
+    c.redo();
+    expect(xOf(), x + 50);
+  });
+
+  test('Scene sources can nest scenes but never in a loop', () {
+    final c = StudioController(storage: MemoryStorage())..setStudioMode(false);
+    final a = c.programScene;
+    final b = c.addScene('B'); // now editing B
+    final nested = c.addNewSource(SourceType.scene); // B shows A
+    expect(c.sourceById(nested.sourceId)!.settings['sceneId'], a.id);
+    c.selectScene(a.id);
+    expect(c.nestableScenes(a.id).map((s) => s.id), isNot(contains(b.id)), reason: 'B already contains A');
+    // A Scene source's sources run too.
+    c.selectScene(b.id);
+    expect(c.activeSources.map((s) => s.id), containsAll(a.items.map((i) => i.sourceId)));
+  });
 }

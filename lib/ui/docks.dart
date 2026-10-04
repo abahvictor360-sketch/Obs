@@ -796,6 +796,38 @@ class ControlsDock extends StatelessWidget {
             activeColor: ObsColors.rec,
             onPressed: () => toggleRecording(context),
           ),
+          if (!out.replayActive)
+            _BigButton(
+              key: const ValueKey('replay-start'),
+              label: 'Start Replay Buffer',
+              icon: Icons.history,
+              active: false,
+              onPressed: out.startReplayBuffer,
+            )
+          else
+            Row(children: [
+              Expanded(
+                child: _BigButton(
+                  key: const ValueKey('replay-save'),
+                  label: 'Save Replay',
+                  icon: Icons.save_alt,
+                  active: true,
+                  activeColor: ObsColors.accentDim,
+                  onPressed: () async {
+                    final messenger = ScaffoldMessenger.of(context);
+                    final path = await out.saveReplay();
+                    if (path != null) messenger.showSnackBar(SnackBar(content: Text('Replay saved: $path')));
+                  },
+                ),
+              ),
+              const SizedBox(width: 4),
+              IconButton(
+                key: const ValueKey('replay-stop'),
+                tooltip: 'Stop Replay Buffer',
+                icon: const Icon(Icons.stop),
+                onPressed: out.stopReplayBuffer,
+              ),
+            ]),
           _BigButton(
             label: 'Studio Mode',
             icon: Icons.view_column_outlined,
@@ -835,11 +867,14 @@ class ControlsDock extends StatelessWidget {
         return Dock(
           title: 'Controls',
           showTitle: showTitle,
-          child: ListView(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.all(8),
-            children: [
-              for (final b in buttons) Padding(padding: const EdgeInsets.only(bottom: 5), child: b),
-            ],
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final b in buttons) Padding(padding: const EdgeInsets.only(bottom: 5), child: b),
+              ],
+            ),
           ),
         );
       },

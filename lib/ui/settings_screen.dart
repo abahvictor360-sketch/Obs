@@ -260,7 +260,28 @@ class _OutputPage extends StatelessWidget {
             format: (v) => '${v.round()} kbps',
             onChanged: (v) => studio.updateSettings((s) => s.videoBitrateKbps = v.round()),
           ),
+          LabeledSlider(
+            key: const ValueKey('stream-delay'),
+            label: 'Stream delay',
+            value: s.streamDelaySec.toDouble(),
+            min: 0,
+            max: 60,
+            divisions: 60,
+            format: (v) => v == 0 ? 'Off' : '${v.round()} s',
+            onChanged: (v) => studio.updateSettings((s) => s.streamDelaySec = v.round()),
+          ),
+          LabeledSlider(
+            label: 'Replay buffer length',
+            value: s.replaySeconds.toDouble(),
+            min: 5,
+            max: 120,
+            divisions: 23,
+            format: (v) => '${v.round()} s',
+            onChanged: (v) => studio.updateSettings((s) => s.replaySeconds = v.round()),
+          ),
           const Text(
+            'Stream delay: viewers see everything that many seconds late (recordings are not delayed). '
+            'Replay buffer: keeps the last seconds in memory; Save Replay writes them to a file.\n'
             'Twitch: up to 6000 kbps. YouTube 720p30: 2500–4000, 1080p30: 4500–9000, '
             '1440p (2K) 30: 9000–18000. '
             'Lower it if your Wi-Fi or mobile data is unstable.',
