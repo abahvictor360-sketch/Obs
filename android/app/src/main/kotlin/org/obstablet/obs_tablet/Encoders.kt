@@ -82,6 +82,14 @@ class VideoEncoder(
             setLong(MediaFormat.KEY_REPEAT_PREVIOUS_FRAME_AFTER, 1_000_000L / fps * 3)
         }
         codec = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC)
+        val video = codec.codecInfo.getCapabilitiesForType(MediaFormat.MIMETYPE_VIDEO_AVC).videoCapabilities
+        if (video != null && !video.areSizeAndRateSupported(width, height, fps.toDouble())) {
+            codec.release()
+            throw IllegalStateException(
+                "This tablet's video encoder can't do ${width}x$height at $fps FPS. " +
+                    "Choose a lower output resolution or frame rate in Settings › Video."
+            )
+        }
         val caps = codec.codecInfo.getCapabilitiesForType(MediaFormat.MIMETYPE_VIDEO_AVC).encoderCapabilities
         if (caps.isBitrateModeSupported(MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR)) {
             // CBR is what streaming services expect (same default as OBS).

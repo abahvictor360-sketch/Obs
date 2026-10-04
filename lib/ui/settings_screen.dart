@@ -247,13 +247,14 @@ class _OutputPage extends StatelessWidget {
             label: 'Video bitrate',
             value: s.videoBitrateKbps.toDouble(),
             min: 500,
-            max: 12000,
-            divisions: 115,
+            max: 20000,
+            divisions: 195,
             format: (v) => '${v.round()} kbps',
             onChanged: (v) => studio.updateSettings((s) => s.videoBitrateKbps = v.round()),
           ),
           const Text(
-            'Twitch: up to 6000 kbps. YouTube 720p30: 2500–4000, 1080p30: 4500–9000. '
+            'Twitch: up to 6000 kbps. YouTube 720p30: 2500–4000, 1080p30: 4500–9000, '
+            '1440p (2K) 30: 9000–18000. '
             'Lower it if your Wi-Fi or mobile data is unstable.',
             style: TextStyle(color: ObsColors.textDim, fontSize: 13),
           ),
@@ -307,13 +308,19 @@ class _OutputPage extends StatelessWidget {
 class _VideoPage extends StatelessWidget {
   const _VideoPage();
 
-  static const _resolutions = [(854, 480), (1280, 720), (1600, 900), (1920, 1080)];
+  static const _resolutions = [(854, 480), (1280, 720), (1600, 900), (1920, 1080), (2560, 1440)];
 
   @override
   Widget build(BuildContext context) {
     final studio = AppScope.of(context).studio;
     final s = studio.settings;
     String label((int, int) r) => '${r.$1}x${r.$2}';
+    String name((int, int) r) => switch (r.$2) {
+          1440 => '2560x1440 (2K)',
+          1080 => '1920x1080 (Full HD)',
+          720 => '1280x720 (HD)',
+          _ => label(r),
+        };
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
@@ -335,7 +342,7 @@ class _VideoPage extends StatelessWidget {
               initialValue: '${s.outputWidth}x${s.outputHeight}',
               decoration: const InputDecoration(labelText: 'Output (Scaled) Resolution'),
               items: [
-                for (final r in _resolutions) DropdownMenuItem(value: label(r), child: Text(label(r))),
+                for (final r in _resolutions) DropdownMenuItem(value: label(r), child: Text(name(r))),
                 if (!_resolutions.any((r) => r.$1 == s.outputWidth && r.$2 == s.outputHeight))
                   DropdownMenuItem(
                     value: '${s.outputWidth}x${s.outputHeight}',
@@ -368,6 +375,17 @@ class _VideoPage extends StatelessWidget {
             'needs a recent, fast device.',
             style: TextStyle(color: ObsColors.textDim, fontSize: 13),
           ),
+          if (s.outputHeight > 1080) ...[
+            const SizedBox(height: 8),
+            Text(
+              '2K (1440p) needs a recent, fast tablet: use 30 FPS and 9000–18000 kbps, and a '
+              'wired or strong Wi-Fi connection. YouTube accepts 1440p; Facebook Live and Twitch '
+              'take at most 1080p, so choose 1920x1080 for them.'
+              '${s.service == 'Facebook Live' || s.service == 'Twitch' ? '\n\nYour stream service (${s.service}) is limited to 1080p.' : ''}',
+              key: const ValueKey('res-2k-note'),
+              style: const TextStyle(color: ObsColors.warn, fontSize: 13),
+            ),
+          ],
         ],
       ),
     );
