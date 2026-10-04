@@ -371,6 +371,28 @@ void main() {
     await tester.pump(const Duration(seconds: 3));
   });
 
+  testWidgets('Source toolbar under the canvas: name, Properties, Filters, quick setting', (tester) async {
+    final (studio, _) = await _pump(tester, const Size(1366, 1024));
+    expect(find.text('No source selected'), findsOneWidget);
+    final title = studio.sources.firstWhere((s) => s.type == SourceType.text);
+    final item = studio.editingScene.items.firstWhere((i) => i.sourceId == title.id);
+    studio.selectItem(item.id);
+    await tester.pump();
+    expect(find.text(title.name.toUpperCase()), findsOneWidget);
+    expect(find.byKey(const ValueKey('context-properties')), findsOneWidget);
+    expect(find.byKey(const ValueKey('context-filters')), findsOneWidget);
+
+    await tester.enterText(find.byKey(const ValueKey('context-field')), 'Welcome to church');
+    await tester.pump();
+    expect(title.settings['text'], 'Welcome to church');
+
+    await tester.tap(find.byKey(const ValueKey('context-filters')));
+    await tester.pumpAndSettle();
+    expect(find.text('Effect Filters'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pump(const Duration(seconds: 3));
+  });
+
   testWidgets('A newer build shows an update banner until Later', (tester) async {
     final saved = UpdateService.instance;
     final updates = UpdateService(

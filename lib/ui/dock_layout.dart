@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../app_scope.dart';
 import '../core/studio_controller.dart';
 import 'browser_dock.dart';
+import 'context_bar.dart';
 import 'docks.dart';
 import 'theme.dart';
 
@@ -88,6 +89,7 @@ class LandscapeWorkspace extends StatelessWidget {
             .clamp(140.0, (height * 0.7).clamp(140.0, double.infinity));
         return Column(children: [
           Expanded(child: Padding(padding: const EdgeInsets.fromLTRB(6, 6, 6, 0), child: canvas)),
+          const SourceContextBar(),
           _ResizeHandle(
             key: const ValueKey('dock-height-handle'),
             axis: Axis.vertical,
