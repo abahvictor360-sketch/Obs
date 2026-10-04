@@ -13,6 +13,7 @@ import 'dock_layout.dart';
 import 'dock_panel.dart';
 import 'docks.dart';
 import 'exit.dart';
+import 'update_prompt.dart';
 import 'item_menu.dart';
 import 'plugins_screen.dart';
 import 'settings_screen.dart';
@@ -145,6 +146,8 @@ class ObsMenuBar extends StatelessWidget {
         ),
         SubmenuButton(
           menuChildren: [
+            item('Check for Updates…', () => checkForUpdates(context),
+                icon: Icons.system_update_outlined, key: const ValueKey('menu-check-updates')),
             item('About OBSpad', () => _about(context), icon: Icons.info_outline),
           ],
           child: const Text('Help'),

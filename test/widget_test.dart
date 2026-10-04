@@ -13,6 +13,7 @@ import 'package:obs_tablet/output/encoder_backend.dart';
 import 'package:obs_tablet/output/output_engine.dart';
 import 'package:obs_tablet/plugins/plugin_manager.dart';
 import 'package:obs_tablet/render/media_services.dart';
+import 'package:obs_tablet/core/update_service.dart';
 import 'package:obs_tablet/ui/exit.dart';
 
 class FakeEncoder implements EncoderBackend {
@@ -257,6 +258,34 @@ void main() {
     expect(studio.programScene.items, hasLength(itemsBefore + 1));
     expect(studio.programScene.items.last.visible, isTrue);
     expect(tester.takeException(), isNull);
+    await tester.pump(const Duration(seconds: 3));
+  });
+
+  testWidgets('A newer build shows an update banner until Later', (tester) async {
+    final saved = UpdateService.instance;
+    final updates = UpdateService(
+      currentBuild: 21,
+      fetch: () async => {
+        'tag_name': 'build-22',
+        'html_url': 'https://github.com/abahvictor360-sketch/Obs/releases/tag/build-22',
+        'assets': [
+          {'name': 'obspad.apk', 'browser_download_url': 'https://example.com/obspad.apk'},
+        ],
+      },
+    );
+    UpdateService.instance = updates;
+    addTearDown(() => UpdateService.instance = saved);
+
+    await _pump(tester, const Size(1366, 1024));
+    expect(find.byKey(const ValueKey('update-banner')), findsNothing);
+    await tester.runAsync(updates.check);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('update-banner')), findsOneWidget);
+    expect(find.textContaining('build 22'), findsOneWidget);
+
+    await tester.tap(find.text('Later'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('update-banner')), findsNothing);
     await tester.pump(const Duration(seconds: 3));
   });
 

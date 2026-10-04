@@ -16,6 +16,7 @@ import 'menu_bar.dart';
 import 'projector_menu.dart';
 import 'theme.dart';
 import 'transition_panel.dart';
+import 'update_prompt.dart';
 
 /// The main window. Landscape tablets get OBS's classic layout (canvas on top,
 /// docks in a row below). Portrait tablets and phones get the canvas, a row of
@@ -34,13 +35,15 @@ class StudioScreen extends StatelessWidget {
         body: SafeArea(
           child: _ErrorListener(
             output: out,
-            child: DockListener(
-              devices: AppScope.of(context).devices,
-              child: LayoutBuilder(
-                builder: (context, box) {
-                  final landscape = box.maxWidth > box.maxHeight && box.maxWidth >= 900;
-                  return landscape ? _LandscapeLayout(height: box.maxHeight) : const _PortraitLayout();
-                },
+            child: UpdateListener(
+              child: DockListener(
+                devices: AppScope.of(context).devices,
+                child: LayoutBuilder(
+                  builder: (context, box) {
+                    final landscape = box.maxWidth > box.maxHeight && box.maxWidth >= 900;
+                    return landscape ? _LandscapeLayout(height: box.maxHeight) : const _PortraitLayout();
+                  },
+                ),
               ),
             ),
           ),

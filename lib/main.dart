@@ -5,6 +5,7 @@ import 'app_scope.dart';
 import 'browser/browser_source.dart';
 import 'core/storage.dart';
 import 'core/studio_controller.dart';
+import 'core/update_service.dart';
 import 'devices/device_service.dart';
 import 'ndi/ndi_controller.dart';
 import 'network_video/network_video_service.dart';
@@ -39,6 +40,7 @@ Future<void> main() async {
   final networkVideo = NetworkVideoService();
   NetworkVideoTracker(studio, networkVideo);
   BrowserSourceTracker(studio, BrowserSourceService.instance);
+  UpdateService.instance.start();
 
   runApp(ObsTabletApp(studio: studio, output: output, cameras: cameras, media: media, plugins: plugins, devices: devices, networkVideo: networkVideo));
 }
