@@ -22,7 +22,7 @@ class SourceContextBar extends StatelessWidget {
         final source = item == null ? null : studio.sourceById(item.sourceId);
         return Container(
           key: const ValueKey('context-bar'),
-          height: 40,
+          height: 48,
           margin: const EdgeInsets.fromLTRB(6, 4, 6, 0),
           padding: const EdgeInsets.symmetric(horizontal: 8),
           decoration: BoxDecoration(color: ObsColors.header, borderRadius: BorderRadius.circular(6)),
@@ -77,7 +77,7 @@ class _BarButton extends StatelessWidget {
           backgroundColor: ObsColors.panelAlt,
           foregroundColor: ObsColors.text,
           padding: const EdgeInsets.symmetric(horizontal: 12),
-          minimumSize: const Size(0, 32),
+          minimumSize: const Size(0, 40),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
         ),
         icon: Icon(icon, size: 16),
@@ -131,7 +131,7 @@ class _QuickSettingState extends State<_QuickSetting> {
 
     Widget field({required bool editable, String? hint, ValueChanged<String>? onSubmitted}) => Expanded(
           child: SizedBox(
-            height: 32,
+            height: 40,
             child: TextField(
               key: const ValueKey('context-field'),
               controller: _text,

@@ -620,6 +620,7 @@ class OutputSettings {
     this.studioMode = true,
     this.externalDisplayId,
     List<BrowserDockConfig>? browserDocks,
+    this.dismissedUpdateBuild,
   })  : hiddenDocks = hiddenDocks ?? [],
         dockWeights = dockWeights ?? {},
         browserDocks = browserDocks ?? [];
@@ -663,6 +664,9 @@ class OutputSettings {
   /// Docks › Custom Browser Docks: web pages (live chat, dashboards) shown
   /// as docks.
   final List<BrowserDockConfig> browserDocks;
+
+  /// The update the user said "Later" to (no banner for that build again).
+  int? dismissedUpdateBuild;
 
   /// Start in Studio Mode (edit the preview, then transition to program).
   /// Remembers the last choice.
@@ -721,6 +725,7 @@ class OutputSettings {
         'studioMode': studioMode,
         if (externalDisplayId != null) 'externalDisplayId': externalDisplayId,
         'browserDocks': [for (final b in browserDocks) b.toJson()],
+        if (dismissedUpdateBuild != null) 'dismissedUpdateBuild': dismissedUpdateBuild,
       };
 
   factory OutputSettings.fromJson(Map<String, dynamic> j) {
@@ -755,6 +760,7 @@ class OutputSettings {
           ?.whereType<Map>()
           .map((e) => BrowserDockConfig.fromJson(e.cast<String, dynamic>()))
           .toList(),
+      dismissedUpdateBuild: (j['dismissedUpdateBuild'] as num?)?.toInt(),
     );
   }
 }

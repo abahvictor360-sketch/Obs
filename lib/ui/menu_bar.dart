@@ -224,15 +224,21 @@ class ObsMenuBar extends StatelessWidget {
           const SnackBar(content: Text('The clipboard does not contain a scene collection (JSON)')));
       return;
     }
+    final live = AppScope.of(context).output.isStreaming || AppScope.of(context).output.isRecording;
     if (await confirm(context,
         title: 'Import scene collection',
-        message: 'Replace your scenes and sources with "${c.name}" (${c.scenes.length} scenes)?')) {
+        message: 'Replace your scenes and sources with "${c.name}" (${c.scenes.length} scenes)?'
+            '${live ? '\n\nYou are live: viewers will see the change immediately.' : ''}')) {
       studio.replaceCollection(c);
     }
   }
 
   static Future<void> _reset(BuildContext context, StudioController studio) async {
-    if (await confirm(context, title: 'Reset scenes', message: 'Replace all scenes and sources with the starter layout?')) {
+    final live = AppScope.of(context).output.isStreaming || AppScope.of(context).output.isRecording;
+    if (await confirm(context,
+        title: 'Reset scenes',
+        message: 'Replace all scenes and sources with the starter layout?'
+            '${live ? '\n\nYou are live: viewers will see the change immediately.' : ''}')) {
       studio.replaceCollection(SceneCollection.starter());
     }
   }

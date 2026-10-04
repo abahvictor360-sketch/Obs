@@ -120,6 +120,14 @@ Future<void> showBrowserDocksDialog(BuildContext context) {
   final studio = AppScope.of(context).studio;
   final name = TextEditingController();
   final url = TextEditingController();
+  // URL edits to existing docks, applied on Enter or when the dialog closes
+  // (not on every keystroke: that would reload the page each time).
+  final pendingUrls = <String, String>{};
+  void commitUrls() {
+    pendingUrls.forEach((id, u) => studio.updateBrowserDock(id, url: u));
+    pendingUrls.clear();
+  }
+
   return showDialog<void>(
     context: context,
     builder: (context) => ListenableBuilder(
@@ -168,7 +176,11 @@ Future<void> showBrowserDocksDialog(BuildContext context) {
                           initialValue: d.url,
                           decoration: const InputDecoration(labelText: 'URL', isDense: true),
                           keyboardType: TextInputType.url,
-                          onFieldSubmitted: (v) => studio.updateBrowserDock(d.id, url: v),
+                          onChanged: (v) => pendingUrls[d.id] = v,
+                          onFieldSubmitted: (v) {
+                            pendingUrls.remove(d.id);
+                            studio.updateBrowserDock(d.id, url: v);
+                          },
                         ),
                       ),
                       IconButton(
@@ -215,5 +227,5 @@ Future<void> showBrowserDocksDialog(BuildContext context) {
         );
       },
     ),
-  );
+  ).whenComplete(commitUrls);
 }

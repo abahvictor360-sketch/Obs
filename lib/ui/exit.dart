@@ -25,15 +25,23 @@ Future<void> exitApp(BuildContext context) async {
             if (out.isStreaming) 'streaming',
             if (out.isRecording) 'recording',
             if (out.ndiActive) 'sending NDI',
-          ].join(' and ')}. Exiting stops it and saves the recording.'
+          ].join(' and ')}. Exiting stops ${out.isStreaming || out.isRecording ? 'it' : 'NDI'}'
+            '${out.isRecording ? ' and saves the recording' : ''}. Your scenes and settings are saved.'
         : 'Your scenes and settings are saved.',
     ok: 'Exit',
   );
   if (!ok) return;
-  if (out.isStreaming) await out.stopStreaming();
-  if (out.isRecording) await out.stopRecording();
-  if (out.ndiActive) await out.stopNdi();
-  await scope.studio.save();
+  // Each stop on its own, so one failing doesn't keep the app open.
+  Future<void> safely(Future<void> Function() f) async {
+    try {
+      await f();
+    } catch (_) {}
+  }
+
+  if (out.isStreaming) await safely(out.stopStreaming);
+  if (out.isRecording) await safely(out.stopRecording);
+  if (out.ndiActive) await safely(out.stopNdi);
+  await safely(scope.studio.save);
   if (debugExitOverride != null) return debugExitOverride!();
   if (kIsWeb) return;
   if (Platform.isIOS) {

@@ -42,7 +42,12 @@ Future<void> main() async {
   final networkVideo = NetworkVideoService();
   NetworkVideoTracker(studio, networkVideo);
   BrowserSourceTracker(studio, BrowserSourceService.instance);
-  UpdateService.instance.start();
+  UpdateService.instance
+    ..dismissedBuild = studio.settings.dismissedUpdateBuild
+    ..onDismiss = (b) {
+      studio.updateSettings((s) => s.dismissedUpdateBuild = b);
+    }
+    ..start();
 
   runApp(ObsTabletApp(studio: studio, output: output, cameras: cameras, media: media, plugins: plugins, devices: devices, networkVideo: networkVideo));
 }

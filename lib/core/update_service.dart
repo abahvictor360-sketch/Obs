@@ -62,7 +62,11 @@ class UpdateService extends ChangeNotifier {
   final ReleaseFetcher _fetch;
 
   UpdateInfo? _available;
-  int? _dismissedBuild;
+
+  /// The build the user said "Later" to; the app saves it (see main.dart)
+  /// so the banner doesn't come back on every launch.
+  int? dismissedBuild;
+  void Function(int build)? onDismiss;
   bool _checking = false;
   Timer? _timer;
 
@@ -71,18 +75,27 @@ class UpdateService extends ChangeNotifier {
   bool get checking => _checking;
 
   /// Whether to show the update banner (not after "Later" for that build).
-  bool get shouldNotify => _available != null && _available!.build != _dismissedBuild;
+  bool get shouldNotify => _available != null && _available!.build != dismissedBuild;
 
   void start({Duration firstCheck = const Duration(seconds: 8), Duration every = const Duration(hours: 6)}) {
     if (currentBuild == null || _timer != null) return;
+    Future<void> quietCheck() async {
+      try {
+        await check();
+      } catch (_) {} // offline: try again next time
+    }
+
     _timer = Timer(firstCheck, () {
-      check();
-      _timer = Timer.periodic(every, (_) => check());
+      quietCheck();
+      _timer = Timer.periodic(every, (_) => quietCheck());
     });
   }
 
   void dismiss() {
-    _dismissedBuild = _available?.build;
+    final b = _available?.build;
+    if (b == null) return;
+    dismissedBuild = b;
+    onDismiss?.call(b);
     notifyListeners();
   }
 
@@ -110,6 +123,9 @@ class UpdateService extends ChangeNotifier {
       req.headers.set(HttpHeaders.acceptHeader, 'application/vnd.github+json');
       final res = await req.close().timeout(const Duration(seconds: 20));
       final body = await res.transform(utf8.decoder).join();
+      if (res.statusCode == 403 || res.statusCode == 429) {
+        throw const HttpException('GitHub is limiting requests right now; try again in an hour');
+      }
       if (res.statusCode != 200) throw HttpException('GitHub returned ${res.statusCode}');
       return jsonDecode(body) as Map<String, dynamic>;
     } finally {

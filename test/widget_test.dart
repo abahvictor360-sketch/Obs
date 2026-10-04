@@ -337,6 +337,8 @@ void main() {
     expect(find.text('Chat'), findsWidgets);
     final saved = OutputSettings.fromJson(studio.settings.toJson()).browserDocks.single;
     expect((saved.title, saved.url), ('Chat', d.url));
+    await tester.ensureVisible(find.byKey(ValueKey('close-dock-${d.dockId}')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(ValueKey('close-dock-${d.dockId}')));
     await tester.pumpAndSettle();
     expect(find.byKey(ValueKey('dock-${d.dockId}')), findsNothing);

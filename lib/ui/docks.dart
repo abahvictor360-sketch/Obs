@@ -885,6 +885,7 @@ Future<void> toggleStreaming(BuildContext context) async {
   final scope = AppScope.of(context);
   final out = scope.output;
   final ask = scope.studio.settings.confirmStartStop;
+  if (out.streamStatus == OutputStatus.stopping) return; // already stopping
   if (out.isStreaming) {
     if (!ask || await confirm(context, title: 'Stop Streaming', message: 'Are you sure you want to stop streaming?')) {
       await out.stopStreaming();

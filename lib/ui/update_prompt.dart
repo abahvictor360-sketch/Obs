@@ -1,3 +1,5 @@
+import 'dart:io' show HttpException;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -82,14 +84,32 @@ Future<void> checkForUpdates(BuildContext context) async {
   }
   UpdateInfo? u;
   Object? error;
+  final nav = Navigator.of(context);
+  showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => const AlertDialog(
+      key: ValueKey('update-checking'),
+      content: Row(children: [
+        SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 3)),
+        SizedBox(width: 16),
+        Text('Checking for updates…'),
+      ]),
+    ),
+  );
   try {
     u = await updates.check();
   } catch (e) {
     error = e;
   }
+  nav.pop();
   if (!context.mounted) return;
   if (error != null) {
-    await _info(context, 'Could not check for updates', 'Check your internet connection and try again.');
+    await _info(
+      context,
+      'Could not check for updates',
+      error is HttpException ? error.message : 'Check your internet connection and try again.',
+    );
   } else if (u == null) {
     await _info(context, 'OBSpad is up to date', 'You have the latest version (build $kAppBuild).');
   } else {
@@ -103,7 +123,13 @@ Future<void> checkForUpdates(BuildContext context) async {
         content: Text('Build ${info.build} is ready to download (you have build $kAppBuild).\n\n'
             'Install it over this version; your scenes and settings are kept.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Later')),
+          TextButton(
+            onPressed: () {
+              updates.dismiss();
+              Navigator.pop(context);
+            },
+            child: const Text('Later'),
+          ),
           FilledButton.icon(
             icon: const Icon(Icons.download, size: 18),
             label: const Text('Download'),

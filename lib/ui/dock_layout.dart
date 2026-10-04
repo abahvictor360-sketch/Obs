@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../app_scope.dart';
@@ -119,13 +121,19 @@ class _DockRow extends StatelessWidget {
     return LayoutBuilder(builder: (context, box) {
       final weights = [for (final d in docks) studio.dockWeight(d.id)];
       final total = weights.fold<double>(0, (a, b) => a + b);
-      const gap = 8.0;
+      // Wide enough to drag with a finger.
+      const gap = 14.0;
+      // Docks never get narrower than their content needs; when too many are
+      // open for the screen, the row scrolls sideways instead.
+      const minDock = 200.0;
       final avail = box.maxWidth - gap * (docks.length - 1);
+      final widths = [for (final w in weights) math.max(minDock, avail * w / total)];
+      final contentWidth = widths.fold<double>(0, (a, b) => a + b) + gap * (docks.length - 1);
       final children = <Widget>[];
       for (var i = 0; i < docks.length; i++) {
         final d = docks[i];
         children.add(SizedBox(
-          width: avail * weights[i] / total,
+          width: widths[i],
           child: DockSlot(
             id: d.id,
             onClose: () => studio.setDockVisible(d.id, false),
@@ -140,7 +148,7 @@ class _DockRow extends StatelessWidget {
             onDrag: (dx) {
               // Move width between the docks on either side of the gap.
               final perPx = total / avail;
-              final min = total * 70 / avail; // ~70 px
+              final min = total * minDock / avail;
               var a = weights[i] + dx * perPx;
               var b = weights[i + 1] - dx * perPx;
               if (a < min) {
@@ -162,14 +170,20 @@ class _DockRow extends StatelessWidget {
           ));
         }
       }
-      return Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: children);
+      final row = Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: children);
+      if (contentWidth <= box.maxWidth + 0.5) return row;
+      return SingleChildScrollView(
+        key: const ValueKey('dock-row-scroll'),
+        scrollDirection: Axis.horizontal,
+        child: SizedBox(width: contentWidth, height: box.maxHeight, child: row),
+      );
     });
   }
 }
 
 /// A gap that can be dragged to resize what's around it.
 class _ResizeHandle extends StatefulWidget {
-  const _ResizeHandle({super.key, required this.axis, required this.onDrag, this.size = 10});
+  const _ResizeHandle({super.key, required this.axis, required this.onDrag, this.size = 16});
 
   /// horizontal: a vertical gap dragged left/right; vertical: a horizontal
   /// gap dragged up/down.

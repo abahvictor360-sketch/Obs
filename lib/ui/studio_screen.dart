@@ -12,6 +12,7 @@ import '../render/scene_canvas.dart';
 import 'dock_panel.dart';
 import 'dock_layout.dart';
 import 'docks.dart';
+import 'exit.dart';
 import 'menu_bar.dart';
 import 'projector_menu.dart';
 import 'theme.dart';
@@ -29,7 +30,14 @@ class StudioScreen extends StatelessWidget {
     final out = AppScope.of(context).output;
     // The Multiview for a connected screen sits behind the (opaque) studio,
     // where it's laid out and painted for capture but never seen.
-    return Stack(children: [
+    // The back gesture asks before closing, like File › Exit; an accidental
+    // edge swipe used to close the app and end the stream.
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) exitApp(context);
+      },
+      child: Stack(children: [
       const Positioned.fill(child: MultiviewHost()),
       Scaffold(
         body: SafeArea(
@@ -40,7 +48,9 @@ class StudioScreen extends StatelessWidget {
                 devices: AppScope.of(context).devices,
                 child: LayoutBuilder(
                   builder: (context, box) {
-                    final landscape = box.maxWidth > box.maxHeight && box.maxWidth >= 900;
+                    // Landscape whenever the window is wider than tall (the app is
+                    // landscape-only; small windows in multi-window too).
+                    final landscape = box.maxWidth > box.maxHeight;
                     return landscape ? _LandscapeLayout(height: box.maxHeight) : const _PortraitLayout();
                   },
                 ),
@@ -49,7 +59,8 @@ class StudioScreen extends StatelessWidget {
           ),
         ),
       ),
-    ]);
+    ]),
+    );
   }
 }
 
