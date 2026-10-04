@@ -14,6 +14,7 @@ import 'dock_panel.dart';
 import 'docks.dart';
 import 'browser_dock.dart';
 import 'exit.dart';
+import 'filters_panel.dart';
 import 'projector_menu.dart';
 import 'update_prompt.dart';
 import 'item_menu.dart';
@@ -101,7 +102,8 @@ class ObsMenuBar extends StatelessWidget {
             item('Add Source…', () => showAddSource(context), icon: Icons.add),
             item('Source Properties…', selectedItem == null ? null : () => showSourceProperties(context, selectedItem.id),
                 icon: Icons.tune),
-            item('Filters…', selectedItem == null ? null : () => showSourceFilters(context, selectedItem.id),
+            item('Filters…',
+                () => selectedItem == null ? showFiltersWindow(context) : showSourceFilters(context, selectedItem.id),
                 icon: Icons.auto_awesome_outlined),
             SubmenuButton(
               menuChildren: [

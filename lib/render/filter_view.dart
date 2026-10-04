@@ -1,9 +1,12 @@
+import 'dart:async';
+import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
 import '../core/models.dart';
+import 'lut.dart';
 
 /// Compiled filter shaders. Loaded once at startup; key and sharpen filters
 /// pass the source through unchanged where shaders can't run (devices
@@ -11,7 +14,7 @@ import '../core/models.dart';
 class FilterShaders {
   FilterShaders._();
 
-  static ui.FragmentProgram? _key, _sharpen;
+  static ui.FragmentProgram? _key, _sharpen, _lut;
 
   static bool get supported => _key != null && _sharpen != null && ui.ImageFilter.isShaderFilterSupported;
 
@@ -20,6 +23,7 @@ class FilterShaders {
       if (!ui.ImageFilter.isShaderFilterSupported) return;
       _key = await ui.FragmentProgram.fromAsset('shaders/key.frag');
       _sharpen = await ui.FragmentProgram.fromAsset('shaders/sharpen.frag');
+      _lut = await ui.FragmentProgram.fromAsset('shaders/lut.frag');
     } catch (e) {
       debugPrint('Filter shaders unavailable: $e');
     }
@@ -60,6 +64,124 @@ class FilterShaders {
       ..setFloat(2, f.dbl('amount', 0.08));
     return ui.ImageFilter.shader(sh);
   }
+
+  static ui.ImageFilter? lut(LoadedLut l, double amount) {
+    final p = _lut;
+    if (p == null || !supported) return null;
+    try {
+      final sh = p.fragmentShader()
+        ..setFloat(0, 0)
+        ..setFloat(1, 0)
+        ..setFloat(2, amount.clamp(0.0, 1.0))
+        ..setFloat(3, l.size.toDouble())
+        ..setImageSampler(1, l.image, filterQuality: ui.FilterQuality.low);
+      return ui.ImageFilter.shader(sh);
+    } catch (e) {
+      debugPrint('LUT filter unavailable: $e');
+      return null;
+    }
+  }
+}
+
+/// A LUT file decoded into a GPU texture (see [LutStrip]).
+class LoadedLut {
+  LoadedLut(this.size, this.image);
+  final int size;
+  final ui.Image image;
+}
+
+/// Loads LUT files once and keeps them for every filter that uses them.
+class LutCache {
+  LutCache._();
+  static final _cache = <String, Future<LoadedLut>>{};
+
+  /// The LUT, or null if the file is missing or not a LUT.
+  static Future<LoadedLut?> load(String path) async {
+    try {
+      return await _cache.putIfAbsent(path, () => _load(path));
+    } catch (e) {
+      _cache.remove(path);
+      debugPrint('LUT $path: $e');
+      return null;
+    }
+  }
+
+  static Future<LoadedLut> _load(String path) async {
+    final bytes = await File(path).readAsBytes();
+    final LutStrip strip;
+    if (path.toLowerCase().endsWith('.cube')) {
+      strip = LutStrip.parseCube(String.fromCharCodes(bytes));
+    } else {
+      final codec = await ui.instantiateImageCodec(bytes);
+      final frame = await codec.getNextFrame();
+      final img = frame.image;
+      final data = await img.toByteData(format: ui.ImageByteFormat.rawStraightRgba);
+      strip = LutStrip.fromImage(data!.buffer.asUint8List(), img.width, img.height);
+      img.dispose();
+    }
+    final c = Completer<ui.Image>();
+    ui.decodeImageFromPixels(strip.rgba, strip.width, strip.height, ui.PixelFormat.rgba8888, c.complete);
+    return LoadedLut(strip.size, await c.future);
+  }
+
+  /// Checks a file before it's used: returns an error message or null.
+  static Future<String?> validate(String path) async {
+    try {
+      final l = await _load(path);
+      _cache[path] = Future.value(l);
+      return null;
+    } on FormatException catch (e) {
+      return e.message;
+    } catch (e) {
+      return 'Could not read the LUT: $e';
+    }
+  }
+}
+
+/// Apply LUT: grades the content once the LUT file is loaded.
+class LutFilterView extends StatefulWidget {
+  const LutFilterView({super.key, required this.path, required this.amount, required this.child});
+
+  final String path;
+  final double amount;
+  final Widget child;
+
+  @override
+  State<LutFilterView> createState() => _LutFilterViewState();
+}
+
+class _LutFilterViewState extends State<LutFilterView> {
+  LoadedLut? _lut;
+  String? _loading;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void didUpdateWidget(LutFilterView old) {
+    super.didUpdateWidget(old);
+    if (old.path != widget.path) _load();
+  }
+
+  void _load() {
+    final path = widget.path;
+    _lut = null;
+    _loading = path;
+    if (path.isEmpty || !FilterShaders.supported) return;
+    LutCache.load(path).then((l) {
+      if (mounted && _loading == path && l != null) setState(() => _lut = l);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = _lut;
+    if (l == null || widget.amount <= 0) return widget.child;
+    return _shader(FilterShaders.lut(l, widget.amount), widget.child);
+  }
 }
 
 /// Applies a source's filter chain to its rendered content.
@@ -68,6 +190,11 @@ Widget applySourceFilters(Source source, Widget child) {
     if (!f.enabled || f.kind.isAudio) continue;
     child = switch (f.kind) {
       FilterKind.colorCorrection => ColorFiltered(colorFilter: ColorFilter.matrix(f.colorMatrix()), child: child),
+      FilterKind.applyLut => LutFilterView(
+          path: f.settings['path'] as String? ?? '',
+          amount: f.dbl('amount', 1),
+          child: child,
+        ),
       FilterKind.chromaKey || FilterKind.colorKey || FilterKind.lumaKey => _shader(FilterShaders.key(f), child),
       FilterKind.sharpen => _shader(FilterShaders.sharpen(f), child),
       FilterKind.blur => ClipRect(

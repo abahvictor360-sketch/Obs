@@ -75,6 +75,7 @@ flutter:
   shaders:
     - shaders/key.frag
     - shaders/sharpen.frag
+    - shaders/lut.frag
 
   # To add assets to your application, add an assets section, like this:
   # assets:

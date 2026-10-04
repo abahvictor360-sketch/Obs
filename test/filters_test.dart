@@ -111,4 +111,62 @@ void main() {
     expect(tester.takeException(), isNull);
     await tester.pump(const Duration(seconds: 3));
   });
+  testWidgets('Filters window: pick any source; Apply LUT is offered', (tester) async {
+    tester.view.physicalSize = const Size(1366, 1024);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final studio = StudioController(storage: MemoryStorage());
+    final output = OutputEngine(studio: studio, backend: FakeEncoder());
+    await output.init();
+    await tester.pumpWidget(ObsTabletApp(
+      studio: studio,
+      output: output,
+      cameras: CameraService(),
+      media: MediaService(),
+      plugins: PluginManager(createPlatformPluginBackend()),
+      devices: DeviceService(),
+      networkVideo: NetworkVideoService(),
+    ));
+    await tester.pump();
+    final mic = studio.sources.firstWhere((s) => s.type == SourceType.audioInput);
+    final title = studio.sources.firstWhere((s) => s.name == 'Title');
+    studio.addFilter(title.id, FilterKind.blur);
+    studio.selectItem(null);
+    await tester.pump();
+
+    // Edit › Filters… works with nothing selected.
+    await tester.tap(find.text('Edit'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Filters…'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('filters-window')), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('filters-source')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('Title').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Effect Filters'), findsOneWidget);
+    expect(find.text('Blur'), findsWidgets);
+
+    await tester.tap(find.byKey(const ValueKey('add-filter')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Apply LUT'), findsOneWidget);
+    await tester.tapAt(const Offset(5, 5));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('filters-source')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining(mic.name).last);
+    await tester.pumpAndSettle();
+    expect(find.text('Audio Filters'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pump(const Duration(seconds: 3));
+  });
+
+  test('Apply LUT keeps its file and amount', () {
+    final f = SourceFilter(id: 'f', kind: FilterKind.applyLut, name: 'Apply LUT', settings: {'path': '/x/film.cube', 'amount': 0.6});
+    final back = SourceFilter.fromJson(f.toJson())!;
+    expect((back.kind, back.settings['path'], back.dbl('amount')), (FilterKind.applyLut, '/x/film.cube', 0.6));
+    expect(FilterKind.applyLut.usesShader, isTrue);
+  });
 }

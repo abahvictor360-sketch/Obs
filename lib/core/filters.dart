@@ -4,6 +4,7 @@ import 'dart:math' as math;
 /// first to last before the item's transform.
 enum FilterKind {
   colorCorrection('Color Correction'),
+  applyLut('Apply LUT'),
   chromaKey('Chroma Key'),
   colorKey('Color Key'),
   lumaKey('Luma Key'),
@@ -22,7 +23,11 @@ enum FilterKind {
 
   /// Needs a fragment shader (Impeller): not available on every device.
   bool get usesShader =>
-      this == FilterKind.chromaKey || this == FilterKind.colorKey || this == FilterKind.lumaKey || this == FilterKind.sharpen;
+      this == FilterKind.chromaKey ||
+      this == FilterKind.colorKey ||
+      this == FilterKind.lumaKey ||
+      this == FilterKind.sharpen ||
+      this == FilterKind.applyLut;
 
   static FilterKind? fromName(String? n) => FilterKind.values.where((k) => k.name == n).firstOrNull;
 
@@ -35,6 +40,10 @@ enum FilterKind {
             'hue': 0.0, // degrees -180..180
             'opacity': 1.0, // 0..1
             'multiply': 0xFFFFFFFF, // ARGB tint
+          },
+        FilterKind.applyLut => {
+            'path': '', // .cube or PNG LUT, copied into the app's storage
+            'amount': 1.0, // 0..1
           },
         FilterKind.chromaKey => {
             'keyColor': 'green', // green | blue | magenta | custom

@@ -4,7 +4,45 @@ import '../app_scope.dart';
 import '../core/models.dart';
 import '../render/filter_view.dart';
 import 'dialogs.dart';
+import 'media_import.dart';
 import 'theme.dart';
+
+/// Edit › Filters with nothing selected: the Filters window on its own,
+/// starting with [sourceId] or the first source that takes filters.
+Future<void> showFiltersWindow(BuildContext context, {String? sourceId}) async {
+  final studio = AppScope.of(context).studio;
+  final choices = studio.sources.where((s) => s.type.isVisual || s.type.hasAudio);
+  final source = (sourceId == null ? null : studio.sourceById(sourceId)) ?? choices.firstOrNull;
+  if (source == null) {
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Add a source first')));
+    return;
+  }
+  await showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    constraints: const BoxConstraints(maxWidth: 760),
+    barrierColor: Colors.black26,
+    builder: (context) => FractionallySizedBox(
+      heightFactor: 0.8,
+      child: Column(children: [
+        const Padding(
+          padding: EdgeInsets.fromLTRB(20, 16, 20, 0),
+          child: Row(children: [
+            Icon(Icons.auto_awesome_outlined, color: ObsColors.textDim),
+            SizedBox(width: 10),
+            Text('Filters', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+          ]),
+        ),
+        Expanded(
+          child: ListenableBuilder(
+            listenable: studio,
+            builder: (context, _) => FiltersPanel(key: const ValueKey('filters-window'), source: source),
+          ),
+        ),
+      ]),
+    ),
+  );
+}
 
 /// OBS's Filters window: the source's filter chain (add, remove, reorder,
 /// enable/disable, rename) and the selected filter's settings. Filters
@@ -25,23 +63,56 @@ class FiltersPanel extends StatefulWidget {
 class _FiltersPanelState extends State<FiltersPanel> {
   String? _selected;
 
-  List<FilterKind> get _available => [
-        if (widget.source.type.isVisual) ...FilterKind.values.where((k) => !k.isAudio),
-        if (widget.source.type.hasAudio) FilterKind.gain,
-      ];
+  /// The source whose filters are shown; switch with the picker at the top.
+  String? _sourceId;
+
+  @override
+  void didUpdateWidget(FiltersPanel old) {
+    super.didUpdateWidget(old);
+    if (old.source.id != widget.source.id) _sourceId = null;
+  }
 
   @override
   Widget build(BuildContext context) {
     final studio = AppScope.of(context).studio;
-    final filters = widget.source.filters;
+    final source = (_sourceId == null ? null : studio.sourceById(_sourceId!)) ?? widget.source;
+    final available = [
+      if (source.type.isVisual) ...FilterKind.values.where((k) => !k.isAudio),
+      if (source.type.hasAudio) FilterKind.gain,
+    ];
+    final filters = source.filters;
     final selected = filters.where((f) => f.id == _selected).firstOrNull ?? filters.firstOrNull;
-    final legacy = widget.item != null && !widget.item!.color.isNeutral;
+    final item = source.id == widget.source.id ? widget.item : null;
+    final legacy = item != null && !item.color.isNeutral;
+    final choices = studio.sources.where((s) => s.type.isVisual || s.type.hasAudio).toList();
 
     return ListView(padding: const EdgeInsets.all(16), children: [
+      // Like OBS's Filters window: pick any source and edit its filters.
+      DropdownButtonFormField<String>(
+        key: const ValueKey('filters-source'),
+        initialValue: source.id,
+        isExpanded: true,
+        decoration: const InputDecoration(labelText: 'Source', isDense: true, prefixIcon: Icon(Icons.layers_outlined)),
+        items: [
+          for (final s in choices)
+            DropdownMenuItem(
+              value: s.id,
+              child: Text(
+                '${s.name}  ·  ${s.type.label}${s.filters.isEmpty ? '' : '  (${s.filters.length})'}',
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+        ],
+        onChanged: (id) => setState(() {
+          _sourceId = id;
+          _selected = null;
+        }),
+      ),
+      const SizedBox(height: 12),
       Row(children: [
         Expanded(
           child: Text(
-            widget.source.type.isVisual ? 'Effect Filters' : 'Audio Filters',
+            source.type.isVisual ? 'Effect Filters' : 'Audio Filters',
             style: const TextStyle(fontWeight: FontWeight.bold),
           ),
         ),
@@ -50,7 +121,7 @@ class _FiltersPanelState extends State<FiltersPanel> {
           tooltip: 'Add filter',
           icon: const Icon(Icons.add),
           itemBuilder: (context) => [
-            for (final k in _available)
+            for (final k in available)
               PopupMenuItem(
                 value: k,
                 enabled: !k.usesShader || FilterShaders.supported,
@@ -58,7 +129,7 @@ class _FiltersPanelState extends State<FiltersPanel> {
               ),
           ],
           onSelected: (k) {
-            final f = studio.addFilter(widget.source.id, k);
+            final f = studio.addFilter(source.id, k);
             setState(() => _selected = f.id);
           },
         ),
@@ -77,7 +148,7 @@ class _FiltersPanelState extends State<FiltersPanel> {
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             buildDefaultDragHandles: false,
-            onReorderItem: (from, to) => studio.moveFilter(widget.source.id, filters[from].id, to),
+            onReorderItem: (from, to) => studio.moveFilter(source.id, filters[from].id, to),
             children: [
               for (final (i, f) in filters.indexed)
                 ListTile(
@@ -96,7 +167,7 @@ class _FiltersPanelState extends State<FiltersPanel> {
                       key: ValueKey('filter-toggle-${f.id}'),
                       tooltip: f.enabled ? 'Disable' : 'Enable',
                       icon: Icon(f.enabled ? Icons.visibility : Icons.visibility_off, size: 20),
-                      onPressed: () => studio.updateFilter(widget.source.id, f.id, enabled: !f.enabled),
+                      onPressed: () => studio.updateFilter(source.id, f.id, enabled: !f.enabled),
                     ),
                     PopupMenuButton<String>(
                       tooltip: 'More',
@@ -107,10 +178,10 @@ class _FiltersPanelState extends State<FiltersPanel> {
                       ],
                       onSelected: (v) async {
                         if (v == 'remove') {
-                          studio.removeFilter(widget.source.id, f.id);
+                          studio.removeFilter(source.id, f.id);
                         } else {
                           final name = await promptText(context, title: 'Rename filter', initial: f.name);
-                          if (name != null) studio.updateFilter(widget.source.id, f.id, name: name);
+                          if (name != null) studio.updateFilter(source.id, f.id, name: name);
                         }
                       },
                     ),
@@ -123,7 +194,7 @@ class _FiltersPanelState extends State<FiltersPanel> {
         const SizedBox(height: 16),
         Text(selected.name, style: const TextStyle(fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
-        _FilterSettings(source: widget.source, filter: selected),
+        _FilterSettings(source: source, filter: selected),
       ],
       if (legacy) ...[
         const Divider(height: 32),
@@ -133,7 +204,7 @@ class _FiltersPanelState extends State<FiltersPanel> {
           child: TextButton.icon(
             icon: const Icon(Icons.restart_alt),
             label: const Text('Reset them (use a Color Correction filter instead)'),
-            onPressed: () => studio.updateColor(widget.item!.id, (c) {
+            onPressed: () => studio.updateColor(item.id, (c) {
               c
                 ..opacity = 1
                 ..brightness = 0
@@ -144,6 +215,46 @@ class _FiltersPanelState extends State<FiltersPanel> {
         ),
       ],
     ]);
+  }
+}
+
+/// Apply LUT: the LUT file (.cube, or an OBS-style PNG), copied into the
+/// app so it keeps working after a restart.
+class _LutPicker extends StatelessWidget {
+  const _LutPicker({required this.source, required this.filter});
+
+  final Source source;
+  final SourceFilter filter;
+
+  @override
+  Widget build(BuildContext context) {
+    final studio = AppScope.of(context).studio;
+    final path = filter.settings['path'] as String? ?? '';
+    final name = path.isEmpty ? 'No LUT file' : path.split(RegExp(r'[/\\]')).last;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(children: [
+        const Icon(Icons.palette_outlined, color: ObsColors.textDim),
+        const SizedBox(width: 10),
+        Expanded(child: Text(name, overflow: TextOverflow.ellipsis)),
+        OutlinedButton.icon(
+          key: const ValueKey('lut-browse'),
+          icon: const Icon(Icons.folder_open, size: 18),
+          label: const Text('Browse…'),
+          onPressed: () async {
+            final messenger = ScaffoldMessenger.of(context);
+            final picked = await pickMediaFile(context, MediaKind.lut);
+            if (picked == null) return;
+            final error = await LutCache.validate(picked);
+            if (error != null) {
+              messenger.showSnackBar(SnackBar(content: Text(error)));
+              return;
+            }
+            studio.updateFilter(source.id, filter.id, values: {'path': picked});
+          },
+        ),
+      ]),
+    );
   }
 }
 
@@ -210,6 +321,7 @@ class _FilterSettings extends StatelessWidget {
             onChanged: (v) => set('multiply', v),
           ),
         ],
+      FilterKind.applyLut => [_LutPicker(source: source, filter: f), slider('Amount', 'amount', 0, 1, pct, def: 1)],
       FilterKind.chromaKey => [
           keyColor(),
           slider('Similarity', 'similarity', 1, 1000, whole, def: 400),

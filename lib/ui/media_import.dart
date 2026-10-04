@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 
 import 'media_import_stub.dart' if (dart.library.io) 'media_import_io.dart' as impl;
 
-enum MediaKind { image, video, html }
+enum MediaKind { image, video, html, lut }
 
 /// Opens the tablet's file manager (Android Files / iPad Files app) and
 /// copies the picked file into the app's storage, so the source keeps
@@ -14,11 +14,13 @@ Future<String?> pickMediaFile(BuildContext context, MediaKind kind) async =>
 
 /// Like [pickMediaFile], several files at once (Image Slide Show).
 Future<List<String>> pickMediaFiles(BuildContext context, MediaKind kind, {bool multiple = true}) async {
-  final List<PlatformFile> files;
+  List<PlatformFile> files;
   final type = switch (kind) {
     MediaKind.image => FileType.image,
     MediaKind.video => FileType.video,
     MediaKind.html => FileType.custom,
+    // .cube has no registered type on Android, so any file, checked after.
+    MediaKind.lut => FileType.any,
   };
   final ext = kind == MediaKind.html ? const ['html', 'htm'] : null;
   try {
@@ -33,6 +35,14 @@ Future<List<String>> pickMediaFiles(BuildContext context, MediaKind kind, {bool 
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not open files: $e')));
     }
     return const [];
+  }
+  if (kind == MediaKind.lut) {
+    final ok = files.where((f) => RegExp(r'\.(cube|png)$', caseSensitive: false).hasMatch(f.name)).toList();
+    if (ok.length != files.length && context.mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Pick a .cube or .png LUT file')));
+    }
+    files = ok;
   }
   if (files.isEmpty || !context.mounted) return const [];
   final messenger = ScaffoldMessenger.of(context);
