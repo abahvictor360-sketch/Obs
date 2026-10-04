@@ -187,6 +187,7 @@ final class ObsEncoderPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
         let bitrate = args["videoBitrate"] as? Int ?? 2_500_000
         let keyInt = args["keyframeInterval"] as? Int ?? 2
 
+        startRepeatTimer()
         video = AppVideoEncoder(
             width: width, height: height, fps: fps, bitrate: bitrate, keyframeIntervalSec: keyInt,
             onOutput: { [weak self] v in self?.onVideo(v.annexB, ptsUs: v.ptsUs, isKey: v.isKeyframe, config: v.config) },
@@ -291,6 +292,12 @@ final class ObsEncoderPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
     }
 
     private func stop() {
+        repeatTimer?.cancel()
+        repeatTimer = nil
+        repeatLock.lock()
+        lastKeyFrame = nil
+        repeating = false
+        repeatLock.unlock()
         if let r = recorder {
             recorder = nil
             r.finish { _ in }
@@ -314,8 +321,56 @@ final class ObsEncoderPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
             lastVideoConfig = c
         }
         guard !annexB.isEmpty else { return }
+        repeatLock.lock()
+        lastVideoAtUs = hostNowUs()
+        if repeating {
+            // Back from the background: viewers' decoders hold the repeated
+            // keyframe, so wait for a fresh keyframe before sending more.
+            if !isKey {
+                repeatLock.unlock()
+                requestKeyframe()
+                return
+            }
+            repeating = false
+        }
+        if isKey { lastKeyFrame = annexB }
+        repeatLock.unlock()
         emitPacket(video: true, config: false, key: isKey, ptsUs: ptsUs, data: annexB)
         recorder?.appendVideo(annexB, ptsUs: ptsUs, isKey: isKey)
+    }
+
+    // MARK: Background: keep the stream alive
+
+    private let repeatLock = NSLock()
+    private var lastKeyFrame: Data?
+    private var lastVideoAtUs: Int64 = 0
+    private var repeating = false
+    private var repeatTimer: DispatchSourceTimer?
+
+    /// iPadOS doesn't let the app draw or encode new frames in the
+    /// background. While no frames arrive (app in the background without
+    /// Screen Capture) the last keyframe is sent again twice a second, so the
+    /// stream and recording keep going on a still picture with live audio
+    /// instead of stopping. Dart requests a fresh keyframe as the app leaves.
+    private func startRepeatTimer() {
+        repeatTimer?.cancel()
+        let t = DispatchSource.makeTimerSource(queue: .main)
+        t.schedule(deadline: .now() + 1, repeating: .milliseconds(500))
+        t.setEventHandler { [weak self] in
+            guard let self = self, self.video != nil, !self.extensionEncoding else { return }
+            self.repeatLock.lock()
+            let now = hostNowUs()
+            guard let key = self.lastKeyFrame, now - self.lastVideoAtUs > 600_000 else {
+                self.repeatLock.unlock()
+                return
+            }
+            self.repeating = true
+            self.repeatLock.unlock()
+            self.emitPacket(video: true, config: false, key: true, ptsUs: now, data: key)
+            self.recorder?.appendVideo(key, ptsUs: now, isKey: true)
+        }
+        t.resume()
+        repeatTimer = t
     }
 
     // MARK: Screen capture

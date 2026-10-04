@@ -177,6 +177,11 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
     // Inactive (notification shade, app switcher, Control Center) is still
     // on screen and still renders: keep going.
     _appResumed = state == AppLifecycleState.resumed || state == AppLifecycleState.inactive;
+    // Leaving the app: a fresh keyframe, so the picture iPadOS keeps sending
+    // in the background (and Android repeats) is the latest one.
+    if (state == AppLifecycleState.inactive && _encoderRunning) {
+      backend.requestKeyframe().catchError((_) {});
+    }
     if (_appResumed) _layersDirty = true;
     _updateMetering();
   }
