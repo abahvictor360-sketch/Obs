@@ -97,7 +97,40 @@ class StudioController extends ChangeNotifier {
   List<Scene> get scenes => collection.scenes;
   List<Source> get sources => collection.sources;
 
-  Scene get programScene => sceneById(collection.programSceneId)!;
+  /// What is live. In Studio Mode it's a copy of the scene taken when it was
+  /// transitioned to program (like OBS's "Duplicate Scene"), so editing that
+  /// scene in Preview — adding, hiding or moving sources — stays off air
+  /// until the next Transition. Sources themselves (camera, text, filters)
+  /// are shared, as in OBS.
+  Scene get programScene {
+    final live = sceneById(collection.programSceneId)!;
+    if (!studioMode) return live;
+    var snap = _programSnapshot;
+    if (snap == null || snap.id != live.id) snap = _programSnapshot = _copyScene(live);
+    snap.name = live.name;
+    return snap;
+  }
+
+  Scene? _programSnapshot;
+  int _revision = 0;
+  (int, bool)? _pendingCache;
+
+  static Scene _copyScene(Scene s) => Scene.fromJson(jsonDecode(jsonEncode(s.toJson())) as Map<String, dynamic>);
+
+  /// Preview shows the program scene but with changes that aren't live yet.
+  bool get previewHasPendingChanges {
+    if (!studioMode || collection.previewSceneId != collection.programSceneId) return false;
+    final cached = _pendingCache;
+    if (cached != null && cached.$1 == _revision) return cached.$2;
+    final pending = jsonEncode(programScene.toJson()) != jsonEncode(previewScene.toJson());
+    _pendingCache = (_revision, pending);
+    return pending;
+  }
+
+  /// Whether Transition (or the T-bar) has something to send to program.
+  bool get canTransition =>
+      studioMode && (collection.programSceneId != collection.previewSceneId || previewHasPendingChanges);
+
   Scene get previewScene => sceneById(collection.previewSceneId)!;
 
   /// The scene the Sources panel and canvas editing act on. In studio mode
@@ -229,12 +262,17 @@ class StudioController extends ChangeNotifier {
   /// program scene becomes the new preview (swap). [using] is a quick
   /// transition; otherwise the selected transition is used.
   void transitionToProgram({QuickTransition? using}) {
-    if (!studioMode) return;
+    if (!canTransition) return;
     final oldProgram = collection.programSceneId;
-    if (oldProgram == collection.previewSceneId) return;
-    collection.programSceneId = collection.previewSceneId;
-    collection.previewSceneId = oldProgram;
-    selectedItemId = null;
+    if (oldProgram == collection.previewSceneId) {
+      // Same scene: send the Preview's edits live; Preview keeps the scene.
+      _programSnapshot = _copyScene(previewScene);
+    } else {
+      collection.programSceneId = collection.previewSceneId;
+      collection.previewSceneId = oldProgram;
+      _programSnapshot = _copyScene(sceneById(collection.programSceneId)!);
+      selectedItemId = null;
+    }
     _active = using;
     tBar = 0;
     transitionSerial++;
@@ -246,7 +284,7 @@ class StudioController extends ChangeNotifier {
   double tBar = 0;
 
   void setTBar(double v) {
-    if (!studioMode || collection.programSceneId == collection.previewSceneId) {
+    if (!canTransition) {
       if (tBar != 0) {
         tBar = 0;
         notifyListeners();
@@ -279,6 +317,7 @@ class StudioController extends ChangeNotifier {
     studioMode = enabled;
     settings.studioMode = enabled;
     tBar = 0;
+    _programSnapshot = null; // taken from the current program on first use
     // Entering studio mode starts with preview == program.
     collection.previewSceneId = collection.programSceneId;
     selectedItemId = null;
@@ -691,6 +730,7 @@ class StudioController extends ChangeNotifier {
   // Persistence
 
   void _changed() {
+    _revision++;
     notifyListeners();
     _saveTimer?.cancel();
     _saveTimer = Timer(const Duration(milliseconds: 400), save);

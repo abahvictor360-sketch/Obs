@@ -23,8 +23,11 @@ class ProgramView extends StatefulWidget {
 
 class _ProgramViewState extends State<ProgramView> with SingleTickerProviderStateMixin {
   late final AnimationController _anim = AnimationController(vsync: this, value: 1);
-  String? _fromSceneId;
-  String? _toSceneId;
+  /// The program before and after the running transition. Scene objects,
+  /// not ids: in Studio Mode a Transition to the same scene swaps in a new
+  /// copy of it (see StudioController.programScene).
+  Scene? _from;
+  Scene? _to;
   int _serial = -1;
   TransitionType _type = TransitionType.cut;
 
@@ -56,26 +59,27 @@ class _ProgramViewState extends State<ProgramView> with SingleTickerProviderStat
 
   void _maybeStartTransition() {
     final studio = _studio!;
-    final programId = studio.collection.programSceneId;
-    if (_toSceneId == null) {
-      _toSceneId = programId;
+    final current = studio.programScene;
+    if (_to == null || studio.transitionSerial == _serial) {
+      // No new transition: follow the program as it is (live edits outside
+      // Studio Mode, a deleted program scene...).
+      _to = current;
       _serial = studio.transitionSerial;
       return;
     }
-    if (studio.transitionSerial == _serial && programId == _toSceneId) return;
     _serial = studio.transitionSerial;
-    if (programId == _toSceneId) return;
-    _fromSceneId = _toSceneId;
-    _toSceneId = programId;
+    if (identical(current, _to)) return;
+    _from = _to;
+    _to = current;
     _type = studio.activeTransition;
     if (_type == TransitionType.cut) {
-      _fromSceneId = null;
+      _from = null;
       _anim.value = 1;
       return;
     }
     _anim.duration = Duration(milliseconds: math.max(1, studio.activeTransitionMs));
     _anim.forward(from: 0).whenComplete(() {
-      if (mounted) setState(() => _fromSceneId = null);
+      if (mounted) setState(() => _from = null);
     });
   }
 
@@ -85,8 +89,8 @@ class _ProgramViewState extends State<ProgramView> with SingleTickerProviderStat
     final studio = scope.studio;
     return Builder(
       builder: (context) {
-        final to = studio.sceneById(_toSceneId ?? studio.collection.programSceneId) ?? studio.programScene;
-        final from = _fromSceneId == null ? null : studio.sceneById(_fromSceneId!);
+        final to = _to ?? studio.programScene;
+        final from = _from;
         final cw = studio.settings.canvasWidth.toDouble();
 
         Widget canvasFor(Scene s) => SceneCanvas(scene: s, showPlaceholders: false);

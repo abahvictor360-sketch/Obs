@@ -21,7 +21,7 @@ class TransitionPanel extends StatelessWidget {
       listenable: studio,
       builder: (context, _) {
         final c = studio.collection;
-        final same = c.programSceneId == c.previewSceneId;
+        final same = !studio.canTransition;
         final transition = Row(children: [
           Expanded(
             child: _PanelButton(
@@ -81,6 +81,15 @@ class TransitionPanel extends StatelessWidget {
             child: SingleChildScrollView(
               child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                 transition,
+                if (studio.previewHasPendingChanges)
+                  const Padding(
+                    key: ValueKey('preview-pending'),
+                    padding: EdgeInsets.only(top: 6),
+                    child: Text(
+                      'Preview has changes that are not live yet. Tap Transition to send them.',
+                      style: TextStyle(fontSize: 11, color: ObsColors.warn),
+                    ),
+                  ),
                 const SizedBox(height: 10),
                 quickHeader,
                 const SizedBox(height: 6),

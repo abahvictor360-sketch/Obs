@@ -176,4 +176,44 @@ void main() {
     final m = ColorCorrection().toMatrix();
     expect(m, [1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0].map((e) => closeTo(e, 1e-9)).toList());
   });
+  test('Studio Mode: edits to the live scene stay in Preview until Transition', () {
+    final c = StudioController(storage: MemoryStorage())..setStudioMode(true);
+    expect(c.collection.previewSceneId, c.collection.programSceneId);
+    final scene = c.previewScene;
+    final item = scene.items.first;
+    expect(c.canTransition, isFalse);
+
+    // Hide an item and add a source in Preview: Program is unchanged.
+    c.setItemVisible(item.id, false);
+    final added = c.addNewSource(SourceType.color, name: 'Lower third');
+    expect(c.previewScene.items.any((i) => i.id == added.id), isTrue);
+    final program = c.programScene;
+    expect(program.items.firstWhere((i) => i.id == item.id).visible, isTrue);
+    expect(program.items.any((i) => i.id == added.id), isFalse);
+    expect(c.activeSources.any((s) => s.id == added.sourceId), isTrue); // previewed, so it runs
+    expect(c.previewHasPendingChanges, isTrue);
+    expect(c.canTransition, isTrue);
+
+    // Transition sends them live; Preview keeps the same scene.
+    final serial = c.transitionSerial;
+    c.transitionToProgram();
+    expect(c.transitionSerial, serial + 1);
+    expect(c.collection.previewSceneId, c.collection.programSceneId);
+    expect(c.programScene.items.firstWhere((i) => i.id == item.id).visible, isFalse);
+    expect(c.programScene.items.any((i) => i.id == added.id), isTrue);
+    expect(c.previewHasPendingChanges, isFalse);
+    expect(c.canTransition, isFalse);
+
+    // Moving an item afterwards is again preview-only.
+    c.updateTransform(added.id, (t) => t.x += 100, persist: true);
+    expect(c.programScene.items.firstWhere((i) => i.id == added.id).transform.x,
+        isNot(c.previewScene.items.firstWhere((i) => i.id == added.id).transform.x));
+  });
+
+  test('Without Studio Mode, edits go live at once', () {
+    final c = StudioController(storage: MemoryStorage())..setStudioMode(false);
+    final item = c.programScene.items.first;
+    c.setItemVisible(item.id, false);
+    expect(c.programScene.items.firstWhere((i) => i.id == item.id).visible, isFalse);
+  });
 }
