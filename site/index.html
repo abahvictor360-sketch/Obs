@@ -180,6 +180,36 @@ footer img { height: 26px; width: auto; display: block; }
   .row4 > div:last-child { border-bottom: 0; }
   .badge { width: 100%; }
 }
+/* Full feature list */
+.featlist { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+.featlist .card h3 { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.featlist .card h3 i { width: 10px; height: 10px; border-radius: 3px; background: var(--brand); flex: none; }
+.featlist ul { margin: 0; padding-left: 1.1em; color: var(--muted); display: grid; gap: 6px; font-size: .95rem; }
+.featlist li b { color: var(--ink); font-weight: 600; }
+
+/* About + developer */
+.about { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 28px; align-items: stretch; }
+.about .copy { display: grid; gap: 14px; align-content: start; }
+.about .copy h2 { font-size: clamp(2rem, 4vw, 2.8rem); font-weight: 800; }
+.about .copy p { color: var(--muted); max-width: 40rem; }
+.facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 6px; }
+.facts div { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; font-size: .92rem; color: var(--muted); }
+.facts b { display: block; color: var(--ink); font-weight: 700; }
+.dev { background: var(--ink); color: #fff; border-radius: 26px; padding: clamp(24px, 4vw, 36px); display: grid; gap: 14px; align-content: center; position: relative; overflow: hidden; }
+.dev::after { content: ""; position: absolute; right: -60px; top: -60px; width: 220px; height: 220px; border-radius: 50%; background: radial-gradient(circle, rgba(0, 200, 245, .35), transparent 70%); }
+.dev .avatar { width: 64px; height: 64px; border-radius: 20px; display: grid; place-items: center; font: 800 1.4rem/1 var(--display); background: linear-gradient(135deg, var(--brand), var(--brand-2)); color: #fff; }
+.dev small { color: rgba(255,255,255,.7); text-transform: uppercase; letter-spacing: .1em; font-size: .72rem; font-weight: 700; }
+.dev h3 { color: #fff; font-size: 1.8rem; font-weight: 800; }
+.dev p { color: rgba(255,255,255,.8); }
+.dev .btn { justify-self: start; background: #fff; color: var(--ink); position: relative; z-index: 1; }
+footer .credit { color: var(--ink); font-weight: 600; }
+@media (max-width: 960px) {
+  .featlist { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .about { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 640px) {
+  .featlist, .facts { grid-template-columns: minmax(0, 1fr); }
+}
 @media (prefers-reduced-motion: reduce) {
   .band .track { animation: none; }
   .btn, .badge, summary::after { transition: none; }
@@ -197,6 +227,7 @@ footer img { height: 26px; width: auto; display: block; }
       <li><a href="#features">Features</a></li>
       <li><a href="#how">How it works</a></li>
       <li><a href="#install">Install</a></li>
+      <li><a href="#about">About</a></li>
       <li><a href="#faq">FAQ</a></li>
     </ul>
     <a class="btn btn-brand" href="#download">
@@ -327,6 +358,60 @@ footer img { height: 26px; width: auto; display: block; }
     </div>
   </section>
 
+  <section id="all-features">
+    <div class="head">
+      <span class="pill solid">Everything in OBSpad</span>
+      <h2>The full feature list</h2>
+      <p>What you get today in the Android and iPad apps.</p>
+    </div>
+    <div class="featlist">
+      <div class="card"><h3><i></i>Production</h3><ul>
+        <li><b>Studio Mode</b> with Preview and Program side by side</li>
+        <li>Transition button, <b>Quick Transitions</b> and a <b>T-bar</b></li>
+        <li>Cut, Fade, Slide, Swipe and Fade to Black</li>
+        <li>Scenes with unlimited sources, reordering and duplicating</li>
+        <li>Pinch to scale, twist to rotate, snap to edges</li>
+        <li>Menu bar, closable and resizable docks</li>
+      </ul></div>
+      <div class="card"><h3><i></i>Sources</h3><ul>
+        <li>Front and back cameras up to 4K, with zoom, torch and exposure</li>
+        <li><b>Screen capture</b> of games and apps, with their sound</li>
+        <li>HDMI <b>capture cards</b> and USB webcams</li>
+        <li>Phones as webcams: DroidCam, IP Webcam, IP cameras</li>
+        <li>Image, <b>Image Slide Show</b>, Media, <b>Browser</b>, Text, Color</li>
+        <li>New sources are previewed before they join a scene</li>
+      </ul></div>
+      <div class="card"><h3><i></i>Audio</h3><ul>
+        <li>Mixer with faders, mute and level meters</li>
+        <li>Microphones, <b>USB sound cards</b> and audio interfaces</li>
+        <li>Automatic switch to a USB device when plugged in</li>
+        <li><b>Audio Output Capture</b> for other apps' sound</li>
+        <li>Gain filter per source</li>
+      </ul></div>
+      <div class="card"><h3><i></i>Filters</h3><ul>
+        <li><b>Chroma Key</b> and Color Key for green screens</li>
+        <li>Luma Key, Sharpen and Blur</li>
+        <li>Color Correction: gamma, contrast, saturation, hue</li>
+        <li>Scroll for tickers and crawls</li>
+        <li>Rounded and circle masks for webcams</li>
+      </ul></div>
+      <div class="card"><h3><i></i>Output</h3><ul>
+        <li>Stream to <b>Facebook Live</b>, YouTube, Twitch and Kick</li>
+        <li>Any RTMP or RTMPS server, with auto-reconnect</li>
+        <li>Record to MP4 or FLV while streaming</li>
+        <li>NDI® output to vMix and OBS on your network</li>
+        <li>Program or <b>Multiview</b> on a second screen</li>
+      </ul></div>
+      <div class="card"><h3><i></i>Hardware &amp; plugins</h3><ul>
+        <li><b>Docking stations</b> recognised automatically</li>
+        <li>Monitors over USB-C, HDMI or a dock</li>
+        <li>Wired Ethernet preferred for the stream</li>
+        <li>Plugins installed from a GitHub link</li>
+        <li>Exit button, scene backup and import</li>
+      </ul></div>
+    </div>
+  </section>
+
   <div class="specs" aria-label="Specifications">
     <div class="spec"><b>1920×1080</b><span>Canvas</span></div>
     <div class="spec"><b>RTMPS</b><span>Secure streaming</span></div>
@@ -382,6 +467,30 @@ footer img { height: 26px; width: auto; display: block; }
     </div>
   </section>
 
+  <section id="about">
+    <div class="about">
+      <div class="copy">
+        <span class="pill solid" style="justify-self:start">About</span>
+        <h2>A broadcast desk that fits in one hand</h2>
+        <p>OBSpad was built for people who go live without a studio: churches streaming Sunday service, schools and events, creators and small teams. It brings the scenes, Studio Mode and filters that OBS Studio users know to a tablet, so you can run a whole production from the front row.</p>
+        <p>Everything happens on the device. The tablet mixes your sources, encodes the video with its hardware encoder and streams it directly to Facebook, YouTube or any RTMP server. There's no account to create and no cloud service in between.</p>
+        <div class="facts">
+          <div><b>Android 7.0+ and iPadOS 15+</b>Tablets and iPads, portrait or landscape</div>
+          <div><b>No account needed</b>Your scenes and stream key stay on the tablet</div>
+          <div><b>Free to download</b>New builds with every update</div>
+          <div><b>Works with your gear</b>Cameras, capture cards, sound cards, docks</div>
+        </div>
+      </div>
+      <div class="dev">
+        <div class="avatar" aria-hidden="true">VA</div>
+        <small>Designed and developed by</small>
+        <h3>Victor Abah</h3>
+        <p>OBSpad is made by Victor Abah. Find more of his work, or get in touch, on his website.</p>
+        <a class="btn" href="https://www.victorabah.com">Visit www.victorabah.com</a>
+      </div>
+    </div>
+  </section>
+
   <section id="faq">
     <div class="faq">
       <div class="head">
@@ -420,7 +529,7 @@ footer img { height: 26px; width: auto; display: block; }
 
   <footer>
     <img src="img/wordmark.png" alt="OBSpad" width="117" height="26">
-    <span>Independent project inspired by OBS Studio; not affiliated with the OBS Project. NDI® is a registered trademark of Vizrt NDI AB.</span>
+    <span><span class="credit">© 2026 Victor Abah · <a href="https://www.victorabah.com">www.victorabah.com</a></span><br>Independent project inspired by OBS Studio; not affiliated with the OBS Project. NDI® is a registered trademark of Vizrt NDI AB.</span>
     <a href="https://github.com/abahvictor360-sketch/Obs/releases">All releases</a>
   </footer>
 </div>
