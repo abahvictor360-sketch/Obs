@@ -57,6 +57,9 @@ class ObsEncoderPlugin(private val activity: Activity, messenger: BinaryMessenge
     init {
         method.setMethodCallHandler(this)
         events.setStreamHandler(this)
+        MicProcessing.onInputLevel = { id, rms, peak ->
+            emit(mapOf("type" to "level", "source" to "mic", "id" to id, "rms" to rms.toDouble(), "peak" to peak.toDouble()))
+        }
         MediaAudioMixer.onLevel = { id, rms, peak ->
             emit(mapOf("type" to "level", "source" to "media", "id" to id, "rms" to rms.toDouble(), "peak" to peak.toDouble()))
         }
@@ -372,6 +375,7 @@ class ObsEncoderPlugin(private val activity: Activity, messenger: BinaryMessenge
 
     fun dispose() {
         MediaAudioMixer.onLevel = null
+        MicProcessing.onInputLevel = null
         MediaAudioMixer.clear()
         OutputService.set(activity.applicationContext, null)
         stop()

@@ -50,11 +50,11 @@ void main() {
     studio.updateFilter(mic.id, gain.id, values: {'db': 6.0});
     studio.addFilter(mic.id, FilterKind.limiter);
     expect(studio.micGain, 0.5); // fader only
-    final chain = studio.micProcessing['chain'] as List;
+    final chain = ((studio.micProcessing['inputs'] as List).first as Map)['chain'] as List;
     expect(chain.map((s) => (s as Map)['type']), ['gain', 'limiter']);
     expect((chain.first as Map)['db'], 6.0);
     studio.updateFilter(mic.id, gain.id, enabled: false);
-    expect((studio.micProcessing['chain'] as List).length, 1);
+    expect((((studio.micProcessing['inputs'] as List).first as Map)['chain'] as List).length, 1);
     studio.setMuted(mic.id, true);
     expect(studio.micGain, 0);
   });

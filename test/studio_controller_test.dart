@@ -289,4 +289,19 @@ void main() {
     c.selectScene(b.id);
     expect(c.activeSources.map((s) => s.id), containsAll(a.items.map((i) => i.sourceId)));
   });
+  test('Two mics on inputs 1 and 2, each with its own fader and filters', () {
+    final c = StudioController(storage: MemoryStorage());
+    final mic1 = c.sources.firstWhere((s) => s.type == SourceType.audioInput);
+    final item2 = c.addNewSource(SourceType.audioInput, name: 'Pastor');
+    final mic2 = c.sourceById(item2.sourceId)!;
+    c.updateSourceSettings(mic1.id, {'channel': 'left'});
+    c.updateSourceSettings(mic2.id, {'channel': 'right'});
+    c.setVolume(mic2.id, 0.5);
+    c.addFilter(mic2.id, FilterKind.noiseGate);
+    final inputs = (c.micProcessing['inputs'] as List).cast<Map>();
+    expect(inputs.map((m) => (m['id'], m['channel'])), [(mic1.id, 'left'), (mic2.id, 'right')]);
+    expect(inputs[1]['gain'], 0.5);
+    expect((inputs[1]['chain'] as List).single, containsPair('type', 'gate'));
+    expect(inputs[0]['chain'], isEmpty);
+  });
 }

@@ -42,6 +42,34 @@ final class MediaAudioMixer {
         }
     }
 
+    /// Adds the playing tracks in stereo to [left]/[right] (same length).
+    func mixStereo(left: inout [Float], right: inout [Float]) {
+        lock.lock()
+        let active = tracks.values.filter { $0.playing }
+        lock.unlock()
+        guard !active.isEmpty else { return }
+        let frames = left.count
+        var scratch = [Float](repeating: 0, count: frames * 2)
+        for t in active {
+            let got = t.read(into: &scratch, frames: frames)
+            guard got > 0 else { continue }
+            let g = t.gain
+            var sum: Float = 0
+            var peak: Float = 0
+            for f in 0..<got {
+                let l = scratch[f * 2] * g, r = scratch[f * 2 + 1] * g
+                left[f] += l
+                right[f] += r
+                let a = max(abs(l), abs(r))
+                sum += a * a
+                peak = max(peak, a)
+            }
+            t.reportLevel(rms: (sum / Float(got)).squareRoot(), peak: min(peak, 1), frames: got) { [weak self] id, r, p in
+                self?.onLevel?(id, r, p)
+            }
+        }
+    }
+
     /// Adds the playing tracks to mono samples (-1...1) and advances them.
     /// With mix false they only advance (meters while nothing is encoded).
     func mix(into samples: inout [Float], mix: Bool = true) {

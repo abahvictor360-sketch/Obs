@@ -450,12 +450,15 @@ class _MixerChannel extends StatelessWidget {
   Widget build(BuildContext context) {
     final scope = AppScope.of(context);
     final studio = scope.studio;
-    // OBSpad records one microphone: the first Mic/Aux source.
-    final primaryMic = studio.sources.where((s) => s.type == SourceType.audioInput).firstOrNull;
+    // All Mic/Aux sources share one audio device (picked on the first); each
+    // takes a channel of it (both, input 1, input 2), with its own fader.
+    final mics = studio.sources.where((s) => s.type == SourceType.audioInput).toList();
+    final primaryMic = mics.firstOrNull;
     final extraMic = source.type == SourceType.audioInput && primaryMic?.id != source.id;
     final isMic = source.type == SourceType.audioInput && !extraMic;
     final level = switch (source.type) {
-      SourceType.audioInput => extraMic ? null : scope.output.micLevel,
+      SourceType.audioInput =>
+        scope.output.micLevels[source.id] ?? (extraMic ? null : scope.output.micLevel),
       // Video sources: what the tablet plays, while this video is playing.
       // Its own level from the native mixer, else what the tablet plays.
       SourceType.media => scope.output.mediaLevels[source.id] ??
@@ -477,14 +480,18 @@ class _MixerChannel extends StatelessWidget {
               style: const TextStyle(color: ObsColors.textDim, fontSize: 12, fontFeatures: [FontFeature.tabularFigures()]),
             ),
           ]),
-          if (isMic) _InputDeviceRow(source: source),
-          if (extraMic)
-            Text(
-              'Not captured: OBSpad records one microphone (${primaryMic?.name}). '
-              'Choose which input it uses there, or remove this source.',
-              key: ValueKey('extra-mic-${source.id}'),
-              style: const TextStyle(color: ObsColors.warn, fontSize: 12),
-            ),
+          if (source.type == SourceType.audioInput)
+            Row(children: [
+              Expanded(
+                child: isMic
+                    ? _InputDeviceRow(source: source)
+                    : Text('Same device as ${primaryMic?.name}',
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: ObsColors.textDim, fontSize: 12)),
+              ),
+              if (mics.length > 1 || (source.settings['channel'] ?? 'mix') != 'mix')
+                _MicChannelPicker(source: source),
+            ]),
           if (source.type == SourceType.audioOutput)
             const Text('Desktop audio (other apps)', style: TextStyle(color: ObsColors.textDim, fontSize: 12)),
           const SizedBox(height: 4),
@@ -519,6 +526,41 @@ class _MixerChannel extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Which channel of the audio device a Mic/Aux source takes: both (mixed),
+/// input 1 (left) or input 2 (right) of a 2-input USB interface. Two mics
+/// on inputs 1 and 2 get their own faders, filters and meters.
+class _MicChannelPicker extends StatelessWidget {
+  const _MicChannelPicker({required this.source});
+
+  final Source source;
+
+  static const _labels = {'mix': 'Both inputs', 'left': 'Input 1 (L)', 'right': 'Input 2 (R)'};
+
+  @override
+  Widget build(BuildContext context) {
+    final studio = AppScope.of(context).studio;
+    final value = source.settings['channel'] as String? ?? 'mix';
+    return PopupMenuButton<String>(
+      key: ValueKey('mic-channel-${source.id}'),
+      tooltip: 'Input channel',
+      initialValue: value,
+      onSelected: (v) => studio.updateSourceSettings(source.id, {'channel': v}),
+      itemBuilder: (context) => [
+        for (final e in _labels.entries) PopupMenuItem(value: e.key, child: Text(e.value)),
+      ],
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          const Icon(Icons.settings_input_component, size: 14, color: ObsColors.textDim),
+          const SizedBox(width: 4),
+          Text(_labels[value] ?? value, style: const TextStyle(fontSize: 12, color: ObsColors.textDim)),
+          const Icon(Icons.arrow_drop_down, size: 16, color: ObsColors.textDim),
+        ]),
       ),
     );
   }

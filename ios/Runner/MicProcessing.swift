@@ -1,19 +1,31 @@
 import AVFoundation
 import Foundation
 
-/// The microphone's audio filters (Noise Suppression, Noise Gate, Compressor,
-/// Limiter), set from Dart with "setMicProcessing". Same behaviour as
-/// android/.../MicProcessing.kt.
+/// The microphones: one or more Mic/Aux sources, each taking a channel of the
+/// audio device (both, input 1 / left, input 2 / right of a USB interface)
+/// with its own filters (Noise Gate, Compressor, Limiter, Gain) and fader.
+/// Noise Suppression applies to the device. Set from Dart with
+/// "setMicProcessing". Same behaviour as android/.../MicProcessing.kt.
 final class MicProcessing {
     static let shared = MicProcessing()
 
     enum Stage {
         case gate(closeDb: Float, openDb: Float, attackMs: Float, holdMs: Float, releaseMs: Float)
         case compressor(ratio: Float, thresholdDb: Float, attackMs: Float, releaseMs: Float, outputDb: Float)
+        case gain(db: Float)
+    }
+
+    /// One Mic/Aux source: channel "mix", "left" or "right"; gain = fader × mute.
+    struct Input {
+        let id: String
+        let channel: String
+        let gain: Float
+        let chain: [Stage]
+        let version: Int
     }
 
     private let lock = NSLock()
-    private var _chain: [Stage] = []
+    private var _inputs: [Input] = [Input(id: "", channel: "mix", gain: 1, chain: [], version: 0)]
     private var _version = 0
     private(set) var noiseSuppression = false
 
@@ -21,15 +33,18 @@ final class MicProcessing {
     /// (the audio engine restarts with voice processing).
     var onNoiseSuppressionChange: (() -> Void)?
 
-    var snapshot: (chain: [Stage], version: Int) {
+    /// Each Mic/Aux source's level (id, rms, peak), for its mixer meter.
+    var onInputLevel: ((String, Float, Float) -> Void)?
+
+    var inputs: [Input] {
         lock.lock(); defer { lock.unlock() }
-        return (_chain, _version)
+        return _inputs
     }
 
-    func configure(_ args: [String: Any]) {
+    private static func parseChain(_ list: [Any]?) -> [Stage] {
         func f(_ m: [String: Any], _ k: String, _ def: Double) -> Float { Float((m[k] as? NSNumber)?.doubleValue ?? def) }
         var chain: [Stage] = []
-        for case let m as [String: Any] in (args["chain"] as? [Any] ?? []) {
+        for case let m as [String: Any] in (list ?? []) {
             switch m["type"] as? String {
             case "gate":
                 chain.append(.gate(closeDb: f(m, "closeDb", -32), openDb: f(m, "openDb", -26), attackMs: f(m, "attackMs", 25),
@@ -38,15 +53,35 @@ final class MicProcessing {
                 chain.append(.compressor(ratio: f(m, "ratio", 10), thresholdDb: f(m, "thresholdDb", -18), attackMs: f(m, "attackMs", 6),
                                          releaseMs: f(m, "releaseMs", 60), outputDb: f(m, "outputDb", 0)))
             case "limiter":
-                chain.append(.compressor(ratio: 1000, thresholdDb: f(m, "thresholdDb", -6), attackMs: 0.1,
+                // A compressor with an (almost) infinite ratio and instant attack.
+                chain.append(.compressor(ratio: 1000, thresholdDb: f(m, "thresholdDb", -6), attackMs: 0,
                                          releaseMs: f(m, "releaseMs", 60), outputDb: 0))
+            case "gain":
+                chain.append(.gain(db: f(m, "db", 0)))
             default:
                 break
             }
         }
+        return chain
+    }
+
+    func configure(_ args: [String: Any]) {
         lock.lock()
-        _chain = chain
         _version += 1
+        let v = _version
+        if let list = args["inputs"] as? [Any] {
+            _inputs = list.compactMap { raw -> Input? in
+                guard let m = raw as? [String: Any] else { return nil }
+                return Input(id: m["id"] as? String ?? "",
+                             channel: m["channel"] as? String ?? "mix",
+                             gain: Float((m["gain"] as? NSNumber)?.doubleValue ?? 1),
+                             chain: MicProcessing.parseChain(m["chain"] as? [Any]),
+                             version: v)
+            }
+        } else {
+            _inputs = [Input(id: "", channel: "mix", gain: _inputs.first?.gain ?? 1,
+                             chain: MicProcessing.parseChain(args["chain"] as? [Any]), version: v)]
+        }
         lock.unlock()
         let ns = (args["noiseSuppression"] as? Bool) ?? false
         if ns != noiseSuppression {
@@ -65,7 +100,73 @@ final class MicProcessing {
     }
 }
 
-/// Per-recording state for the chain (envelopes, gate state).
+/// Mixes the microphone inputs of a captured buffer into one mono bus: each
+/// input takes its channel, runs its filters, then its fader, and reports
+/// its level.
+final class MicBus {
+    private var processors: [String: MicProcessor] = [:]
+    private var sums: [String: (sum: Float, peak: Float, frames: Int)] = [:]
+
+    func mix(_ buffer: AVAudioPCMBuffer) -> [Float] {
+        guard let channels = buffer.floatChannelData else { return [] }
+        let n = Int(buffer.frameLength)
+        let chCount = Int(buffer.format.channelCount)
+        let rate = buffer.format.sampleRate
+        var out = [Float](repeating: 0, count: n)
+        guard n > 0, chCount > 0 else { return out }
+        let inputs = MicProcessing.shared.inputs
+        var tmp = [Float](repeating: 0, count: n)
+        for input in inputs {
+            let ch: Int
+            switch input.channel {
+            case "left": ch = 0
+            case "right": ch = chCount > 1 ? 1 : 0
+            default: ch = -1
+            }
+            if ch >= 0 {
+                let p = channels[ch]
+                for i in 0..<n { tmp[i] = p[i] }
+            } else {
+                let k = 1 / Float(chCount)
+                for i in 0..<n {
+                    var v: Float = 0
+                    for c in 0..<chCount { v += channels[c][i] }
+                    tmp[i] = v * k
+                }
+            }
+            let proc: MicProcessor
+            if let existing = processors[input.id] {
+                proc = existing
+            } else {
+                proc = MicProcessor(sampleRate: rate)
+                processors[input.id] = proc
+            }
+            proc.process(&tmp, chain: input.chain, version: input.version)
+            let g = input.gain
+            var acc = sums[input.id] ?? (0, 0, 0)
+            for i in 0..<n {
+                let v = tmp[i] * g
+                out[i] += v
+                let a = abs(v)
+                acc.sum += a * a
+                acc.peak = max(acc.peak, a)
+            }
+            acc.frames += n
+            if acc.frames >= Int(rate) / 20 {
+                MicProcessing.shared.onInputLevel?(input.id, (acc.sum / Float(acc.frames)).squareRoot(), min(acc.peak, 1))
+                acc = (0, 0, 0)
+            }
+            sums[input.id] = acc
+        }
+        if processors.count > inputs.count {
+            let ids = Set(inputs.map { $0.id })
+            processors = processors.filter { ids.contains($0.key) }
+        }
+        return out
+    }
+}
+
+/// Per-input state for a filter chain (envelopes, gate state).
 final class MicProcessor {
     private let sampleRate: Float
     private var version = -1
@@ -87,13 +188,12 @@ final class MicProcessor {
     private func coef(_ ms: Float) -> Float { ms <= 0 ? 0 : exp(-1 / (ms / 1000 * sampleRate)) }
     private func db(_ x: Float) -> Float { x <= 1e-6 ? -120 : 20 * log10(x) }
 
-    /// Processes mono float samples (-1...1) in place.
-    func process(_ samples: inout [Float]) {
-        let snap = MicProcessing.shared.snapshot
-        if snap.chain.isEmpty { return }
-        if snap.version != version {
-            version = snap.version
-            stages = snap.chain
+    /// Processes mono samples (-1...1) in place.
+    func process(_ samples: inout [Float], chain: [MicProcessing.Stage], version v: Int) {
+        if chain.isEmpty { return }
+        if v != version {
+            version = v
+            stages = chain
             let n = stages.count
             gateEnv = [Float](repeating: 0, count: n)
             gateGain = [Float](repeating: 1, count: n)
@@ -104,12 +204,14 @@ final class MicProcessor {
                 switch $0 {
                 case let .gate(_, _, a, _, _): return coef(a)
                 case let .compressor(_, _, a, _, _): return coef(a)
+                case .gain: return 0
                 }
             }
             rel = stages.map {
                 switch $0 {
                 case let .gate(_, _, _, _, r): return coef(r)
                 case let .compressor(_, _, _, r, _): return coef(r)
+                case .gain: return 0
                 }
             }
         }
@@ -141,6 +243,8 @@ final class MicProcessor {
                     let over = compEnvDb[i] - thresholdDb
                     let reduction = over > 0 ? over * (1 - 1 / ratio) : 0
                     gain *= pow(10, (outputDb - reduction) / 20)
+                case let .gain(gdb):
+                    gain *= pow(10, gdb / 20)
                 }
             }
             if gain != 1 { samples[s] = max(-1, min(1, samples[s] * gain)) }

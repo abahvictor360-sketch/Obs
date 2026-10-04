@@ -32,6 +32,9 @@ final class ObsEncoderPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
         registrar.addMethodCallDelegate(instance, channel: method)
         events.setStreamHandler(instance)
         instance.setUpScreenReceiver()
+        MicProcessing.shared.onInputLevel = { [weak instance] id, rms, peak in
+            instance?.emit(["type": "level", "source": "mic", "id": id, "rms": Double(rms), "peak": Double(peak)])
+        }
         MediaAudioMixer.shared.onLevel = { [weak instance] id, rms, peak in
             instance?.emit(["type": "level", "source": "media", "id": id, "rms": Double(rms), "peak": Double(peak)])
         }
@@ -143,7 +146,8 @@ final class ObsEncoderPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
                 result(FlutterError(code: "encoder", message: "Encoder is not running", details: nil))
                 return
             }
-            let r = Mp4Writer(audioBitrate: (config["audioBitrate"] as? Int) ?? 160_000)
+            let r = Mp4Writer(audioBitrate: (config["audioBitrate"] as? Int) ?? 160_000,
+                              channels: (config["channels"] as? Int) == 2 ? 2 : 1)
             // The encoder sends SPS/PPS once; a recording started mid-stream needs them.
             if let c = lastVideoConfig { r.setVideoConfig(c) }
             recorder = r
@@ -215,7 +219,7 @@ final class ObsEncoderPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
 
     private func startAudio(bitrate: Int) {
         do {
-            let a = try AppAudioEncoder(bitrate: bitrate)
+            let a = try AppAudioEncoder(bitrate: bitrate, channels: config["channels"] as? Int ?? 1)
             a.gain = micGain
             a.appGain = appGain
             a.onPacket = { [weak self] data, pts in
@@ -225,19 +229,26 @@ final class ObsEncoderPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
                 guard let self = self else { return }
                 self.recorder?.appendAudio(pcm, ptsUs: pts)
                 if self.pcmTap, let ch = pcm.floatChannelData {
-                    let data = Data(bytes: ch[0], count: Int(pcm.frameLength) * MemoryLayout<Float>.size)
+                    // NDI takes interleaved samples.
+                    let n = Int(pcm.frameLength)
+                    let chCount = Int(pcm.format.channelCount)
+                    var inter = [Float](repeating: 0, count: n * chCount)
+                    for c in 0..<chCount {
+                        for i in 0..<n { inter[i * chCount + c] = ch[c][i] }
+                    }
+                    let data = inter.withUnsafeBufferPointer { Data(buffer: $0) }
                     self.emit([
                         "type": "pcm",
                         "data": FlutterStandardTypedData(bytes: data),
                         "sampleRate": Int(AppAudioEncoder.sampleRate),
-                        "channels": 1,
+                        "channels": chCount,
                     ])
                 }
             }
             a.onLevel = { [weak self] rms, peak in
                 self?.emit(["type": "level", "rms": Double(rms), "peak": Double(peak)])
             }
-            emitPacket(video: false, config: true, key: false, ptsUs: 0, data: AppAudioEncoder.asc)
+            emitPacket(video: false, config: true, key: false, ptsUs: 0, data: a.asc)
             try a.start()
             audio = a
         } catch {

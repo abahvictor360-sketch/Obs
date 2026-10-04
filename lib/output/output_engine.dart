@@ -79,6 +79,9 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
 
   /// Each Media Source's level in the mix (when its audio is mixed natively).
   final Map<String, AudioLevel> mediaLevels = {};
+
+  /// Each Mic/Aux source's level.
+  final Map<String, AudioLevel> micLevels = {};
   int reconnectAttempt = 0;
 
   bool? _supported;
@@ -97,6 +100,7 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
   StreamSubscription<AudioLevel>? _levelSub;
   StreamSubscription<AudioLevel>? _outputLevelSub;
   StreamSubscription<(String, AudioLevel)>? _mediaLevelSub;
+  StreamSubscription<(String, AudioLevel)>? _micLevelSub;
   StreamSubscription<String>? _errorSub;
   StreamSubscription<ScreenCaptureState>? _screenSub;
 
@@ -153,6 +157,10 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
     });
     _mediaLevelSub = backend.mediaLevels.listen((e) {
       mediaLevels[e.$1] = e.$2;
+      notifyListeners();
+    });
+    _micLevelSub = backend.micLevels.listen((e) {
+      micLevels[e.$1] = e.$2;
       notifyListeners();
     });
     _errorSub = backend.errors.listen((e) {
@@ -531,6 +539,7 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
       fps: s.fps,
       videoBitrateKbps: s.videoBitrateKbps,
       audioBitrateKbps: s.audioBitrateKbps,
+      channels: s.audioChannels,
       keyframeIntervalSec: s.keyframeIntervalSec,
     );
   }
@@ -541,6 +550,7 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
       a.fps == b.fps &&
       a.videoBitrateKbps == b.videoBitrateKbps &&
       a.audioBitrateKbps == b.audioBitrateKbps &&
+      a.channels == b.channels &&
       a.keyframeIntervalSec == b.keyframeIntervalSec;
 
   /// Video/output settings changed while only NDI keeps the encoder running:
@@ -963,6 +973,7 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
     _levelSub?.cancel();
     _outputLevelSub?.cancel();
     _mediaLevelSub?.cancel();
+    _micLevelSub?.cancel();
     _errorSub?.cancel();
     _screenSub?.cancel();
     _pcmSub?.cancel();

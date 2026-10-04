@@ -7,11 +7,14 @@ import kotlin.math.exp
 import kotlin.math.log10
 import kotlin.math.max
 import kotlin.math.pow
+import kotlin.math.sqrt
 
 /**
- * The microphone's audio filters (Noise Suppression, Noise Gate, Compressor,
- * Limiter), set from Dart with "setMicProcessing". Applied to the stream,
- * recordings, NDI and the mixer meter.
+ * The microphones: one or more Mic/Aux sources, each taking a channel of the
+ * audio device (both, input 1 / left, input 2 / right of a USB interface)
+ * with its own filters (Noise Gate, Compressor, Limiter, Gain) and fader.
+ * Noise Suppression applies to the device. Set from Dart with
+ * "setMicProcessing"; applied to the stream, recordings, NDI and meters.
  */
 object MicProcessing {
     sealed class Stage {
@@ -20,16 +23,25 @@ object MicProcessing {
         data class Gain(val db: Float) : Stage()
     }
 
-    @Volatile var chain: List<Stage> = emptyList()
+    /** One Mic/Aux source: [channel] "mix", "left" or "right"; [gain] = fader × mute. */
+    class Input(val id: String, val channel: String, val gain: Float, val chain: List<Stage>)
+
+    @Volatile var inputs: List<Input> = listOf(Input("", "mix", 1f, emptyList()))
         private set
     @Volatile var noiseSuppression = false
         private set
 
+    /** Each Mic/Aux source's level (id, rms, peak), for its mixer meter. */
+    @Volatile var onInputLevel: ((String, Float, Float) -> Unit)? = null
+
+    /** A source takes one side of a 2-input interface: record in stereo. */
+    val wantsStereo: Boolean get() = inputs.any { it.channel != "mix" }
+
     private val suppressors = java.util.Collections.synchronizedMap(java.util.WeakHashMap<AudioRecord, NoiseSuppressor>())
 
-    fun configure(args: Map<*, *>) {
+    private fun parseChain(list: List<*>?): List<Stage> {
         fun f(m: Map<*, *>, k: String, def: Double) = ((m[k] as? Number)?.toDouble() ?: def).toFloat()
-        chain = (args["chain"] as? List<*>).orEmpty().mapNotNull { raw ->
+        return list.orEmpty().mapNotNull { raw ->
             val m = raw as? Map<*, *> ?: return@mapNotNull null
             when (m["type"]) {
                 "gate" -> Stage.Gate(f(m, "closeDb", -32.0), f(m, "openDb", -26.0), f(m, "attackMs", 25.0),
@@ -41,6 +53,24 @@ object MicProcessing {
                 "gain" -> Stage.Gain(f(m, "db", 0.0))
                 else -> null
             }
+        }
+    }
+
+    fun configure(args: Map<*, *>) {
+        val list = args["inputs"] as? List<*>
+        inputs = if (list != null) {
+            list.mapNotNull { raw ->
+                val m = raw as? Map<*, *> ?: return@mapNotNull null
+                Input(
+                    id = m["id"] as? String ?: "",
+                    channel = m["channel"] as? String ?: "mix",
+                    gain = (m["gain"] as? Number)?.toFloat() ?: 1f,
+                    chain = parseChain(m["chain"] as? List<*>),
+                )
+            }
+        } else {
+            // Older single-mic form: {chain}.
+            listOf(Input("", "mix", inputs.firstOrNull()?.gain ?: 1f, parseChain(args["chain"] as? List<*>)))
         }
         noiseSuppression = args["noiseSuppression"] == true
         synchronized(suppressors) { suppressors.values.forEach { setEnabled(it, noiseSuppression) } }
@@ -65,7 +95,60 @@ object MicProcessing {
     }
 }
 
-/** Per-recording state for [MicProcessing.chain] (envelopes, gate state). */
+/**
+ * Mixes the microphone inputs into one mono bus: each [MicProcessing.Input]
+ * takes its channel, runs its filters, then its fader. Reports each input's
+ * level (for its mixer meter) through [onLevel].
+ */
+class MicBus(private val sampleRate: Int, private val onLevel: (String, Float, Float) -> Unit) {
+    private val processors = HashMap<String, MicProcessor>()
+    private var tmp = FloatArray(0)
+    private val sums = HashMap<String, DoubleArray>() // sum, peak, frames
+
+    /** [src]: interleaved 16-bit with [srcChannels]; [out]: mono -1..1, [frames] long. */
+    fun mix(src: ShortArray, frames: Int, srcChannels: Int, out: FloatArray) {
+        java.util.Arrays.fill(out, 0, frames, 0f)
+        if (tmp.size < frames) tmp = FloatArray(frames)
+        val inputs = MicProcessing.inputs
+        for (input in inputs) {
+            val ch = when {
+                srcChannels < 2 -> -1
+                input.channel == "left" -> 0
+                input.channel == "right" -> 1
+                else -> -1
+            }
+            for (f in 0 until frames) {
+                tmp[f] = if (ch >= 0) {
+                    src[f * srcChannels + ch] / 32768f
+                } else {
+                    var v = 0f
+                    for (c in 0 until srcChannels) v += src[f * srcChannels + c]
+                    v / srcChannels / 32768f
+                }
+            }
+            processors.getOrPut(input.id) { MicProcessor(sampleRate) }.process(tmp, frames, input.chain)
+            val g = input.gain
+            val acc = sums.getOrPut(input.id) { DoubleArray(3) }
+            for (f in 0 until frames) {
+                val v = tmp[f] * g
+                out[f] += v
+                val a = abs(v)
+                acc[0] += (a * a).toDouble()
+                if (a > acc[1]) acc[1] = a.toDouble()
+            }
+            acc[2] += frames
+            if (acc[2] >= sampleRate / 20) {
+                onLevel(input.id, sqrt(acc[0] / acc[2]).toFloat(), acc[1].toFloat().coerceAtMost(1f))
+                acc[0] = 0.0
+                acc[1] = 0.0
+                acc[2] = 0.0
+            }
+        }
+        if (processors.size > inputs.size) processors.keys.retainAll(inputs.map { it.id }.toSet())
+    }
+}
+
+/** Per-input state for a filter chain (envelopes, gate state). */
 class MicProcessor(private val sampleRate: Int) {
     private var stages: List<MicProcessing.Stage> = emptyList()
     private var gateEnv = FloatArray(0)
@@ -81,9 +164,8 @@ class MicProcessor(private val sampleRate: Int) {
 
     private fun db(x: Float) = if (x <= 1e-6f) -120f else 20f * log10(x)
 
-    /** Processes interleaved PCM in place. */
-    fun process(samples: ShortArray, count: Int, channels: Int) {
-        val chain = MicProcessing.chain
+    /** Processes mono samples (-1..1) in place. */
+    fun process(samples: FloatArray, count: Int, chain: List<MicProcessing.Stage>) {
         if (chain.isEmpty()) return
         if (chain !== stages) {
             stages = chain
@@ -107,11 +189,8 @@ class MicProcessor(private val sampleRate: Int) {
                 }
             }
         }
-        val frames = count / max(channels, 1)
-        for (fr in 0 until frames) {
-            // Detector: loudest channel of this frame.
-            var peak = 0f
-            for (c in 0 until channels) peak = max(peak, abs(samples[fr * channels + c] / 32768f))
+        for (s in 0 until count) {
+            val peak = abs(samples[s])
             var gain = 1f
             for ((i, st) in chain.withIndex()) {
                 val level = peak * gain
@@ -143,12 +222,7 @@ class MicProcessor(private val sampleRate: Int) {
                     is MicProcessing.Stage.Gain -> gain *= 10f.pow(st.db / 20f)
                 }
             }
-            if (gain != 1f) {
-                for (c in 0 until channels) {
-                    val j = fr * channels + c
-                    samples[j] = (samples[j] * gain).toInt().coerceIn(-32768, 32767).toShort()
-                }
-            }
+            if (gain != 1f) samples[s] = (samples[s] * gain).coerceIn(-1f, 1f)
         }
     }
 }

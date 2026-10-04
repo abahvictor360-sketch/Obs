@@ -772,42 +772,52 @@ class StudioController extends ChangeNotifier {
   }
 
   /// Effective microphone gain sent to the native audio pipeline.
-  /// The microphone's processing chain for the native audio path, from the
-  /// first Mic/Aux source's enabled filters, in order:
-  /// `{noiseSuppression: bool, chain: [{type: gate|compressor|limiter, ...}]}`.
+  /// The microphones for the native audio path: every Mic/Aux source takes
+  /// a channel of the audio device ('mix', 'left' = input 1, 'right' =
+  /// input 2), with its filter chain and fader:
+  /// `{noiseSuppression, inputs: [{id, channel, gain, chain: [...]}]}`.
   Map<String, Object> get micProcessing {
-    final mic = collection.sources.where((s) => s.type == SourceType.audioInput).firstOrNull;
     var ns = false;
-    final chain = <Map<String, Object>>[];
-    for (final f in mic?.filters ?? const <SourceFilter>[]) {
-      if (!f.enabled) continue;
-      switch (f.kind) {
-        case FilterKind.noiseSuppression:
-          ns = true;
-        case FilterKind.gain:
-          chain.add({'type': 'gain', 'db': f.dbl('db')});
-        case FilterKind.noiseGate:
-          chain.add({
-            'type': 'gate',
-            for (final k in ['closeDb', 'openDb', 'attackMs', 'holdMs', 'releaseMs']) k: f.dbl(k, f.kind.defaults[k] as double),
-          });
-        case FilterKind.compressor:
-          chain.add({
-            'type': 'compressor',
-            for (final k in ['ratio', 'thresholdDb', 'attackMs', 'releaseMs', 'outputDb'])
-              k: f.dbl(k, f.kind.defaults[k] as double),
-          });
-        case FilterKind.limiter:
-          chain.add({
-            'type': 'limiter',
-            'thresholdDb': f.dbl('thresholdDb', -6),
-            'releaseMs': f.dbl('releaseMs', 60),
-          });
-        default:
-          break;
+    final inputs = <Map<String, Object>>[];
+    for (final mic in collection.sources.where((s) => s.type == SourceType.audioInput)) {
+      final chain = <Map<String, Object>>[];
+      for (final f in mic.filters) {
+        if (!f.enabled) continue;
+        switch (f.kind) {
+          case FilterKind.noiseSuppression:
+            ns = true; // applies to the device
+          case FilterKind.gain:
+            chain.add({'type': 'gain', 'db': f.dbl('db')});
+          case FilterKind.noiseGate:
+            chain.add({
+              'type': 'gate',
+              for (final k in ['closeDb', 'openDb', 'attackMs', 'holdMs', 'releaseMs'])
+                k: f.dbl(k, f.kind.defaults[k] as double),
+            });
+          case FilterKind.compressor:
+            chain.add({
+              'type': 'compressor',
+              for (final k in ['ratio', 'thresholdDb', 'attackMs', 'releaseMs', 'outputDb'])
+                k: f.dbl(k, f.kind.defaults[k] as double),
+            });
+          case FilterKind.limiter:
+            chain.add({
+              'type': 'limiter',
+              'thresholdDb': f.dbl('thresholdDb', -6),
+              'releaseMs': f.dbl('releaseMs', 60),
+            });
+          default:
+            break;
+        }
       }
+      inputs.add({
+        'id': mic.id,
+        'channel': mic.settings['channel'] as String? ?? 'mix',
+        'gain': mic.muted ? 0.0 : mic.volume,
+        'chain': chain,
+      });
     }
-    return {'noiseSuppression': ns, 'chain': chain};
+    return {'noiseSuppression': ns, 'inputs': inputs};
   }
 
   double get micGain {

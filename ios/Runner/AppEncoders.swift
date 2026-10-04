@@ -107,12 +107,13 @@ final class AppVideoEncoder {
 final class AppAudioEncoder {
     static let sampleRate: Double = 44_100
     static let frameSize = 1024
-    /// AudioSpecificConfig for AAC-LC, 44.1 kHz, mono.
-    static let asc = Data([0x12, 0x08])
+    /// Output channels: 1 (mono) or 2 (stereo).
+    let channels: Int
+    /// AudioSpecificConfig for AAC-LC, 44.1 kHz, mono or stereo.
+    var asc: Data { Data([0x12, channels == 2 ? 0x10 : 0x08]) }
 
     private let engine = AVAudioEngine()
-    private let pcmFormat = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: sampleRate,
-                                          channels: 1, interleaved: false)!
+    private let pcmFormat: AVAudioFormat
     private var aacFormat: AVAudioFormat
     private let converter: AVAudioConverter
 
@@ -133,9 +134,10 @@ final class AppAudioEncoder {
     var onLevel: ((_ rms: Float, _ peak: Float) -> Void)?
 
     // Audio thread state.
-    private let processor = MicProcessor(sampleRate: sampleRate)
+    private let micBus = MicBus()
     private var resampler = LinearResampler(targetRate: sampleRate)
-    private var pending: [Float] = []
+    private var pendingL: [Float] = []
+    private var pendingR: [Float] = []
     private var appScratch = [Float](repeating: 0, count: 8192)
     private var baseUs: Int64 = -1
     private var samplesQueued: Int64 = 0
@@ -145,7 +147,10 @@ final class AppAudioEncoder {
     private var levelCount = 0
     private var lastLevelUs: Int64 = 0
 
-    init(bitrate: Int) throws {
+    init(bitrate: Int, channels: Int = 1) throws {
+        self.channels = channels == 2 ? 2 : 1
+        pcmFormat = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: AppAudioEncoder.sampleRate,
+                                  channels: AVAudioChannelCount(channels == 2 ? 2 : 1), interleaved: false)!
         var asbd = AudioStreamBasicDescription(
             mSampleRate: AppAudioEncoder.sampleRate,
             mFormatID: kAudioFormatMPEG4AAC,
@@ -153,7 +158,7 @@ final class AppAudioEncoder {
             mBytesPerPacket: 0,
             mFramesPerPacket: UInt32(AppAudioEncoder.frameSize),
             mBytesPerFrame: 0,
-            mChannelsPerFrame: 1,
+            mChannelsPerFrame: UInt32(channels == 2 ? 2 : 1),
             mBitsPerChannel: 0,
             mReserved: 0
         )
@@ -218,10 +223,7 @@ final class AppAudioEncoder {
     }
 
     private func process(_ buffer: AVAudioPCMBuffer, _ when: AVAudioTime) {
-        guard let channels = buffer.floatChannelData else { return }
-        let n = Int(buffer.frameLength)
-        let chCount = Int(buffer.format.channelCount)
-        guard n > 0, chCount > 0 else { return }
+        guard buffer.floatChannelData != nil, buffer.frameLength > 0, buffer.format.channelCount > 0 else { return }
         let hostUs = when.isHostTimeValid
             ? Int64(AVAudioTime.seconds(forHostTime: when.hostTime) * 1_000_000)
             : hostNowUs()
@@ -235,35 +237,34 @@ final class AppAudioEncoder {
             if hostUs - expected > 100_000 { baseUs += hostUs - expected }
         }
 
-        var mono = [Float](repeating: 0, count: n)
-        for c in 0..<chCount {
-            let p = channels[c]
-            for i in 0..<n { mono[i] += p[i] }
-        }
-        if chCount > 1 {
-            let k = 1 / Float(chCount)
-            for i in 0..<n { mono[i] *= k }
-        }
-        var samples = resampler.process(mono, sourceRate: buffer.format.sampleRate)
-        let count = samples.count
-        if appScratch.count < count { appScratch = [Float](repeating: 0, count: count) }
-        let got = ScreenReceiver.shared.appAudio.read(into: &appScratch, count)
-        let g = gain
-        let ag = appGain
-        // Mic: its filters (gain, gate, compressor, limiter), then the fader,
-        // like OBS; then Media Sources (video files) on Program.
-        processor.process(&samples)
-        for i in 0..<count { samples[i] *= g }
-        MediaAudioMixer.shared.mix(into: &samples)
-        for i in 0..<count {
-            var v = samples[i]
-            if got > 0 { v += appScratch[i] * ag }
-            v = max(-1, min(1, v))
-            samples[i] = v
-            levelSum += v * v
-            levelPeak = max(levelPeak, abs(v))
+        // Mics: each input's channel, filters, then fader (like OBS), centred.
+        let bus = micBus.mix(buffer)
+        var mic = resampler.process(bus, sourceRate: buffer.format.sampleRate)
+        let count = mic.count
+        for v in mic {
+            let a = min(abs(v), 1)
+            levelSum += a * a
+            levelPeak = max(levelPeak, a)
         }
         levelCount += count
+        if appScratch.count < count { appScratch = [Float](repeating: 0, count: count) }
+        let got = ScreenReceiver.shared.appAudio.read(into: &appScratch, count)
+        let ag = appGain
+        if got > 0 {
+            for i in 0..<count { mic[i] += appScratch[i] * ag }
+        }
+        // Media Sources (video files) on Program keep their left/right.
+        var left = mic
+        var right = mic
+        if channels == 2 {
+            MediaAudioMixer.shared.mixStereo(left: &left, right: &right)
+        } else {
+            MediaAudioMixer.shared.mix(into: &left)
+        }
+        for i in 0..<count {
+            left[i] = max(-1, min(1, left[i]))
+            right[i] = max(-1, min(1, right[i]))
+        }
 
         let nowUs = baseUs + samplesQueued * 1_000_000 / Int64(AppAudioEncoder.sampleRate)
         if nowUs - lastLevelUs > 50_000 {
@@ -274,19 +275,30 @@ final class AppAudioEncoder {
             lastLevelUs = nowUs
         }
 
-        pending.append(contentsOf: samples)
-        while pending.count >= AppAudioEncoder.frameSize {
-            let chunk = Array(pending[0..<AppAudioEncoder.frameSize])
-            pending.removeFirst(AppAudioEncoder.frameSize)
-            encode(chunk)
+        pendingL.append(contentsOf: left)
+        if channels == 2 { pendingR.append(contentsOf: right) }
+        while pendingL.count >= AppAudioEncoder.frameSize {
+            let l = Array(pendingL[0..<AppAudioEncoder.frameSize])
+            pendingL.removeFirst(AppAudioEncoder.frameSize)
+            var r: [Float]? = nil
+            if channels == 2 {
+                r = Array(pendingR[0..<AppAudioEncoder.frameSize])
+                pendingR.removeFirst(AppAudioEncoder.frameSize)
+            }
+            encode(l, r)
         }
     }
 
-    private func encode(_ chunk: [Float]) {
+    private func encode(_ chunk: [Float], _ right: [Float]?) {
         guard let pcm = AVAudioPCMBuffer(pcmFormat: pcmFormat, frameCapacity: AVAudioFrameCount(chunk.count)) else { return }
         pcm.frameLength = AVAudioFrameCount(chunk.count)
         chunk.withUnsafeBufferPointer { src in
             pcm.floatChannelData![0].update(from: src.baseAddress!, count: chunk.count)
+        }
+        if let r = right, channels == 2 {
+            r.withUnsafeBufferPointer { src in
+                pcm.floatChannelData![1].update(from: src.baseAddress!, count: r.count)
+            }
         }
         let ptsUs = baseUs + samplesQueued * 1_000_000 / Int64(AppAudioEncoder.sampleRate)
         samplesQueued += Int64(chunk.count)

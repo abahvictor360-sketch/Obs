@@ -46,6 +46,9 @@ class FakeEncoder implements EncoderBackend {
   final mediaLevelCtl = StreamController<(String, AudioLevel)>.broadcast(sync: true);
   @override
   Stream<(String, AudioLevel)> get mediaLevels => mediaLevelCtl.stream;
+  final micLevelCtl = StreamController<(String, AudioLevel)>.broadcast(sync: true);
+  @override
+  Stream<(String, AudioLevel)> get micLevels => micLevelCtl.stream;
   final outputCtl = StreamController<AudioLevel>.broadcast(sync: true);
   final outputMetering = <bool>[];
   @override
@@ -356,7 +359,9 @@ void main() {
     final enc = FakeEncoder(supported: true);
     final (studio, _) = await _pump(tester, const Size(1366, 1024), backend: enc);
     final mic = studio.sources.firstWhere((s) => s.type == SourceType.audioInput);
-    expect(enc.micProcessing.last, {'noiseSuppression': false, 'chain': <Object>[]});
+    List chainOf(Map<String, Object> cfg) => ((cfg['inputs'] as List).first as Map)['chain'] as List;
+    expect(enc.micProcessing.last['noiseSuppression'], false);
+    expect(chainOf(enc.micProcessing.last), isEmpty);
 
     Future<void> pick(String key) async {
       await tester.tap(find.byKey(ValueKey('mic-adjust-${mic.id}')));
@@ -374,13 +379,13 @@ void main() {
     expect(mic.filterGain, closeTo(3.98, 0.01));
     final cfg = enc.micProcessing.last;
     expect(cfg['noiseSuppression'], isTrue);
-    final chain = cfg['chain'] as List;
+    final chain = chainOf(cfg);
     expect(chain.map((s) => (s as Map)['type']), ['gate', 'limiter', 'gain']);
     expect((chain.first as Map)['closeDb'], -32.0);
 
     // Off again with the same switch.
     await pick('mic-adjust-noiseGate');
-    expect((enc.micProcessing.last['chain'] as List).map((s) => (s as Map)['type']), ['limiter', 'gain']);
+    expect(chainOf(enc.micProcessing.last).map((s) => (s as Map)['type']), ['limiter', 'gain']);
     expect(tester.takeException(), isNull);
     await tester.pump(const Duration(seconds: 3));
   });

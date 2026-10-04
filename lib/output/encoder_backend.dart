@@ -145,6 +145,9 @@ abstract class EncoderBackend {
   Future<void> setMediaAudio(List<Map<String, Object>> sources);
   Stream<(String, AudioLevel)> get mediaLevels;
 
+  /// Each Mic/Aux source's level (after its filters and fader).
+  Stream<(String, AudioLevel)> get micLevels;
+
   /// Level of the sound the tablet plays (video sources, other apps), where
   /// the platform allows measuring it (Android).
   Future<void> setOutputMetering(bool enabled);
@@ -195,6 +198,7 @@ class MethodChannelEncoder implements EncoderBackend {
   final _levels = StreamController<AudioLevel>.broadcast();
   final _outputLevels = StreamController<AudioLevel>.broadcast();
   final _mediaLevels = StreamController<(String, AudioLevel)>.broadcast();
+  final _micLevels = StreamController<(String, AudioLevel)>.broadcast();
   final _errors = StreamController<String>.broadcast();
   final _screen = StreamController<ScreenCaptureState>.broadcast();
   final _pcm = StreamController<PcmChunk>.broadcast(sync: true);
@@ -230,6 +234,8 @@ class MethodChannelEncoder implements EncoderBackend {
             _outputLevels.add(l);
           case 'media':
             _mediaLevels.add(('${e['id']}', l));
+          case 'mic':
+            _micLevels.add(('${e['id']}', l));
           default:
             _levels.add(l);
         }
@@ -303,6 +309,8 @@ class MethodChannelEncoder implements EncoderBackend {
       _method.invokeMethod('setMediaAudio', {'sources': sources});
   @override
   Stream<(String, AudioLevel)> get mediaLevels => _mediaLevels.stream;
+  @override
+  Stream<(String, AudioLevel)> get micLevels => _micLevels.stream;
 
   @override
   Future<void> setOutputMetering(bool enabled) => _method.invokeMethod('setOutputMetering', {'enabled': enabled});

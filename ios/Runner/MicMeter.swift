@@ -14,7 +14,7 @@ final class MicMeter {
     }
 
     private let onLevel: (_ rms: Float, _ peak: Float) -> Void
-    private var processor: MicProcessor?
+    private let micBus = MicBus()
 
     init(onLevel: @escaping (_ rms: Float, _ peak: Float) -> Void) {
         self.onLevel = onLevel
@@ -41,7 +41,6 @@ final class MicMeter {
         let input = engine.inputNode
         let format = input.outputFormat(forBus: 0)
         guard format.sampleRate > 0, format.channelCount > 0 else { return }
-        processor = MicProcessor(sampleRate: format.sampleRate)
         // About 50 ms per reading, the same rate as the encoder's levels.
         let size = AVAudioFrameCount(max(1024, format.sampleRate / 20))
         input.installTap(onBus: 0, bufferSize: size, format: format) { [weak self] buffer, _ in
@@ -60,17 +59,8 @@ final class MicMeter {
     }
 
     private func process(_ buffer: AVAudioPCMBuffer) {
-        guard let channels = buffer.floatChannelData else { return }
         let n = Int(buffer.frameLength)
-        let chCount = Int(buffer.format.channelCount)
-        guard n > 0, chCount > 0 else { return }
-        let k = 1 / Float(chCount)
-        var mono = [Float](repeating: 0, count: n)
-        for i in 0..<n {
-            var v: Float = 0
-            for c in 0..<chCount { v += channels[c][i] }
-            mono[i] = v * k
-        }
+        guard buffer.floatChannelData != nil, n > 0, buffer.format.channelCount > 0 else { return }
         // Media Sources advance (in real time) so their meters move while
         // nothing is encoded; they aren't part of the mic level.
         let mediaFrames = Int(Double(n) * MediaAudioMixer.rate / buffer.format.sampleRate)
@@ -78,10 +68,8 @@ final class MicMeter {
             var media = [Float](repeating: 0, count: mediaFrames)
             MediaAudioMixer.shared.mix(into: &media, mix: false)
         }
-        // Filters first, then the fader, like OBS.
-        processor?.process(&mono)
-        let g = gain
-        for i in 0..<n { mono[i] *= g }
+        // Each mic: its channel, filters, then fader (like OBS).
+        let mono = micBus.mix(buffer)
         var sum: Float = 0
         var peak: Float = 0
         for v in mono {

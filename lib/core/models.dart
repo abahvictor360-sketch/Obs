@@ -619,6 +619,7 @@ class OutputSettings {
     this.keepScreenOn = true,
     this.autoRecordWithStream = false,
     this.streamDelaySec = 0,
+    this.audioChannels = 2,
     this.replaySeconds = 30,
     this.confirmStartStop = true,
     this.preferWired = true,
@@ -653,6 +654,10 @@ class OutputSettings {
   /// Stream delay (OBS: Advanced › Stream Delay): viewers see everything this
   /// many seconds late. 0 = off.
   int streamDelaySec;
+
+  /// 1 = mono, 2 = stereo (OBS's default). Microphones are centred; video
+  /// sources and other apps' audio keep their left/right.
+  int audioChannels;
 
   /// Replay Buffer length in seconds.
   int replaySeconds;
@@ -738,6 +743,7 @@ class OutputSettings {
         'keepScreenOn': keepScreenOn,
         'autoRecordWithStream': autoRecordWithStream,
         'streamDelaySec': streamDelaySec,
+        'audioChannels': audioChannels,
         'replaySeconds': replaySeconds,
         'confirmStartStop': confirmStartStop,
         'preferWired': preferWired,
@@ -770,6 +776,7 @@ class OutputSettings {
       keepScreenOn: j['keepScreenOn'] as bool? ?? d.keepScreenOn,
       autoRecordWithStream: j['autoRecordWithStream'] as bool? ?? d.autoRecordWithStream,
       streamDelaySec: i('streamDelaySec', d.streamDelaySec).clamp(0, 600),
+      audioChannels: i('audioChannels', d.audioChannels) == 1 ? 1 : 2,
       replaySeconds: i('replaySeconds', d.replaySeconds).clamp(5, 300),
       confirmStartStop: j['confirmStartStop'] as bool? ?? d.confirmStartStop,
       preferWired: j['preferWired'] as bool? ?? d.preferWired,

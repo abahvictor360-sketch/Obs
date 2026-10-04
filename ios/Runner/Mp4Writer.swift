@@ -18,7 +18,10 @@ final class Mp4Writer {
     private var startUs: Int64 = -1
     private var finished = false
 
-    init(audioBitrate: Int) {
+    private let channels: Int
+
+    init(audioBitrate: Int, channels: Int = 1) {
+        self.channels = channels
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd HH-mm-ss"
         f.locale = Locale(identifier: "en_US_POSIX")
@@ -112,7 +115,7 @@ final class Mp4Writer {
             let a = AVAssetWriterInput(mediaType: .audio, outputSettings: [
                 AVFormatIDKey: kAudioFormatMPEG4AAC,
                 AVSampleRateKey: AppAudioEncoder.sampleRate,
-                AVNumberOfChannelsKey: 1,
+                AVNumberOfChannelsKey: channels,
                 AVEncoderBitRateKey: audioBitrate,
             ])
             a.expectsMediaDataInRealTime = true

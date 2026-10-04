@@ -344,18 +344,20 @@ class AudioEncoder(
     private lateinit var codec: MediaCodec
     private lateinit var record: AudioRecord
     private var thread: Thread? = null
-    private val processor = MicProcessor(sampleRate)
 
     @SuppressLint("MissingPermission") // checked by ObsEncoderPlugin before start()
+    /** Mono, or stereo when a Mic/Aux source takes one input of an interface. */
+    private var micChannels = if (MicProcessing.wantsStereo) 2 else 1
+
     private fun openRecord(): AudioRecord {
-        val channelMask = if (channels == 2) AudioFormat.CHANNEL_IN_STEREO else AudioFormat.CHANNEL_IN_MONO
+        val channelMask = if (micChannels == 2) AudioFormat.CHANNEL_IN_STEREO else AudioFormat.CHANNEL_IN_MONO
         val minBuf = AudioRecord.getMinBufferSize(sampleRate, channelMask, AudioFormat.ENCODING_PCM_16BIT)
         val r = AudioRecord(
             MediaRecorder.AudioSource.CAMCORDER,
             sampleRate,
             channelMask,
             AudioFormat.ENCODING_PCM_16BIT,
-            max(minBuf, 4096 * channels * 2),
+            max(minBuf, 4096 * micChannels * 2),
         )
         AudioRouting.attach(r) // USB / chosen microphone
         MicProcessing.attach(r) // Noise Suppression filter
@@ -395,9 +397,14 @@ class AudioEncoder(
     }
 
     private fun loop() {
-        val frameBytes = 1024 * channels * 2 // one AAC frame of PCM
+        val frames = 1024 // one AAC frame
+        val frameBytes = frames * channels * 2
         val pcm = ByteArray(frameBytes)
-        val shorts = ShortArray(frameBytes / 2)
+        val shorts = ShortArray(frames * channels)
+        val micBytes = ByteArray(frames * 2 * 2)
+        val micShorts = ShortArray(frames * 2)
+        val bus = FloatArray(frames)
+        val micBus = MicBus(sampleRate) { id, r, p -> MicProcessing.onInputLevel?.invoke(id, r, p) }
         val info = MediaCodec.BufferInfo()
         val startUs = System.nanoTime() / 1000
         var samplesRead = 0L
@@ -409,10 +416,16 @@ class AudioEncoder(
         var reported = false
 
         while (running) {
+            // A source started using input 1 or 2 of an interface (or stopped).
+            if (MicProcessing.wantsStereo != (micChannels == 2)) {
+                micChannels = if (MicProcessing.wantsStereo) 2 else 1
+                reopenRecord()
+            }
+            val want = frames * micChannels * 2
             var read = 0
             var failed = false
-            while (read < frameBytes && running) {
-                val n = record.read(pcm, read, frameBytes - read)
+            while (read < want && running) {
+                val n = record.read(micBytes, read, want - read)
                 if (n < 0) {
                     failed = true
                     break
@@ -423,8 +436,8 @@ class AudioEncoder(
             if (failed) {
                 // Keep the audio timeline going with silence, at real-time pace,
                 // and try to reopen the microphone every second.
-                java.util.Arrays.fill(pcm, 0)
-                read = frameBytes
+                java.util.Arrays.fill(micBytes, 0)
+                read = want
                 if (!reported) {
                     reported = true
                     listener.onError("Microphone disconnected: streaming silence until it's back")
@@ -434,39 +447,36 @@ class AudioEncoder(
                     micFailedAt = now
                     if (reopenRecord()) reported = false
                 }
-                Thread.sleep(1000L * 1024 / sampleRate)
+                Thread.sleep(1000L * frames / sampleRate)
             }
-            if (read <= 0) continue
+            if (read < want) continue
 
-            // Gain + level metering.
-            val bb = ByteBuffer.wrap(pcm, 0, read).order(ByteOrder.LITTLE_ENDIAN)
-            val count = read / 2
-            bb.asShortBuffer().get(shorts, 0, count)
-            // Mic: its filters first (gain, gate, compressor, limiter), then the
-            // fader and mute, like OBS. The mixer meter shows the mic alone.
-            processor.process(shorts, count, channels)
-            val g = gain
-            for (i in 0 until count) {
-                val s = (shorts[i] * g).toInt().coerceIn(-32768, 32767)
-                shorts[i] = s.toShort()
-                val f = abs(s) / 32768f
-                levelSum += (f * f).toDouble()
-                if (f > levelPeak) levelPeak = f
+            // Mics: each input's channel, filters, then fader (like OBS), into
+            // a centred mono bus. The mixer meter shows the mics alone.
+            ByteBuffer.wrap(micBytes, 0, want).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(micShorts, 0, frames * micChannels)
+            micBus.mix(micShorts, frames, micChannels, bus)
+            for (f in 0 until frames) {
+                val v = (bus[f] * 32767f).toInt().coerceIn(-32768, 32767)
+                val a = abs(v) / 32768f
+                levelSum += (a * a).toDouble()
+                if (a > levelPeak) levelPeak = a
+                for (c in 0 until channels) shorts[f * channels + c] = v.toShort()
             }
-            // Media Sources (video files) on Program.
+            val count = frames * channels
+            // Media Sources (video files) on Program, in stereo when the output is.
             MediaAudioMixer.mixInto(shorts, count, channels)
             val app = readAppAudio(count)
             if (app != null) {
                 val ag = appGain
                 for (i in 0 until count) shorts[i] = (shorts[i] + app[i] * ag).toInt().coerceIn(-32768, 32767).toShort()
             }
-            levelCount += count
+            levelCount += frames
             pcmTap?.let { tap -> tap(FloatArray(count) { shorts[it] / 32768f }, sampleRate, channels) }
-            bb.clear()
-            bb.asShortBuffer().put(shorts, 0, count)
+            ByteBuffer.wrap(pcm).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().put(shorts, 0, count)
+            read = frameBytes
 
             val ptsUs = startUs + samplesRead * 1_000_000L / sampleRate
-            samplesRead += count / channels
+            samplesRead += frames
 
             if (ptsUs - lastLevelUs > 50_000) {
                 onLevel(sqrt(levelSum / max(levelCount, 1)).toFloat(), levelPeak)

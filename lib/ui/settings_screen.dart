@@ -303,6 +303,19 @@ class _OutputPage extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: DropdownButtonFormField<int>(
+              key: const ValueKey('audio-channels'),
+              initialValue: s.audioChannels,
+              decoration: const InputDecoration(labelText: 'Audio channels'),
+              items: const [
+                DropdownMenuItem(value: 2, child: Text('Stereo')),
+                DropdownMenuItem(value: 1, child: Text('Mono')),
+              ],
+              onChanged: (v) => v == null ? null : studio.updateSettings((s) => s.audioChannels = v),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: DropdownButtonFormField<int>(
               initialValue: s.keyframeIntervalSec,
               decoration: const InputDecoration(labelText: 'Keyframe interval'),
               items: [
