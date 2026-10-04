@@ -141,7 +141,7 @@ class _TopBar extends StatelessWidget {
               Image.asset('assets/logo.png', width: 26, height: 26, filterQuality: FilterQuality.medium),
               const SizedBox(width: 6),
               Flexible(
-                flex: 3,
+                flex: 8,
                 child: SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: ObsMenuBar(compact: MediaQuery.sizeOf(context).width < 1000),

@@ -51,7 +51,7 @@ jobs:
         run: |
           for i in 1 2 3; do
             # The run number becomes the versionCode, so every build installs as an update.
-            flutter build apk --release --build-number=${{ github.run_number }} && exit 0
+            flutter build apk --release --build-number=${{ github.run_number }} --dart-define=OBSPAD_BUILD=${{ github.run_number }} && exit 0
             echo "APK build failed (attempt $i), retrying in $((i * 20)) s…"; sleep $((i * 20))
           done
           exit 1
@@ -94,7 +94,7 @@ jobs:
           NDI_SDK_ACCEPT_LICENSE: '1'
         run: scripts/fetch_ndi_sdk.sh ios
       - name: Build iOS app + broadcast extension (unsigned)
-        run: flutter build ios --release --no-codesign
+        run: flutter build ios --release --no-codesign --build-number=${{ github.run_number }} --dart-define=OBSPAD_BUILD=${{ github.run_number }}
 
       - name: Check the extension is embedded
         run: test -d build/ios/iphoneos/Runner.app/PlugIns/BroadcastExtension.appex

@@ -13,6 +13,7 @@ import 'package:obs_tablet/output/encoder_backend.dart';
 import 'package:obs_tablet/output/output_engine.dart';
 import 'package:obs_tablet/plugins/plugin_manager.dart';
 import 'package:obs_tablet/render/media_services.dart';
+import 'package:obs_tablet/ui/exit.dart';
 
 class FakeEncoder implements EncoderBackend {
   FakeEncoder({this.supported = false});
@@ -256,6 +257,57 @@ void main() {
     expect(studio.programScene.items, hasLength(itemsBefore + 1));
     expect(studio.programScene.items.last.visible, isTrue);
     expect(tester.takeException(), isNull);
+    await tester.pump(const Duration(seconds: 3));
+  });
+
+  testWidgets('Exit asks first, then saves and closes; About names the developer', (tester) async {
+    await _pump(tester, const Size(1366, 1024));
+    var exited = 0;
+    debugExitOverride = () async => exited++;
+    addTearDown(() => debugExitOverride = null);
+
+    await tester.ensureVisible(find.byKey(const ValueKey('exit-button')));
+    await tester.tap(find.byKey(const ValueKey('exit-button')));
+    await tester.pumpAndSettle();
+    expect(find.text('Exit OBSpad?'), findsOneWidget);
+    await tester.tap(find.widgetWithText(TextButton, 'No'));
+    await tester.pumpAndSettle();
+    expect(exited, 0);
+
+    await tester.ensureVisible(find.byKey(const ValueKey('exit-button')));
+    await tester.tap(find.byKey(const ValueKey('exit-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.descendant(of: find.byType(AlertDialog), matching: find.widgetWithText(FilledButton, 'Exit')));
+    await tester.runAsync(pumpEventQueue);
+    await tester.pumpAndSettle();
+    expect(exited, 1);
+
+    // File › Exit opens the same confirmation.
+    await tester.tap(find.text('File'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('menu-exit')).first);
+    await tester.pumpAndSettle();
+    expect(find.text('Exit OBSpad?'), findsOneWidget);
+    await tester.tap(find.widgetWithText(TextButton, 'No'));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('Help'));
+    await tester.tap(find.text('Help'));
+    await tester.pumpAndSettle();
+    if (find.text('About OBSpad').evaluate().isEmpty) {
+      // The first tap only closed the File menu.
+      await tester.tap(find.text('Help'));
+      await tester.pumpAndSettle();
+    }
+    await tester.tap(find.text('About OBSpad'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('about-dialog')), findsOneWidget);
+    expect(find.text('Victor Abah'), findsOneWidget);
+    expect(find.text('www.victorabah.com'), findsOneWidget);
+    expect(find.textContaining('Version 1.0.0'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.text('Close'));
+    await tester.pumpAndSettle();
     await tester.pump(const Duration(seconds: 3));
   });
 

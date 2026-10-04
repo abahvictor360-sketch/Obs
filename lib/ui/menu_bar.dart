@@ -6,11 +6,13 @@ import 'package:flutter/services.dart';
 import '../app_scope.dart';
 import '../core/models.dart';
 import '../core/studio_controller.dart';
+import 'about.dart';
 import 'add_source.dart';
 import 'dialogs.dart';
 import 'dock_layout.dart';
 import 'dock_panel.dart';
 import 'docks.dart';
+import 'exit.dart';
 import 'item_menu.dart';
 import 'plugins_screen.dart';
 import 'settings_screen.dart';
@@ -59,6 +61,8 @@ class ObsMenuBar extends StatelessWidget {
                 icon: Icons.fiber_manual_record),
             const Divider(height: 1),
             item('Settings', () => openSettings(context), icon: Icons.settings_outlined),
+            const Divider(height: 1),
+            item('Exit', () => exitApp(context), icon: Icons.power_settings_new, key: const ValueKey('menu-exit')),
           ],
           child: const Text('File'),
         ),
@@ -190,13 +194,5 @@ class ObsMenuBar extends StatelessWidget {
     }
   }
 
-  static void _about(BuildContext context) => showAboutDialog(
-        context: context,
-        applicationName: 'OBSpad',
-        applicationVersion: '1.0.0',
-        applicationIcon: Image.asset('assets/logo.png', width: 48, height: 48),
-        children: const [
-          Text('Live streaming and recording studio for tablets, inspired by OBS Studio.'),
-        ],
-      );
+  static void _about(BuildContext context) => showObsAbout(context);
 }

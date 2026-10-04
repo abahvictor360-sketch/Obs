@@ -8,6 +8,7 @@ import '../output/output_engine.dart';
 import 'add_source.dart';
 import 'dialogs.dart';
 import 'dock_layout.dart';
+import 'exit.dart';
 import 'item_menu.dart';
 import 'plugins_screen.dart';
 import 'settings_screen.dart';
@@ -711,6 +712,13 @@ class ControlsDock extends StatelessWidget {
             active: false,
             onPressed: () => openSettings(context),
           ),
+          _BigButton(
+            key: const ValueKey('exit-button'),
+            label: 'Exit',
+            icon: Icons.power_settings_new,
+            active: false,
+            onPressed: () => exitApp(context),
+          ),
         ];
         if (compact) {
           return Row(
@@ -726,7 +734,7 @@ class ControlsDock extends StatelessWidget {
           child: ListView(
             padding: const EdgeInsets.all(8),
             children: [
-              for (final b in buttons) Padding(padding: const EdgeInsets.only(bottom: 6), child: b),
+              for (final b in buttons) Padding(padding: const EdgeInsets.only(bottom: 5), child: b),
             ],
           ),
         );
@@ -737,6 +745,7 @@ class ControlsDock extends StatelessWidget {
 
 class _BigButton extends StatelessWidget {
   const _BigButton({
+    super.key,
     required this.label,
     required this.icon,
     required this.active,
@@ -753,7 +762,7 @@ class _BigButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 48,
+      height: 44,
       child: FilledButton.icon(
         style: FilledButton.styleFrom(
           backgroundColor: active ? activeColor : ObsColors.panelAlt,
