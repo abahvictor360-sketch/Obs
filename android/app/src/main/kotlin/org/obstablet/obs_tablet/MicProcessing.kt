@@ -17,6 +17,7 @@ object MicProcessing {
     sealed class Stage {
         data class Gate(val closeDb: Float, val openDb: Float, val attackMs: Float, val holdMs: Float, val releaseMs: Float) : Stage()
         data class Compressor(val ratio: Float, val thresholdDb: Float, val attackMs: Float, val releaseMs: Float, val outputDb: Float) : Stage()
+        data class Gain(val db: Float) : Stage()
     }
 
     @Volatile var chain: List<Stage> = emptyList()
@@ -36,7 +37,8 @@ object MicProcessing {
                 "compressor" -> Stage.Compressor(f(m, "ratio", 10.0), f(m, "thresholdDb", -18.0), f(m, "attackMs", 6.0),
                     f(m, "releaseMs", 60.0), f(m, "outputDb", 0.0))
                 // A limiter is a compressor with an (almost) infinite ratio and instant attack.
-                "limiter" -> Stage.Compressor(1000f, f(m, "thresholdDb", -6.0), 0.1f, f(m, "releaseMs", 60.0), 0f)
+                "limiter" -> Stage.Compressor(1000f, f(m, "thresholdDb", -6.0), 0f, f(m, "releaseMs", 60.0), 0f)
+                "gain" -> Stage.Gain(f(m, "db", 0.0))
                 else -> null
             }
         }
@@ -94,12 +96,14 @@ class MicProcessor(private val sampleRate: Int) {
                 when (val st = chain[it]) {
                     is MicProcessing.Stage.Gate -> coef(st.attackMs)
                     is MicProcessing.Stage.Compressor -> coef(st.attackMs)
+                    is MicProcessing.Stage.Gain -> 0f
                 }
             }
             rel = FloatArray(chain.size) {
                 when (val st = chain[it]) {
                     is MicProcessing.Stage.Gate -> coef(st.releaseMs)
                     is MicProcessing.Stage.Compressor -> coef(st.releaseMs)
+                    is MicProcessing.Stage.Gain -> 0f
                 }
             }
         }
@@ -136,6 +140,7 @@ class MicProcessor(private val sampleRate: Int) {
                         val reduction = if (over > 0f) over * (1f - 1f / st.ratio) else 0f
                         gain *= 10f.pow((st.outputDb - reduction) / 20f)
                     }
+                    is MicProcessing.Stage.Gain -> gain *= 10f.pow(st.db / 20f)
                 }
             }
             if (gain != 1f) {

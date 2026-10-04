@@ -42,15 +42,21 @@ void main() {
     expect(Source.fromJson(raw).filters, hasLength(2));
   });
 
-  test('a Gain filter changes what the mixer sends', () {
+  test('a mic Gain filter runs in the filter chain, before the fader (like OBS)', () {
     final studio = StudioController(storage: MemoryStorage());
     final mic = studio.sources.firstWhere((s) => s.type == SourceType.audioInput);
     studio.setVolume(mic.id, 0.5);
     final gain = studio.addFilter(mic.id, FilterKind.gain);
-    studio.updateFilter(mic.id, gain.id, values: {'db': 6.0206});
-    expect(studio.micGain, closeTo(1.0, 0.001));
+    studio.updateFilter(mic.id, gain.id, values: {'db': 6.0});
+    studio.addFilter(mic.id, FilterKind.limiter);
+    expect(studio.micGain, 0.5); // fader only
+    final chain = studio.micProcessing['chain'] as List;
+    expect(chain.map((s) => (s as Map)['type']), ['gain', 'limiter']);
+    expect((chain.first as Map)['db'], 6.0);
     studio.updateFilter(mic.id, gain.id, enabled: false);
-    expect(studio.micGain, 0.5);
+    expect((studio.micProcessing['chain'] as List).length, 1);
+    studio.setMuted(mic.id, true);
+    expect(studio.micGain, 0);
   });
 
   test('color correction matrix: neutral is identity, hue/multiply change it', () {

@@ -62,9 +62,9 @@ class MicMeter(private val onLevel: (Float, Float) -> Unit) {
                     if (n < 0) break
                     continue
                 }
+                processor.process(buf, n, 1) // filters first, then the fader, like OBS
                 val g = gain
                 for (i in 0 until n) buf[i] = (buf[i] * g).toInt().coerceIn(-32768, 32767).toShort()
-                processor.process(buf, n, 1) // the meter shows the filtered mic
                 var sum = 0.0
                 var peak = 0f
                 for (i in 0 until n) {

@@ -243,6 +243,14 @@ class _OutputPage extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (AppScope.of(context).output.encoderSettingsLocked)
+            const Padding(
+              padding: EdgeInsets.only(top: 8, bottom: 4),
+              child: Text(
+                'You are live: changes here are saved and apply the next time you start streaming or recording.',
+                style: TextStyle(color: ObsColors.warn, fontSize: 13),
+              ),
+            ),
           LabeledSlider(
             label: 'Video bitrate',
             value: s.videoBitrateKbps.toDouble(),
@@ -326,6 +334,14 @@ class _VideoPage extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (AppScope.of(context).output.encoderSettingsLocked)
+            const Padding(
+              padding: EdgeInsets.only(top: 8, bottom: 4),
+              child: Text(
+                'You are live: changes here are saved and apply the next time you start streaming or recording.',
+                style: TextStyle(color: ObsColors.warn, fontSize: 13),
+              ),
+            ),
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: InputDecorator(

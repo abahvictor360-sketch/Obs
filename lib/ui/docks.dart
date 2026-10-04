@@ -903,7 +903,7 @@ Future<void> toggleRecording(BuildContext context) async {
   if (out.isRecording) {
     await out.stopRecording();
     final path = out.lastRecordingPath;
-    if (path != null && context.mounted) {
+    if (path != null && out.lastError == null && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Recording saved: $path')));
     }
   } else {

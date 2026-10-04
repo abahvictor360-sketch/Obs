@@ -659,6 +659,8 @@ class StudioController extends ChangeNotifier {
       switch (f.kind) {
         case FilterKind.noiseSuppression:
           ns = true;
+        case FilterKind.gain:
+          chain.add({'type': 'gain', 'db': f.dbl('db')});
         case FilterKind.noiseGate:
           chain.add({
             'type': 'gate',
@@ -687,7 +689,9 @@ class StudioController extends ChangeNotifier {
     final mics = collection.sources.where((s) => s.type == SourceType.audioInput);
     if (mics.isEmpty) return 0;
     final m = mics.first;
-    return m.muted ? 0 : m.volume * m.filterGain;
+    // The mic's Gain filter runs natively in the filter chain (micProcessing);
+    // this is the fader, applied after the filters like OBS.
+    return m.muted ? 0 : m.volume;
   }
 
   /// Gain for other apps' audio captured with the screen: the Audio Output

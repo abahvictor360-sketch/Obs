@@ -287,7 +287,11 @@ void main() {
     expect(output.micLevel.peak, 0.7);
 
     // Off in the background, back on when the app returns.
+    // The notification shade (inactive) keeps it on; leaving the app stops it.
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    await tester.pump();
+    expect(enc.metering.last, isTrue);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
     await tester.pump();
     expect(enc.metering.last, isFalse);
     expect(output.micLevel.rms, 0);
@@ -361,12 +365,12 @@ void main() {
     final cfg = enc.micProcessing.last;
     expect(cfg['noiseSuppression'], isTrue);
     final chain = cfg['chain'] as List;
-    expect(chain.map((s) => (s as Map)['type']), ['gate', 'limiter']);
+    expect(chain.map((s) => (s as Map)['type']), ['gate', 'limiter', 'gain']);
     expect((chain.first as Map)['closeDb'], -32.0);
 
     // Off again with the same switch.
     await pick('mic-adjust-noiseGate');
-    expect((enc.micProcessing.last['chain'] as List).map((s) => (s as Map)['type']), ['limiter']);
+    expect((enc.micProcessing.last['chain'] as List).map((s) => (s as Map)['type']), ['limiter', 'gain']);
     expect(tester.takeException(), isNull);
     await tester.pump(const Duration(seconds: 3));
   });

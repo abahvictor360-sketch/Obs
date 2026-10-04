@@ -26,7 +26,7 @@ class NdiController {
 
   void _apply() {
     if (plugins.isEnabled(ndiBuiltin.id)) {
-      if (!output.ndiActive || output.ndiName != name) {
+      if (!output.ndiActive || output.ndiName != name || output.ndiGroups != groups) {
         output.startNdi(name: name, groups: groups);
       }
     } else if (output.ndiActive) {

@@ -39,6 +39,7 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
   bool ndiActive = false;
   String? ndiError;
   String? ndiName;
+  String? ndiGroups;
   StreamSubscription<PcmChunk>? _pcmSub;
 
   /// Wraps the program canvas; frames are captured from it.
@@ -162,7 +163,9 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
     // Flutter doesn't render in the background, so stop grabbing frames;
     // the native side keeps compositing the screen with the last overlays
     // (or repeats the last frame).
-    _appResumed = state == AppLifecycleState.resumed;
+    // Inactive (notification shade, app switcher, Control Center) is still
+    // on screen and still renders: keep going.
+    _appResumed = state == AppLifecycleState.resumed || state == AppLifecycleState.inactive;
     if (_appResumed) _layersDirty = true;
     _updateMetering();
   }
@@ -231,16 +234,19 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
     }
     lastError = null;
     streamStatus = OutputStatus.starting;
+    final gen = ++_streamGen;
     notifyListeners();
     try {
       await _ensureEncoder();
-      await _openStreamSink(url);
+      if (gen != _streamGen) return; // stopped while starting
+      if (!await _openStreamSink(url, gen)) return;
       streamStatus = OutputStatus.active;
       streamStartedAt = DateTime.now();
       droppedFrames = 0;
       reconnectAttempt = 0;
       await backend.requestKeyframe();
     } catch (e) {
+      if (gen != _streamGen) return;
       _streamSink = null;
       _streamPackager = null;
       streamStatus = OutputStatus.idle;
@@ -251,14 +257,40 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
-  Future<void> _openStreamSink(String url) async {
+  /// Bumped by every start and stop, so a connect that finishes after the
+  /// user pressed Stop is closed instead of going live.
+  int _streamGen = 0;
+
+  /// Opens the RTMP connection. False (and the socket closed) if the stream
+  /// was stopped meanwhile.
+  Future<bool> _openStreamSink(String url, int gen) async {
     final sink = createRtmpSink(url);
     sink.onError = (e) => _onStreamLost(e);
     await sink.open();
+    if (gen != _streamGen) {
+      try {
+        await sink.close();
+      } catch (_) {}
+      return false;
+    }
     _lastStreamBytes = 0;
     _streamSink = sink;
-    _streamPackager = AvPackager(sink, metadataBuilder: _metadata);
+    _streamPackager = _newPackager(sink);
+    return true;
   }
+
+  /// A packager for a new output, primed with the encoder's current video
+  /// and audio configuration (sent only once when the encoder starts), so an
+  /// output started or reconnected while the encoder runs gets them too.
+  AvPackager _newPackager(FlvTarget target) {
+    final p = AvPackager(target, metadataBuilder: _metadata);
+    if (_videoConfig case final v?) p.push(v);
+    if (_audioConfig case final a?) p.push(a);
+    return p;
+  }
+
+  EncodedPacket? _videoConfig;
+  EncodedPacket? _audioConfig;
 
   Future<void> _onStreamLost(Object error) async {
     if (streamStatus != OutputStatus.active) return;
@@ -266,14 +298,15 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
     _streamSink = null;
     _streamPackager = null;
     lastError = 'Disconnected: $error';
+    final gen = _streamGen;
     notifyListeners();
     // Auto-reconnect like OBS: up to 10 tries, 5 s apart.
     for (reconnectAttempt = 1; reconnectAttempt <= 10; reconnectAttempt++) {
       notifyListeners();
       await Future<void>.delayed(const Duration(seconds: 5));
-      if (streamStatus != OutputStatus.reconnecting) return; // user stopped
+      if (streamStatus != OutputStatus.reconnecting || gen != _streamGen) return; // user stopped
       try {
-        await _openStreamSink(studio.settings.publishUrl);
+        if (!await _openStreamSink(studio.settings.publishUrl, gen)) return;
         streamStatus = OutputStatus.active;
         lastError = null;
         await backend.requestKeyframe();
@@ -292,6 +325,7 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> stopStreaming() async {
     if (!isStreaming) return;
+    _streamGen++;
     streamStatus = OutputStatus.stopping;
     notifyListeners();
     final sink = _streamSink;
@@ -315,7 +349,7 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
   /// stream or recording would (the hardware encoder idles if nothing else
   /// is using it).
   Future<void> startNdi({required String name, String? groups}) async {
-    if (ndiActive && name == ndiName) return;
+    if (ndiActive && name == ndiName && groups == ndiGroups) return;
     if (ndiActive) await stopNdi();
     ndiError = null;
     if (!ndi.available) {
@@ -327,6 +361,7 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
       await ndi.start(name: name, groups: groups);
       ndiActive = true;
       ndiName = name;
+      ndiGroups = groups;
       if (encoderSupported) {
         await _ensureEncoder();
         await backend.setPcmTap(true);
@@ -393,7 +428,7 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
         };
         await sink.open();
         _recordSink = sink;
-        _recordPackager = AvPackager(sink, metadataBuilder: _metadata);
+        _recordPackager = _newPackager(sink);
       }
       lastRecordingPath = path;
       recordStatus = OutputStatus.active;
@@ -415,7 +450,8 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
     try {
       if (_nativeMp4) {
         final path = await backend.stopMp4Recording();
-        if (path != null) lastRecordingPath = path;
+        lastRecordingPath = path;
+        if (path == null) _error('Recording failed: nothing was recorded.');
       } else {
         final sink = _recordSink;
         _recordSink = null;
@@ -455,11 +491,13 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
     );
   }
 
-  Future<void> _ensureEncoder() async {
-    if (_encoderRunning) return;
+  Future<void>? _encoderStarting;
+  Timer? _reconfigureTimer;
+
+  EncoderConfig _wantedConfig() {
     final s = studio.settings;
     // Hardware encoders want even dimensions.
-    final config = EncoderConfig(
+    return EncoderConfig(
       width: s.outputWidth & ~1,
       height: s.outputHeight & ~1,
       fps: s.fps,
@@ -467,9 +505,63 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
       audioBitrateKbps: s.audioBitrateKbps,
       keyframeIntervalSec: s.keyframeIntervalSec,
     );
+  }
+
+  static bool _sameConfig(EncoderConfig a, EncoderConfig b) =>
+      a.width == b.width &&
+      a.height == b.height &&
+      a.fps == b.fps &&
+      a.videoBitrateKbps == b.videoBitrateKbps &&
+      a.audioBitrateKbps == b.audioBitrateKbps &&
+      a.keyframeIntervalSec == b.keyframeIntervalSec;
+
+  /// Video/output settings changed while only NDI keeps the encoder running:
+  /// restart it so they apply (while streaming or recording they apply next
+  /// time, and Settings says so).
+  void _maybeApplyEncoderSettings() {
+    final c = _config;
+    if (!_encoderRunning || c == null || isStreaming || isRecording) return;
+    if (_sameConfig(c, _wantedConfig())) return;
+    _reconfigureTimer?.cancel();
+    _reconfigureTimer = Timer(const Duration(milliseconds: 600), () async {
+      if (!_encoderRunning || isStreaming || isRecording) return;
+      if (_sameConfig(_config!, _wantedConfig())) return;
+      await _stopEncoderNow();
+      try {
+        await _ensureEncoder();
+        if (ndiActive) await backend.setPcmTap(true);
+      } catch (e) {
+        _error('Could not apply the new video settings: $e');
+      }
+    });
+  }
+
+  /// Settings that need a restart are in use by a live output.
+  bool get encoderSettingsLocked => _encoderRunning && (isStreaming || isRecording);
+
+  /// Starts the shared encoder once, even if several outputs ask at the same
+  /// time; a failed start leaves nothing behind so it can be retried.
+  Future<void> _ensureEncoder() {
+    if (_encoderRunning) return Future.value();
+    return _encoderStarting ??= _startEncoder().whenComplete(() => _encoderStarting = null);
+  }
+
+  Future<void> _startEncoder() async {
+    final config = _wantedConfig();
     _config = config;
+    _videoConfig = null;
+    _audioConfig = null;
     _packetSub = backend.packets.listen(_onPacket);
-    await backend.start(config);
+    try {
+      await backend.start(config);
+    } catch (_) {
+      await _packetSub?.cancel();
+      _packetSub = null;
+      try {
+        await backend.stop();
+      } catch (_) {}
+      rethrow;
+    }
     _lastMicGain = -1;
     _lastScreenGain = -1;
     _onStudioChanged();
@@ -486,6 +578,10 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> _maybeStopEncoder() async {
     if (!_encoderRunning || isStreaming || isRecording || ndiActive) return;
+    await _stopEncoderNow();
+  }
+
+  Future<void> _stopEncoderNow() async {
     _encoderRunning = false;
     _pumpTimer?.cancel();
     _statsTimer?.cancel();
@@ -501,6 +597,13 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   void _onPacket(EncodedPacket p) {
+    if (p.isConfig) {
+      if (p.isVideo) {
+        _videoConfig = p;
+      } else {
+        _audioConfig = p;
+      }
+    }
     _streamPackager?.push(p);
     _recordPackager?.push(p);
   }
@@ -672,6 +775,8 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
       if (encoderSupported) backend.setScreenAudioGain(sg).catchError((_) {});
     }
     _updateMetering();
+    _updateWakelock();
+    _maybeApplyEncoderSettings();
   }
 
   void _updateWakelock() {
@@ -692,6 +797,7 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
   @override
   void dispose() {
     studio.removeListener(_onStudioChanged);
+    _reconfigureTimer?.cancel();
     _pumpTimer?.cancel();
     _statsTimer?.cancel();
     _packetSub?.cancel();

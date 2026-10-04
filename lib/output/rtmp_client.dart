@@ -129,6 +129,9 @@ class RtmpPublisher {
 
   bool get isPublishing => _published && !_closed;
 
+  /// How long a write may stall before the connection counts as lost.
+  Duration sendTimeout = const Duration(seconds: 10);
+
   static const _csControl = 2;
   static const _csCommand = 3;
   static const _csAudio = 4;
@@ -314,7 +317,12 @@ class RtmpPublisher {
         }
         final data = b.takeBytes();
         _socket!.add(data);
-        await _socket!.flush();
+        // A silent network drop never errors; OBS gives up after a send
+        // timeout so auto-reconnect can start. Same here.
+        await _socket!.flush().timeout(
+          sendTimeout,
+          onTimeout: () => throw TimeoutException('Connection stalled: nothing sent for ${sendTimeout.inSeconds} s'),
+        );
         stats.queuedBytes -= data.length;
         stats.bytesSent += data.length;
       }

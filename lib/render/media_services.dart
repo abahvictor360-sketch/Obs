@@ -187,7 +187,12 @@ class MediaService extends ChangeNotifier {
     return (p != null && p.$2.value.isInitialized) ? p.$2 : null;
   }
 
-  Future<void> sync(Iterable<Source> active) async {
+  /// Sources on Program (heard); others in [active] only play silently in
+  /// Preview, like OBS without audio monitoring. Null = all heard.
+  Set<String>? _live;
+
+  Future<void> sync(Iterable<Source> active, {Set<String>? live}) async {
+    _live = live;
     final wanted = {for (final s in active) s.id: s};
     for (final id in _players.keys.toList()) {
       final s = wanted[id];
@@ -221,8 +226,8 @@ class MediaService extends ChangeNotifier {
 
   void _applySettings(Source s, VideoPlayerController c) {
     c.setLooping(s.settings['loop'] as bool? ?? true);
-    final muted = s.muted || (s.settings['muted'] as bool? ?? false);
-    c.setVolume(muted ? 0 : s.volume);
+    final muted = s.muted || (s.settings['muted'] as bool? ?? false) || !(_live?.contains(s.id) ?? true);
+    c.setVolume(muted ? 0 : (s.volume * s.filterGain).clamp(0.0, 1.0));
   }
 
   @override
@@ -257,7 +262,11 @@ class SourceActivityTracker {
       if (s.type == SourceType.media) mediaSources[s.id] = s;
     }
     cameras.sync(lenses);
-    media.sync(mediaSources.values);
+    final live = {
+      for (final i in studio.programScene.items)
+        if (i.visible) i.sourceId,
+    };
+    media.sync(mediaSources.values, live: live);
   }
 
   void dispose() => studio.removeListener(_sync);

@@ -347,18 +347,40 @@ class AudioEncoder(
     private val processor = MicProcessor(sampleRate)
 
     @SuppressLint("MissingPermission") // checked by ObsEncoderPlugin before start()
-    fun start() {
+    private fun openRecord(): AudioRecord {
         val channelMask = if (channels == 2) AudioFormat.CHANNEL_IN_STEREO else AudioFormat.CHANNEL_IN_MONO
         val minBuf = AudioRecord.getMinBufferSize(sampleRate, channelMask, AudioFormat.ENCODING_PCM_16BIT)
-        record = AudioRecord(
+        val r = AudioRecord(
             MediaRecorder.AudioSource.CAMCORDER,
             sampleRate,
             channelMask,
             AudioFormat.ENCODING_PCM_16BIT,
             max(minBuf, 4096 * channels * 2),
         )
-        AudioRouting.attach(record) // USB / chosen microphone
-        MicProcessing.attach(record) // Noise Suppression filter
+        AudioRouting.attach(r) // USB / chosen microphone
+        MicProcessing.attach(r) // Noise Suppression filter
+        return r
+    }
+
+    /**
+     * The microphone stopped (USB mic unplugged, audio server restarted): the
+     * stream keeps going with silence while a new recording is opened.
+     */
+    private fun reopenRecord(): Boolean {
+        try { record.stop() } catch (_: Exception) {}
+        MicProcessing.detach(record)
+        record.release()
+        return try {
+            record = openRecord()
+            record.startRecording()
+            record.recordingState == AudioRecord.RECORDSTATE_RECORDING
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    fun start() {
+        record = openRecord()
         val format = MediaFormat.createAudioFormat(MediaFormat.MIMETYPE_AUDIO_AAC, sampleRate, channels).apply {
             setInteger(MediaFormat.KEY_AAC_PROFILE, MediaCodecInfo.CodecProfileLevel.AACObjectLC)
             setInteger(MediaFormat.KEY_BIT_RATE, bitrate)
@@ -383,13 +405,36 @@ class AudioEncoder(
         var levelPeak = 0f
         var levelCount = 0
         var lastLevelUs = 0L
+        var micFailedAt = 0L
+        var reported = false
 
         while (running) {
             var read = 0
+            var failed = false
             while (read < frameBytes && running) {
                 val n = record.read(pcm, read, frameBytes - read)
-                if (n <= 0) break
+                if (n < 0) {
+                    failed = true
+                    break
+                }
                 read += n
+            }
+            if (!running) break
+            if (failed) {
+                // Keep the audio timeline going with silence, at real-time pace,
+                // and try to reopen the microphone every second.
+                java.util.Arrays.fill(pcm, 0)
+                read = frameBytes
+                if (!reported) {
+                    reported = true
+                    listener.onError("Microphone disconnected: streaming silence until it's back")
+                }
+                val now = System.nanoTime() / 1000
+                if (now - micFailedAt > 1_000_000) {
+                    micFailedAt = now
+                    if (reopenRecord()) reported = false
+                }
+                Thread.sleep(1000L * 1024 / sampleRate)
             }
             if (read <= 0) continue
 
@@ -397,20 +442,21 @@ class AudioEncoder(
             val bb = ByteBuffer.wrap(pcm, 0, read).order(ByteOrder.LITTLE_ENDIAN)
             val count = read / 2
             bb.asShortBuffer().get(shorts, 0, count)
-            val g = gain
-            // Mic: fader/gain, then its filters (gate, compressor, limiter).
-            for (i in 0 until count) shorts[i] = (shorts[i] * g).toInt().coerceIn(-32768, 32767).toShort()
+            // Mic: its filters first (gain, gate, compressor, limiter), then the
+            // fader and mute, like OBS. The mixer meter shows the mic alone.
             processor.process(shorts, count, channels)
-            val app = readAppAudio(count)
-            val ag = appGain
+            val g = gain
             for (i in 0 until count) {
-                var mixed = shorts[i].toFloat()
-                if (app != null) mixed += app[i] * ag
-                val s = mixed.toInt().coerceIn(-32768, 32767)
+                val s = (shorts[i] * g).toInt().coerceIn(-32768, 32767)
                 shorts[i] = s.toShort()
                 val f = abs(s) / 32768f
                 levelSum += (f * f).toDouble()
                 if (f > levelPeak) levelPeak = f
+            }
+            val app = readAppAudio(count)
+            if (app != null) {
+                val ag = appGain
+                for (i in 0 until count) shorts[i] = (shorts[i] + app[i] * ag).toInt().coerceIn(-32768, 32767).toShort()
             }
             levelCount += count
             pcmTap?.let { tap -> tap(FloatArray(count) { shorts[it] / 32768f }, sampleRate, channels) }
