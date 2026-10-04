@@ -62,6 +62,9 @@ class MicMeter(private val onLevel: (Float, Float) -> Unit) {
                     if (n < 0) break
                     continue
                 }
+                // Advance Media Sources so their meters move while nothing is
+                // encoded (their audio isn't mixed into the mic level).
+                MediaAudioMixer.mixInto(buf, n, 1, mix = false)
                 processor.process(buf, n, 1) // filters first, then the fader, like OBS
                 val g = gain
                 for (i in 0 until n) buf[i] = (buf[i] * g).toInt().coerceIn(-32768, 32767).toShort()

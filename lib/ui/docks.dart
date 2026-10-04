@@ -457,8 +457,9 @@ class _MixerChannel extends StatelessWidget {
     final level = switch (source.type) {
       SourceType.audioInput => extraMic ? null : scope.output.micLevel,
       // Video sources: what the tablet plays, while this video is playing.
-      SourceType.media =>
-        scope.media.controllerFor(source.id)?.value.isPlaying ?? false ? scope.output.outputLevel : null,
+      // Its own level from the native mixer, else what the tablet plays.
+      SourceType.media => scope.output.mediaLevels[source.id] ??
+          (scope.media.controllerFor(source.id)?.value.isPlaying ?? false ? scope.output.outputLevel : null),
       SourceType.audioOutput => scope.output.outputLevel,
       SourceType.screen => scope.output.screenState.active ? scope.output.outputLevel : null,
       _ => null,

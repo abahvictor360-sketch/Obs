@@ -140,6 +140,11 @@ abstract class EncoderBackend {
   /// notification saying what's running ([text]); null when nothing is.
   Future<void> setLiveOutput(String? text);
 
+  /// Media Sources whose audio is mixed into the output: {id, path, gain,
+  /// playing, positionMs, loop}. Their levels come on [mediaLevels].
+  Future<void> setMediaAudio(List<Map<String, Object>> sources);
+  Stream<(String, AudioLevel)> get mediaLevels;
+
   /// Level of the sound the tablet plays (video sources, other apps), where
   /// the platform allows measuring it (Android).
   Future<void> setOutputMetering(bool enabled);
@@ -189,6 +194,7 @@ class MethodChannelEncoder implements EncoderBackend {
   final _packets = StreamController<EncodedPacket>.broadcast(sync: true);
   final _levels = StreamController<AudioLevel>.broadcast();
   final _outputLevels = StreamController<AudioLevel>.broadcast();
+  final _mediaLevels = StreamController<(String, AudioLevel)>.broadcast();
   final _errors = StreamController<String>.broadcast();
   final _screen = StreamController<ScreenCaptureState>.broadcast();
   final _pcm = StreamController<PcmChunk>.broadcast(sync: true);
@@ -219,7 +225,14 @@ class MethodChannelEncoder implements EncoderBackend {
         ));
       case 'level':
         final l = AudioLevel((e['rms'] as num).toDouble(), (e['peak'] as num).toDouble());
-        (e['source'] == 'output' ? _outputLevels : _levels).add(l);
+        switch (e['source']) {
+          case 'output':
+            _outputLevels.add(l);
+          case 'media':
+            _mediaLevels.add(('${e['id']}', l));
+          default:
+            _levels.add(l);
+        }
       case 'error':
         _errors.add('${e['message']}');
       case 'pcm':
@@ -284,6 +297,12 @@ class MethodChannelEncoder implements EncoderBackend {
 
   @override
   Future<void> setLiveOutput(String? text) => _method.invokeMethod('setLiveOutput', {'text': text});
+
+  @override
+  Future<void> setMediaAudio(List<Map<String, Object>> sources) =>
+      _method.invokeMethod('setMediaAudio', {'sources': sources});
+  @override
+  Stream<(String, AudioLevel)> get mediaLevels => _mediaLevels.stream;
 
   @override
   Future<void> setOutputMetering(bool enabled) => _method.invokeMethod('setOutputMetering', {'enabled': enabled});

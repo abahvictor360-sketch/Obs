@@ -64,14 +64,24 @@ final class MicMeter {
         let n = Int(buffer.frameLength)
         let chCount = Int(buffer.format.channelCount)
         guard n > 0, chCount > 0 else { return }
-        let g = gain / Float(chCount)
+        let k = 1 / Float(chCount)
         var mono = [Float](repeating: 0, count: n)
         for i in 0..<n {
             var v: Float = 0
             for c in 0..<chCount { v += channels[c][i] }
-            mono[i] = v * g
+            mono[i] = v * k
         }
-        processor?.process(&mono) // the meter shows the filtered mic
+        // Media Sources advance (in real time) so their meters move while
+        // nothing is encoded; they aren't part of the mic level.
+        let mediaFrames = Int(Double(n) * MediaAudioMixer.rate / buffer.format.sampleRate)
+        if mediaFrames > 0 {
+            var media = [Float](repeating: 0, count: mediaFrames)
+            MediaAudioMixer.shared.mix(into: &media, mix: false)
+        }
+        // Filters first, then the fader, like OBS.
+        processor?.process(&mono)
+        let g = gain
+        for i in 0..<n { mono[i] *= g }
         var sum: Float = 0
         var peak: Float = 0
         for v in mono {

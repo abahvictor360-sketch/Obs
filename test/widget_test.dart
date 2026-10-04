@@ -40,6 +40,12 @@ class FakeEncoder implements EncoderBackend {
   Future<void> setMicProcessing(Map<String, Object> config) async => micProcessing.add(config);
   @override
   Future<void> setLiveOutput(String? text) async {}
+  final mediaAudio = <List<Map<String, Object>>>[];
+  @override
+  Future<void> setMediaAudio(List<Map<String, Object>> sources) async => mediaAudio.add(sources);
+  final mediaLevelCtl = StreamController<(String, AudioLevel)>.broadcast(sync: true);
+  @override
+  Stream<(String, AudioLevel)> get mediaLevels => mediaLevelCtl.stream;
   final outputCtl = StreamController<AudioLevel>.broadcast(sync: true);
   final outputMetering = <bool>[];
   @override

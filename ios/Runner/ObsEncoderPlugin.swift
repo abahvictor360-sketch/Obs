@@ -32,6 +32,9 @@ final class ObsEncoderPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
         registrar.addMethodCallDelegate(instance, channel: method)
         events.setStreamHandler(instance)
         instance.setUpScreenReceiver()
+        MediaAudioMixer.shared.onLevel = { [weak instance] id, rms, peak in
+            instance?.emit(["type": "level", "source": "media", "id": id, "rms": Double(rms), "peak": Double(peak)])
+        }
         MicProcessing.shared.onNoiseSuppressionChange = { [weak instance] in
             guard let plugin = instance else { return }
             plugin.audio?.restartInput()
@@ -111,6 +114,9 @@ final class ObsEncoderPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
             micGain = Float(args["gain"] as? Double ?? 1)
             audio?.gain = micGain
             meter?.gain = micGain
+            result(nil)
+        case "setMediaAudio":
+            MediaAudioMixer.shared.update((args["sources"] as? [[String: Any]]) ?? [])
             result(nil)
         case "setLiveOutput":
             // iOS keeps the app alive in the background through its audio session.

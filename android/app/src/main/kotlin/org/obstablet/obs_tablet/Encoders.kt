@@ -453,6 +453,8 @@ class AudioEncoder(
                 levelSum += (f * f).toDouble()
                 if (f > levelPeak) levelPeak = f
             }
+            // Media Sources (video files) on Program.
+            MediaAudioMixer.mixInto(shorts, count, channels)
             val app = readAppAudio(count)
             if (app != null) {
                 val ag = appGain

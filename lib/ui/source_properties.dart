@@ -294,6 +294,25 @@ class _SourceSettingsTab extends StatelessWidget {
               value: s['muted'] as bool? ?? false,
               onChanged: (v) => set('muted', v),
             ),
+            const SizedBox(height: 8),
+            const Text('Audio Monitoring', style: TextStyle(color: ObsColors.textDim)),
+            const SizedBox(height: 6),
+            SegmentedButton<String>(
+              key: const ValueKey('media-monitoring'),
+              segments: const [
+                ButtonSegment(value: 'off', label: Text('Stream only')),
+                ButtonSegment(value: 'both', label: Text('Stream + tablet')),
+                ButtonSegment(value: 'monitor', label: Text('Tablet only')),
+              ],
+              selected: {s['monitoring'] as String? ?? 'off'},
+              onSelectionChanged: (v) => set('monitoring', v.first),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'The video\'s sound goes into the stream and recording directly. Hear it on the tablet '
+              'or headphones too with "Stream + tablet" (keep the tablet speaker away from the mic).',
+              style: TextStyle(color: ObsColors.textDim, fontSize: 12),
+            ),
           ],
         ]);
       case SourceType.text:

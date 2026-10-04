@@ -250,9 +250,11 @@ final class AppAudioEncoder {
         let got = ScreenReceiver.shared.appAudio.read(into: &appScratch, count)
         let g = gain
         let ag = appGain
-        // Mic: fader/gain, then its filters (gate, compressor, limiter).
-        for i in 0..<count { samples[i] *= g }
+        // Mic: its filters (gain, gate, compressor, limiter), then the fader,
+        // like OBS; then Media Sources (video files) on Program.
         processor.process(&samples)
+        for i in 0..<count { samples[i] *= g }
+        MediaAudioMixer.shared.mix(into: &samples)
         for i in 0..<count {
             var v = samples[i]
             if got > 0 { v += appScratch[i] * ag }

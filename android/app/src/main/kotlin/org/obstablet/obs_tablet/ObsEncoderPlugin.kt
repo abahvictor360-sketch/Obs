@@ -57,6 +57,9 @@ class ObsEncoderPlugin(private val activity: Activity, messenger: BinaryMessenge
     init {
         method.setMethodCallHandler(this)
         events.setStreamHandler(this)
+        MediaAudioMixer.onLevel = { id, rms, peak ->
+            emit(mapOf("type" to "level", "source" to "media", "id" to id, "rms" to rms.toDouble(), "peak" to peak.toDouble()))
+        }
         ScreenCapture.stateListener = { active, w, h, error ->
             val e = mutableMapOf<String, Any>(
                 "type" to "screen",
@@ -127,6 +130,11 @@ class ObsEncoderPlugin(private val activity: Activity, messenger: BinaryMessenge
                 }
                 "setLiveOutput" -> {
                     OutputService.set(activity.applicationContext, call.argument<String>("text"))
+                    result.success(null)
+                }
+                "setMediaAudio" -> {
+                    @Suppress("UNCHECKED_CAST")
+                    MediaAudioMixer.update((call.argument<List<Any?>>("sources") ?: emptyList()).filterIsInstance<Map<*, *>>())
                     result.success(null)
                 }
                 "setMicProcessing" -> {
@@ -363,6 +371,8 @@ class ObsEncoderPlugin(private val activity: Activity, messenger: BinaryMessenge
     }
 
     fun dispose() {
+        MediaAudioMixer.onLevel = null
+        MediaAudioMixer.clear()
         OutputService.set(activity.applicationContext, null)
         stop()
         stopMeter()

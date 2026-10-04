@@ -75,6 +75,9 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
 
   /// What the tablet is playing: video sources and other apps (Android).
   AudioLevel outputLevel = const AudioLevel(0, 0);
+
+  /// Each Media Source's level in the mix (when its audio is mixed natively).
+  final Map<String, AudioLevel> mediaLevels = {};
   int reconnectAttempt = 0;
 
   bool? _supported;
@@ -92,6 +95,7 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
   StreamSubscription<EncodedPacket>? _packetSub;
   StreamSubscription<AudioLevel>? _levelSub;
   StreamSubscription<AudioLevel>? _outputLevelSub;
+  StreamSubscription<(String, AudioLevel)>? _mediaLevelSub;
   StreamSubscription<String>? _errorSub;
   StreamSubscription<ScreenCaptureState>? _screenSub;
 
@@ -144,6 +148,10 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
     });
     _outputLevelSub = backend.outputLevels.listen((l) {
       outputLevel = l;
+      notifyListeners();
+    });
+    _mediaLevelSub = backend.mediaLevels.listen((e) {
+      mediaLevels[e.$1] = e.$2;
       notifyListeners();
     });
     _errorSub = backend.errors.listen((e) {
@@ -832,6 +840,7 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
     _packetSub?.cancel();
     _levelSub?.cancel();
     _outputLevelSub?.cancel();
+    _mediaLevelSub?.cancel();
     _errorSub?.cancel();
     _screenSub?.cancel();
     _pcmSub?.cancel();

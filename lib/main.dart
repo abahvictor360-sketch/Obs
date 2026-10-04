@@ -10,6 +10,7 @@ import 'devices/device_service.dart';
 import 'ndi/ndi_controller.dart';
 import 'network_video/network_video_service.dart';
 import 'output/external_display_output.dart';
+import 'output/media_audio_bridge.dart';
 import 'output/output_engine.dart';
 import 'plugins/plugin_bridge.dart';
 import 'plugins/plugin_manager.dart';
@@ -41,6 +42,8 @@ Future<void> main() async {
   ExternalDisplayOutput(output: output, devices: devices);
   final networkVideo = NetworkVideoService();
   NetworkVideoTracker(studio, networkVideo);
+  media.nativeAudio = output.encoderSupported;
+  MediaAudioBridge(studio, media, output);
   BrowserSourceTracker(studio, BrowserSourceService.instance);
   UpdateService.instance
     ..dismissedBuild = studio.settings.dismissedUpdateBuild

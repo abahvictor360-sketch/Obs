@@ -241,6 +241,11 @@ class MediaService extends ChangeNotifier {
 
   bool _isLive(String id) => _live?.contains(id) ?? true;
 
+  /// The stream gets media audio from the native mixer (Android/iPad apps):
+  /// local playback then follows each source's Audio Monitoring setting
+  /// (off by default, like OBS). Otherwise the player is what's heard.
+  bool nativeAudio = false;
+
   /// Sources that were on Program at the last sync.
   final Set<String> _wasLive = {};
 
@@ -263,7 +268,11 @@ class MediaService extends ChangeNotifier {
     } else {
       _wasLive.remove(s.id);
     }
-    final muted = s.muted || (s.settings['muted'] as bool? ?? false) || !live;
+    final monitoring = s.settings['monitoring'] as String? ?? 'off';
+    final muted = s.muted ||
+        (s.settings['muted'] as bool? ?? false) ||
+        !live ||
+        (nativeAudio && monitoring == 'off');
     c.setVolume(muted ? 0 : (s.volume * s.filterGain).clamp(0.0, 1.0));
   }
 
