@@ -198,4 +198,25 @@ void main() {
     expect(again.isEnabled(ndiBuiltin.id), isTrue);
     expect(again.builtinSettings(ndiBuiltin.id)['name'], 'Stage Left');
   });
+
+  test('a converted overlay plugin: Browser source URL, LUTs and media', () async {
+    final a = Archive();
+    for (final (n, c) in [('pack/scores.html', '<title>Scores</title>'), ('pack/luts/warm.cube', 'LUT_3D_SIZE 2')]) {
+      final b = utf8.encode(c);
+      a.addFile(ArchiveFile(n, b.length, b));
+    }
+    final pending = plugins.readZip(Uint8List.fromList(ZipEncoder().encode(a)), 'Score Pack.zip');
+    expect(pending.manifest.id, 'zip.score-pack');
+    await plugins.install(pending);
+    final (p, o) = plugins.overlays.single;
+    final url = PluginManager.pageUrl(p.manifest.id, o.page);
+    expect(url, 'obspad-plugin://zip.score-pack/scores.html');
+    expect(plugins.resolveUrl(url), '${p.directory}/scores.html');
+    expect(File(plugins.resolveUrl(url)).existsSync(), isTrue);
+    expect(plugins.resolveUrl('https://example.com'), 'https://example.com');
+    expect(plugins.luts.single.$2, 'warm.cube');
+    await plugins.setEnabled(p.manifest.id, false);
+    expect(plugins.resolveUrl(url), '');
+    expect(plugins.overlays, isEmpty);
+  });
 }

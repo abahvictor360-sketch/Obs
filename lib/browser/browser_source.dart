@@ -63,6 +63,12 @@ class BrowserSourceService {
 
   static final instance = BrowserSourceService();
 
+  /// Maps a source's URL to the page to load: plugin pages
+  /// (`obspad-plugin://<id>/<page>`) resolve to the installed files ('' if
+  /// the plugin is gone). Set by the app.
+  static String Function(String url) urlResolver = _sameUrl;
+  static String _sameUrl(String url) => url;
+
   final BrowserPageFactory _factory;
   final Map<String, _Running> _running = {};
 
@@ -90,7 +96,7 @@ class BrowserSourceService {
   }
 
   void _start(Source s, String key) {
-    final url = (s.settings['url'] as String? ?? '').trim();
+    final url = urlResolver((s.settings['url'] as String? ?? '').trim());
     if (url.isEmpty) return;
     final w = ((s.settings['width'] as num?)?.toInt() ?? 1280).clamp(16, 3840);
     final h = ((s.settings['height'] as num?)?.toInt() ?? 720).clamp(16, 2160);

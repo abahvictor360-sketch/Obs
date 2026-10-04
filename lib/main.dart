@@ -34,6 +34,7 @@ Future<void> main() async {
   await output.init();
   final plugins = PluginManager(createPlatformPluginBackend());
   await plugins.load();
+  BrowserSourceService.urlResolver = plugins.resolveUrl;
   PluginBridge(studio, output, plugins);
   NdiController(plugins, output);
   final devices = DeviceService();

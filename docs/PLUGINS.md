@@ -1,11 +1,29 @@
 # Writing OBSpad plugins
 
 OBSpad plugins are small web packages: a manifest, plus JavaScript and HTML that run in a sandbox
-inside the app. They work on both Android and iPad, and users install them by pasting a GitHub link.
+inside the app. They work on both Android and iPad, and users install them by pasting a GitHub link or
+picking a `.zip`.
 
 Desktop OBS plugins (C/C++ built against libobs, like DistroAV or Move Transition) can't run on tablets.
 iPadOS and Google Play don't allow downloaded native code, and this app isn't built on libobs. Features
 that need native code, like NDI, ship as **built-in plugins** instead.
+
+## Repos and zips without a manifest
+
+Most "OBS plugins" on GitHub have no `obspad-plugin.json`. OBSpad converts them when they're installed
+(from a GitHub link or a `.zip`):
+
+| What's in the package | What OBSpad makes of it |
+| --- | --- |
+| `.html` pages (overlays, widgets, alerts) | **Overlays**: Add Source › From plugins adds a Browser source showing the page |
+| `.html` pages named like `dock`, `panel`, `control`, `remote`, `dashboard` | **Docks**, opened from the Plugins screen |
+| `.cube` files (or PNG LUTs in a `lut`/`luts` folder) | **LUTs** in the Apply LUT filter's plugin menu |
+| Images and videos, when there are no web pages (overlay and stinger packs) | **Media**: Add Source › From plugins adds an Image or Media source |
+| C/C++ code, `.dll`/`.so`/`.dylib`, Lua or Python scripts, shader effects | Not installable: they only run inside OBS Studio on a computer |
+
+If a release's `.zip` asset is a desktop build, OBSpad installs the release's source code instead.
+`node_modules`, `.git` and compiled binaries are left out. Add an `obspad-plugin.json` to control names,
+sizes and permissions yourself.
 
 ## What a plugin can do
 

@@ -135,7 +135,10 @@ class GitHubClient {
   /// Resolves which zip to fetch: an explicit ref, else the latest release
   /// (a `.zip` asset if it has one, otherwise its source zip), else the
   /// default branch. Returns the bytes and the resolved ref.
-  Future<(Uint8List, String)> download(GitHubRef r) async {
+  ///
+  /// With [source], a release's packaged zip is skipped: OBS plugin releases
+  /// usually ship Windows/macOS builds, while the source holds the web pages.
+  Future<(Uint8List, String)> download(GitHubRef r, {bool source = false}) async {
     if (r.ref != null) {
       return (await _get('$codeloadBase/${r.owner}/${r.repo}/zip/${r.ref}'), r.ref!);
     }
@@ -145,7 +148,7 @@ class GitHubClient {
       final assets = (release['assets'] as List? ?? const []).cast<Map>();
       final zipAsset = assets.where((a) => '${a['name']}'.toLowerCase().endsWith('.zip')).firstOrNull;
       // A packaged asset only makes sense for a repo-root plugin.
-      if (zipAsset != null && r.subdir == null) {
+      if (zipAsset != null && r.subdir == null && !source) {
         return (await _get('${zipAsset['browser_download_url']}'), tag);
       }
       return (await _get('$codeloadBase/${r.owner}/${r.repo}/zip/refs/tags/$tag'), tag);
@@ -156,9 +159,23 @@ class GitHubClient {
   }
 
   /// Version of the plugin at the latest release/default branch, for updates.
-  Future<PluginPackage> fetchPackage(GitHubRef r) async {
-    final (bytes, _) = await download(r);
-    return PluginPackageReader.read(bytes, subdir: r.subdir);
+  Future<PluginPackage> fetchPackage(GitHubRef r) async => (await fetch(r)).$1;
+
+  /// Downloads and reads the plugin at [r] (converting repos without an
+  /// obspad-plugin.json). Returns the package, the zip and the resolved ref.
+  Future<(PluginPackage, Uint8List, String)> fetch(GitHubRef r) async {
+    PluginPackage read(Uint8List bytes, String ref) => PluginPackageReader.read(bytes,
+        subdir: r.subdir, name: r.subdir?.split('/').last ?? r.repo, id: 'github.${r.owner}.${r.repo}', version: ref);
+    final (bytes, ref) = await download(r);
+    try {
+      return (read(bytes, ref), bytes, ref);
+    } on PluginFormatException {
+      // A release asset that isn't usable (a Windows build): try the source.
+      if (r.ref != null || r.subdir != null) rethrow;
+      final (src, srcRef) = await download(r, source: true);
+      if (src.length == bytes.length) rethrow;
+      return (read(src, srcRef), src, srcRef);
+    }
   }
 
   Future<Map<String, dynamic>?> _getJson(String url, {bool allow404 = false}) async {

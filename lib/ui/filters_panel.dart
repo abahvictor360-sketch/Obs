@@ -263,6 +263,20 @@ class _LutPicker extends StatelessWidget {
         const Icon(Icons.palette_outlined, color: ObsColors.textDim),
         const SizedBox(width: 10),
         Expanded(child: Text(name, overflow: TextOverflow.ellipsis)),
+        if (AppScope.of(context).plugins.luts.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: PopupMenuButton<String>(
+              key: const ValueKey('lut-plugins'),
+              tooltip: 'LUTs from plugins',
+              icon: const Icon(Icons.extension_outlined),
+              itemBuilder: (_) => [
+                for (final (p, name, path) in AppScope.of(context).plugins.luts)
+                  PopupMenuItem(value: path, child: Text('$name  ·  ${p.manifest.name}')),
+              ],
+              onSelected: (path) => studio.updateFilter(source.id, filter.id, values: {'path': path}),
+            ),
+          ),
         OutlinedButton.icon(
           key: const ValueKey('lut-browse'),
           icon: const Icon(Icons.folder_open, size: 18),

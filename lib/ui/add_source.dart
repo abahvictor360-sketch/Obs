@@ -14,6 +14,8 @@ Future<void> showAddSource(BuildContext context) async {
   final scope = AppScope.of(context);
   final studio = scope.studio;
   final pluginTypes = scope.plugins.sourceTypes;
+  final overlays = scope.plugins.overlays;
+  final pluginMedia = scope.plugins.media;
 
   Widget tile(BuildContext context, IconData icon, String label, Object value, {String? subtitle}) => InkWell(
         borderRadius: BorderRadius.circular(8),
@@ -64,13 +66,19 @@ Future<void> showAddSource(BuildContext context) async {
               for (final t in SourceType.values)
                 if (t != SourceType.plugin) tile(context, sourceIcon(t), t.label, t),
             ]),
-            if (pluginTypes.isNotEmpty) ...[
+            if (pluginTypes.isNotEmpty || overlays.isNotEmpty || pluginMedia.isNotEmpty) ...[
               const SizedBox(height: 20),
               const Text('From plugins', style: TextStyle(color: ObsColors.textDim)),
               const SizedBox(height: 8),
               grid([
                 for (final (p, st) in pluginTypes)
                   tile(context, Icons.extension_outlined, st.name, (p, st), subtitle: p.manifest.name),
+                for (final (p, o) in overlays)
+                  tile(context, Icons.web, o.name, (p, o), subtitle: p.manifest.name),
+                for (final (p, name, path) in pluginMedia)
+                  tile(context, _isVideo(path) ? Icons.movie_outlined : Icons.image_outlined, name,
+                      _PluginFile(p, name, path),
+                      subtitle: p.manifest.name),
               ]),
             ],
           ],
@@ -79,6 +87,32 @@ Future<void> showAddSource(BuildContext context) async {
     ),
   );
   if (picked == null || !context.mounted) return;
+
+  if (picked is (PluginEntry, PluginOverlay)) {
+    // A plugin's web overlay is a Browser source showing its page.
+    final (plugin, o) = picked;
+    final name = await promptText(context, title: 'Create new ${o.name}', initial: studio.uniqueSourceName(o.name));
+    if (name == null || !context.mounted) return;
+    final item = studio.addNewSource(SourceType.browser, name: name, settings: {
+      'url': PluginManager.pageUrl(plugin.manifest.id, o.page),
+      'width': o.width.toDouble(),
+      'height': o.height.toDouble(),
+    });
+    studio.setItemVisible(item.id, false);
+    if (context.mounted) await showSourceProperties(context, item.id, creating: true);
+    return;
+  }
+
+  if (picked is _PluginFile) {
+    final type = _isVideo(picked.path) ? SourceType.media : SourceType.image;
+    final base = picked.name.replaceFirst(RegExp(r'\.[^.]+$'), '');
+    final name = await promptText(context, title: 'Create new ${type.label}', initial: studio.uniqueSourceName(base));
+    if (name == null || !context.mounted) return;
+    final item = studio.addNewSource(type, name: name, settings: {'path': picked.path});
+    studio.setItemVisible(item.id, false);
+    if (context.mounted) await showSourceProperties(context, item.id, creating: true);
+    return;
+  }
 
   if (picked is (PluginEntry, PluginSourceType)) {
     final (plugin, st) = picked;
@@ -141,3 +175,13 @@ Future<void> showAddSource(BuildContext context) async {
   studio.setItemVisible(item.id, false);
   if (context.mounted) await showSourceProperties(context, item.id, creating: true);
 }
+
+/// An image or video that came with a plugin.
+class _PluginFile {
+  const _PluginFile(this.plugin, this.name, this.path);
+  final PluginEntry plugin;
+  final String name;
+  final String path;
+}
+
+bool _isVideo(String path) => RegExp(r'\.(webm|mp4|mov|m4v)$', caseSensitive: false).hasMatch(path);

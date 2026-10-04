@@ -216,4 +216,89 @@ void main() {
           throwsA(predicate((e) => '$e'.contains('not found'))));
     });
   });
+
+  group('packages without obspad-plugin.json are converted', () {
+    test('web overlays and docks from a GitHub repo', () {
+      final pkg = PluginPackageReader.read(
+        _zip({
+          'obs-overlays-main/index.html': '<html><head><title>Scoreboard</title></head></html>',
+          'obs-overlays-main/chat/index.html': '<script src="https://chat.example/x.js"></script>',
+          'obs-overlays-main/control-panel.html': '<p>buttons</p>',
+          'obs-overlays-main/style.css': 'body{}',
+          'obs-overlays-main/node_modules/lib/index.html': '<p>skip</p>',
+          'obs-overlays-main/README.md': '# Overlays',
+        }),
+        name: 'obs-overlays',
+        id: 'github.Jane.obs-overlays',
+        version: 'v2.1',
+      );
+      final m = pkg.manifest;
+      expect(m.converted, isTrue);
+      expect((m.id, m.name, m.version), ('github.jane.obs-overlays', 'Obs Overlays', '2.1.0'));
+      expect(m.overlays.map((o) => (o.name, o.page)), [('Scoreboard', 'index.html'), ('Chat', 'chat/index.html')]);
+      expect(m.docks.map((d) => (d.name, d.page)), [('Control Panel', 'control-panel.html')]);
+      expect(m.permissions, {PluginPermission.network});
+      expect(pkg.files.keys, isNot(contains('node_modules/lib/index.html')));
+      expect(pkg.files.keys, containsAll(['style.css', kManifestFile]));
+      // The written manifest reads back the same.
+      final again = PluginManifest.fromJson(jsonDecode(utf8.decode(pkg.files[kManifestFile]!)) as Map<String, dynamic>);
+      expect(again.overlays.map((o) => o.page), ['index.html', 'chat/index.html']);
+    });
+
+    test('LUT and overlay packs from a zip', () {
+      final pkg = PluginPackageReader.read(
+        _zip({'luts/Film Look.cube': 'LUT_3D_SIZE 2', 'stingers/swipe.webm': 'x', 'frame.png': 'x'}),
+        name: 'My LUT pack',
+      );
+      expect(pkg.manifest.id, 'zip.my-lut-pack');
+      expect(pkg.manifest.luts, ['luts/Film Look.cube']);
+      expect(pkg.manifest.media, ['frame.png', 'stingers/swipe.webm']);
+      expect(pkg.manifest.overlays, isEmpty);
+    });
+
+    test('native plugins and scripts are explained', () {
+      expect(
+        () => PluginPackageReader.read(_zip({'obs-move/CMakeLists.txt': '', 'obs-move/src/move.c': ''})),
+        throwsA(predicate((e) => '$e'.contains('native OBS Studio plugin'))),
+      );
+      expect(
+        () => PluginPackageReader.read(_zip({'timer.lua': 'obs = obslua'})),
+        throwsA(predicate((e) => '$e'.contains('OBS Studio script'))),
+      );
+    });
+
+    test('a release whose zip is a Windows build installs from the source', () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final base = 'http://127.0.0.1:${server.port}';
+      server.listen((req) async {
+        final p = req.uri.path;
+        final res = req.response;
+        if (p == '/api/repos/jane/widgets/releases/latest') {
+          res.write(jsonEncode({
+            'tag_name': '1.4.0',
+            'assets': [
+              {'name': 'widgets-windows.zip', 'browser_download_url': '$base/asset.zip'},
+            ],
+          }));
+        } else if (p == '/asset.zip') {
+          res.add(_zip({'obs-plugins/64bit/widgets.dll': 'MZ'}));
+        } else if (p == '/codeload/jane/widgets/zip/refs/tags/1.4.0') {
+          res.add(_zip({'widgets-1.4.0/clock.html': '<title>Clock</title>'}));
+        } else {
+          res.statusCode = 404;
+        }
+        await res.close();
+      });
+      final gh = GitHubClient(apiBase: '$base/api', codeloadBase: '$base/codeload');
+      try {
+        final (pkg, _, ref) = await gh.fetch(GitHubRef.parse('jane/widgets'));
+        expect(ref, '1.4.0');
+        expect(pkg.manifest.id, 'github.jane.widgets');
+        expect(pkg.manifest.overlays.single.name, 'Clock');
+      } finally {
+        gh.close();
+        await server.close(force: true);
+      }
+    });
+  });
 }

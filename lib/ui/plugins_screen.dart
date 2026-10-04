@@ -158,6 +158,11 @@ class _PluginCardState extends State<_PluginCard> {
             Wrap(spacing: 6, runSpacing: 6, children: [
               for (final s in m.sources) Chip(avatar: const Icon(Icons.layers_outlined, size: 16), label: Text(s.name)),
               for (final d in m.docks) Chip(avatar: const Icon(Icons.web_asset, size: 16), label: Text(d.name)),
+              for (final o in m.overlays) Chip(avatar: const Icon(Icons.web, size: 16), label: Text(o.name)),
+              if (m.luts.isNotEmpty)
+                Chip(avatar: const Icon(Icons.palette_outlined, size: 16), label: Text('${m.luts.length} LUTs')),
+              if (m.media.isNotEmpty)
+                Chip(avatar: const Icon(Icons.perm_media_outlined, size: 16), label: Text('${m.media.length} media')),
               for (final perm in m.permissions)
                 Chip(
                   avatar: Icon(perm == PluginPermission.network ? Icons.public : Icons.tune, size: 16),
@@ -285,7 +290,8 @@ class _GetPluginsTabState extends State<_GetPluginsTab> {
               decoration: const InputDecoration(
                 labelText: 'Repository',
                 hintText: 'owner/repo or https://github.com/owner/repo',
-                helperText: 'Installs the latest release (or the default branch). Folder links work for monorepos.',
+                helperText: 'Any OBS overlay, widget, LUT or stinger repo works, with or without an OBSpad manifest.',
+                helperMaxLines: 2,
               ),
               onSubmitted: (_) => _run(() => plugins.fetchFromGitHub(_url.text)),
             ),
@@ -358,6 +364,10 @@ class _GetPluginsTabState extends State<_GetPluginsTab> {
           ),
         const SizedBox(height: 24),
         const Text(
+          'A repo or zip without an obspad-plugin.json is converted: web pages become overlays (Add Source › '
+          'From plugins) or docks, .cube files appear in Apply LUT, and images and videos in Add Source. '
+          'Native OBS plugins (Windows/macOS .dll and C/C++ code) and Lua/Python scripts only run in OBS on a '
+          'computer.\n\n'
           'Plugins run in a sandbox: they can draw sources and docks, and only reach the internet or control '
           'the studio if you allow it. Writing your own? See docs/PLUGINS.md in the OBSpad repository.',
           style: TextStyle(color: ObsColors.textDim, fontSize: 13),
@@ -386,8 +396,15 @@ Future<void> confirmAndInstall(BuildContext context, PendingInstall pending) asy
             Text(pending.source.replaceFirst('https://', ''), style: const TextStyle(color: ObsColors.textDim)),
             if (m.description.isNotEmpty) ...[const SizedBox(height: 8), Text(m.description)],
             const SizedBox(height: 12),
-            if (m.sources.isNotEmpty) Text('Adds sources: ${m.sources.map((s) => s.name).join(', ')}'),
-            if (m.docks.isNotEmpty) Text('Adds docks: ${m.docks.map((d) => d.name).join(', ')}'),
+            for (final line in m.contents) Text('Adds ${line[0].toLowerCase()}${line.substring(1)}'),
+            if (m.converted) ...[
+              const SizedBox(height: 8),
+              const Text(
+                'This package has no obspad-plugin.json, so OBSpad converted it: web pages become overlays '
+                '(Add Source › From plugins) or docks, LUTs appear in Apply LUT, and images and videos in Add Source.',
+                style: TextStyle(color: ObsColors.textDim, fontSize: 13),
+              ),
+            ],
             const SizedBox(height: 12),
             const Text('This plugin can:', style: TextStyle(fontWeight: FontWeight.bold)),
             const Text('• Draw its sources and docks'),

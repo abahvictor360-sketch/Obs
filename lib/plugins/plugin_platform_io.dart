@@ -50,14 +50,18 @@ class IoPluginBackend implements PluginBackend {
   @override
   Future<PendingInstall> fetchGitHub(String url, {PluginEntry? existing}) async {
     final ref = GitHubRef.parse(url);
-    final (bytes, resolved) = await _github.download(ref);
-    final pkg = PluginPackageReader.read(bytes, subdir: ref.subdir);
+    final (pkg, bytes, resolved) = await _github.fetch(ref);
     return PendingInstall(package: pkg, source: ref.url, ref: resolved, zip: bytes, existing: existing);
   }
 
   @override
   PendingInstall readZip(Uint8List bytes, String fileName) =>
-      PendingInstall(package: PluginPackageReader.read(bytes), source: 'file:$fileName', zip: bytes);
+      PendingInstall(
+        package: PluginPackageReader.read(bytes,
+            name: fileName.split(RegExp(r'[/\\]')).last.replaceFirst(RegExp(r'\.zip$', caseSensitive: false), '')),
+        source: 'file:$fileName',
+        zip: bytes,
+      );
 
   @override
   Future<PluginEntry> install(PendingInstall p) async {

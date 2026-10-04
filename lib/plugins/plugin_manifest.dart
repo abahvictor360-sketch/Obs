@@ -157,6 +157,24 @@ class PluginDock {
   Map<String, dynamic> toJson() => {'id': id, 'name': name, 'page': page};
 }
 
+/// A web page shown as a Browser source (an OBS-style HTML overlay or widget).
+class PluginOverlay {
+  PluginOverlay({required this.name, required this.page, this.width = 1920, this.height = 1080});
+
+  final String name;
+  final String page;
+  final int width, height;
+
+  factory PluginOverlay.fromJson(Map<String, dynamic> j) => PluginOverlay(
+        name: _str(j, 'name'),
+        page: _relativePath(_str(j, 'page')),
+        width: ((j['width'] as num?)?.toInt() ?? 1920).clamp(1, 3840),
+        height: ((j['height'] as num?)?.toInt() ?? 1080).clamp(1, 2160),
+      );
+
+  Map<String, dynamic> toJson() => {'name': name, 'page': page, 'width': width, 'height': height};
+}
+
 class PluginManifest {
   PluginManifest({
     required this.id,
@@ -170,6 +188,10 @@ class PluginManifest {
     this.permissions = const {},
     this.sources = const [],
     this.docks = const [],
+    this.overlays = const [],
+    this.luts = const [],
+    this.media = const [],
+    this.converted = false,
   });
 
   final String id;
@@ -185,6 +207,27 @@ class PluginManifest {
   final Set<PluginPermission> permissions;
   final List<PluginSourceType> sources;
   final List<PluginDock> docks;
+
+  /// Web pages to add as Browser sources.
+  final List<PluginOverlay> overlays;
+
+  /// LUT files (.cube / PNG) offered in the Apply LUT filter.
+  final List<String> luts;
+
+  /// Images and videos to add as Image / Media sources.
+  final List<String> media;
+
+  /// Made by OBSpad from a repo or zip without an obspad-plugin.json.
+  final bool converted;
+
+  /// Everything the plugin adds, for the install dialog and plugin list.
+  List<String> get contents => [
+        if (sources.isNotEmpty) 'Sources: ${sources.map((s) => s.name).join(', ')}',
+        if (overlays.isNotEmpty) 'Overlays: ${overlays.map((o) => o.name).join(', ')}',
+        if (docks.isNotEmpty) 'Docks: ${docks.map((d) => d.name).join(', ')}',
+        if (luts.isNotEmpty) '${luts.length} LUT${luts.length == 1 ? '' : 's'}',
+        if (media.isNotEmpty) '${media.length} image${media.length == 1 ? '' : 's'} and video${media.length == 1 ? '' : 's'}',
+      ];
 
   PluginSourceType? sourceType(String type) => sources.where((s) => s.type == type).firstOrNull;
 
@@ -212,6 +255,11 @@ class PluginManifest {
     final docks = (j['docks'] as List? ?? const [])
         .map((e) => PluginDock.fromJson((e as Map).cast<String, dynamic>()))
         .toList();
+    List<String> paths(String k) =>
+        [for (final e in (j[k] as List? ?? const [])) _relativePath('$e')];
+    final overlays = (j['overlays'] as List? ?? const [])
+        .map((e) => PluginOverlay.fromJson((e as Map).cast<String, dynamic>()))
+        .toList();
     final main = j['main'] as String?;
     if (sources.isNotEmpty && main == null) {
       throw PluginFormatException('Plugins with sources need a "main" script');
@@ -231,6 +279,10 @@ class PluginManifest {
       permissions: perms,
       sources: sources,
       docks: docks,
+      overlays: overlays,
+      luts: paths('luts'),
+      media: paths('media'),
+      converted: j['converted'] == true,
     );
   }
 
@@ -246,6 +298,10 @@ class PluginManifest {
         'permissions': permissions.map((p) => p.name).toList(),
         'sources': sources.map((s) => s.toJson()).toList(),
         'docks': docks.map((d) => d.toJson()).toList(),
+        if (overlays.isNotEmpty) 'overlays': overlays.map((o) => o.toJson()).toList(),
+        if (luts.isNotEmpty) 'luts': luts,
+        if (media.isNotEmpty) 'media': media,
+        if (converted) 'converted': true,
       };
 }
 

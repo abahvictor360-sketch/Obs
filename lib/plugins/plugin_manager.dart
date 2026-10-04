@@ -113,6 +113,9 @@ const ndiBuiltin = BuiltinPlugin(
 
 const kBuiltinPlugins = [ndiBuiltin];
 
+/// Browser source URLs of plugin pages: `obspad-plugin://<plugin id>/<page>`.
+const kPluginUrlScheme = 'obspad-plugin://';
+
 const kDefaultCatalogUrl = 'https://raw.githubusercontent.com/abahvictor360-sketch/Obs/HEAD/plugins/catalog.json';
 
 /// Owns installed plugins, which are enabled, their sandboxes and the frames
@@ -201,6 +204,44 @@ class PluginManager extends ChangeNotifier {
           if (isEnabled(p.manifest.id))
             for (final s in p.manifest.sources) (p, s),
       ];
+
+  /// Web overlays of enabled plugins (added as Browser sources).
+  List<(PluginEntry, PluginOverlay)> get overlays => [
+        for (final p in plugins)
+          if (isEnabled(p.manifest.id))
+            for (final o in p.manifest.overlays) (p, o),
+      ];
+
+  /// LUT files of enabled plugins: (plugin, file name, absolute path).
+  List<(PluginEntry, String, String)> get luts => [
+        for (final p in plugins)
+          if (isEnabled(p.manifest.id))
+            for (final l in p.manifest.luts) (p, l.split('/').last, '${p.directory}/$l'),
+      ];
+
+  /// Images and videos of enabled plugins: (plugin, file name, absolute path).
+  List<(PluginEntry, String, String)> get media => [
+        for (final p in plugins)
+          if (isEnabled(p.manifest.id))
+            for (final m in p.manifest.media) (p, m.split('/').last, '${p.directory}/$m'),
+      ];
+
+  /// The Browser source URL of a plugin page. Kept relative to the plugin
+  /// (the app's folder can move between updates); see [resolveUrl].
+  static String pageUrl(String pluginId, String page) => '$kPluginUrlScheme$pluginId/$page';
+
+  /// The file a plugin page URL points to; other URLs are returned as is.
+  /// '' if the plugin isn't installed or is turned off.
+  String resolveUrl(String url) {
+    if (!url.startsWith(kPluginUrlScheme)) return url;
+    final rest = url.substring(kPluginUrlScheme.length);
+    final slash = rest.indexOf('/');
+    if (slash <= 0) return '';
+    final p = plugin(rest.substring(0, slash));
+    final page = rest.substring(slash + 1);
+    if (p == null || !isEnabled(p.manifest.id) || page.split('/').contains('..')) return '';
+    return '${p.directory}/$page';
+  }
 
   // ---------------------------------------------------------------------------
   // Install / update / remove
