@@ -160,12 +160,38 @@ class NetworkVideoService extends ChangeNotifier {
         ..state = FeedState.live
         ..width = c.value.size.width.round()
         ..height = c.value.size.height.round();
+      // A live stream that errors or ends (camera off, Wi-Fi drop) is
+      // reopened, like the MJPEG path does.
+      void watch() {
+        final v = c.value;
+        if (f._closed || f.player != c || f.state != FeedState.live) return;
+        if (v.hasError || v.isCompleted) {
+          c.removeListener(watch);
+          _retryPlayer(f, c);
+        }
+      }
+
+      c.addListener(watch);
     } catch (e) {
       f
         ..state = FeedState.error
         ..error = _friendly(e);
+      _retryPlayer(f, c, after: const Duration(seconds: 5));
     }
     notifyListeners();
+  }
+
+  void _retryPlayer(NetworkFeed f, VideoPlayerController c, {Duration after = const Duration(seconds: 2)}) {
+    if (f._closed) return;
+    if (f.state == FeedState.live) f.state = FeedState.retrying;
+    notifyListeners();
+    f._retry?.cancel();
+    f._retry = Timer(after, () async {
+      if (f._closed || f.player != c) return;
+      f.player = null;
+      await c.dispose();
+      if (!f._closed) await _openPlayer(f);
+    });
   }
 
   void _close(String id) {

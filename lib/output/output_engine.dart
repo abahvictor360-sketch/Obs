@@ -701,8 +701,13 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
     bool isLive(int from, int to) {
       for (final it in scene.items.sublist(from, to)) {
         if (!it.visible) continue;
-        final type = studio.sourceById(it.sourceId)?.type;
-        if (type == SourceType.camera || type == SourceType.media) return true;
+        final src = studio.sourceById(it.sourceId);
+        if (src == null) continue;
+        // Anything that moves: cameras, video, capture cards, network
+        // feeds, web pages, slide shows, plugins, scrolling text.
+        const still = {SourceType.text, SourceType.color, SourceType.image};
+        if (!still.contains(src.type)) return true;
+        if (src.filters.any((f) => f.enabled && f.kind == FilterKind.scroll)) return true;
       }
       return false;
     }

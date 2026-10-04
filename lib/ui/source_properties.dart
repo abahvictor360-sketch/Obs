@@ -53,7 +53,14 @@ Future<bool> showSourceProperties(BuildContext context, String itemId, {int init
 Future<void> showSourceFilters(BuildContext context, String itemId) async {
   final studio = AppScope.of(context).studio;
   final item = studio.itemById(itemId);
-  final source = item == null ? null : studio.sourceById(item.sourceId);
+  if (item == null) {
+    // The item is in another scene (e.g. from the mixer): open the Filters
+    // window for its source instead of doing nothing.
+    final other = studio.scenes.expand((s) => s.items).where((i) => i.id == itemId).firstOrNull;
+    if (other != null) await showFiltersWindow(context, sourceId: other.sourceId);
+    return;
+  }
+  final source = studio.sourceById(item.sourceId);
   if (source == null) return;
   await showSourceProperties(context, itemId, initialTab: source.type.isVisual ? 2 : 1);
 }
@@ -302,7 +309,7 @@ class _SourceSettingsTab extends StatelessWidget {
             min: 12,
             max: 400,
             format: (v) => v.round().toString(),
-            onChanged: (v) => set('fontSize', v),
+            onChanged: (v) => studio.setTextFontSize(source.id, v),
           ),
           Wrap(spacing: 8, children: [
             FilterChip(

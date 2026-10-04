@@ -76,7 +76,15 @@ class CameraService extends ChangeNotifier {
   String? errorFor(String lens) => errors[lens] ?? errors['*'];
 
   /// Ensures exactly the cameras in [lenses] are open with these options.
+  /// Lenses wanted at the last [sync].
+  Set<String> _wanted = {};
+
+  /// When a lens last failed to open: retried after a pause, not on every
+  /// redraw (dragging an item notifies every frame).
+  final Map<String, DateTime> _failedAt = {};
+
   Future<void> sync(Map<String, CameraOptions> lenses) async {
+    _wanted = lenses.keys.toSet();
     for (final lens in _controllers.keys.toList()) {
       final want = lenses[lens];
       // Resolution can only be chosen when opening.
@@ -91,6 +99,8 @@ class CameraService extends ChangeNotifier {
       if (_controllers.containsKey(e.key)) {
         unawaited(_apply(e.key, e.value));
       } else {
+        final failed = _failedAt[e.key];
+        if (failed != null && DateTime.now().difference(failed) < const Duration(seconds: 5)) continue;
         unawaited(_open(e.key, e.value));
       }
     }
@@ -112,10 +122,13 @@ class CameraService extends ChangeNotifier {
       }
       final c = CameraController(desc, options.preset, enableAudio: false);
       await c.initialize();
-      if (_disposed) {
+      // Closed meanwhile (source hidden, Cancel in Add Source): don't leave
+      // the camera (and its light) on.
+      if (_disposed || !_wanted.contains(lens)) {
         await c.dispose();
         return;
       }
+      _failedAt.remove(lens);
       _controllers[lens] = c;
       _applied[lens] = CameraOptions(resolution: options.resolution);
       errors.remove(lens);
@@ -133,6 +146,7 @@ class CameraService extends ChangeNotifier {
       await _apply(lens, options);
     } catch (e) {
       errors[lens] = e is CameraException ? (e.description ?? e.code) : '$e';
+      _failedAt[lens] = DateTime.now();
     } finally {
       _opening.remove(lens);
       if (!_disposed) notifyListeners();
@@ -198,6 +212,7 @@ class MediaService extends ChangeNotifier {
       final s = wanted[id];
       if (s == null || s.settings['path'] != _players[id]!.$1) {
         final p = _players.remove(id)!;
+        _wasLive.remove(id);
         await p.$2.dispose();
       }
     }
@@ -214,7 +229,7 @@ class MediaService extends ChangeNotifier {
       ctl.initialize().then((_) {
         if (_disposed) return;
         _applySettings(s, ctl);
-        ctl.play();
+        if (_isLive(s.id)) ctl.play();
         errors.remove(s.id);
         notifyListeners();
       }).catchError((Object e) {
@@ -224,9 +239,31 @@ class MediaService extends ChangeNotifier {
     }
   }
 
+  bool _isLive(String id) => _live?.contains(id) ?? true;
+
+  /// Sources that were on Program at the last sync.
+  final Set<String> _wasLive = {};
+
   void _applySettings(Source s, VideoPlayerController c) {
     c.setLooping(s.settings['loop'] as bool? ?? true);
-    final muted = s.muted || (s.settings['muted'] as bool? ?? false) || !(_live?.contains(s.id) ?? true);
+    final live = _isLive(s.id);
+    if (c.value.isInitialized) {
+      if (live && !_wasLive.contains(s.id)) {
+        // Like OBS's "Restart playback when source becomes active": a clip
+        // waiting in Preview starts from the beginning when it goes live.
+        c.seekTo(Duration.zero);
+        c.play();
+      } else if (!live && _wasLive.contains(s.id)) {
+        c.pause();
+        c.seekTo(Duration.zero); // Preview shows the first frame
+      }
+    }
+    if (live) {
+      _wasLive.add(s.id);
+    } else {
+      _wasLive.remove(s.id);
+    }
+    final muted = s.muted || (s.settings['muted'] as bool? ?? false) || !live;
     c.setVolume(muted ? 0 : (s.volume * s.filterGain).clamp(0.0, 1.0));
   }
 

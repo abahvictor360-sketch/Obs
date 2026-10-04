@@ -173,7 +173,15 @@ class _QuickSettingState extends State<_QuickSetting> {
       SourceType.text => Row(children: [label('Text'), field(editable: true, hint: 'Type the text')]),
       SourceType.browser => Row(children: [
           label('URL'),
-          field(editable: true, hint: 'https://…', onSubmitted: (v) => set(v.trim())),
+          field(
+            editable: true,
+            hint: 'https://…',
+            onSubmitted: (v) {
+              final url = BrowserDockConfig.normalizeUrl(v);
+              _text.text = url;
+              set(url);
+            },
+          ),
         ]),
       SourceType.color => Row(children: [
           label('Color'),

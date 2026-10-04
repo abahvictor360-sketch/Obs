@@ -216,4 +216,28 @@ void main() {
     c.setItemVisible(item.id, false);
     expect(c.programScene.items.firstWhere((i) => i.id == item.id).visible, isFalse);
   });
+  test('Studio Mode: removing a source in Preview keeps it live until Transition', () {
+    final c = StudioController(storage: MemoryStorage())..setStudioMode(true);
+    final added = c.addNewSource(SourceType.color, name: 'Backdrop');
+    c.transitionToProgram(); // now live
+    expect(c.programScene.items.any((i) => i.id == added.id), isTrue);
+    c.removeItem(added.id);
+    expect(c.sourceById(added.sourceId), isNotNull, reason: 'still on Program');
+    expect(c.activeSources.any((s) => s.id == added.sourceId), isTrue);
+    c.transitionToProgram();
+    expect(c.sourceById(added.sourceId), isNull, reason: 'gone once nothing uses it');
+    c.dispose();
+  });
+
+  test('Text font size resizes the text box around its centre', () {
+    final c = StudioController(storage: MemoryStorage());
+    final text = c.sources.firstWhere((s) => s.type == SourceType.text);
+    final item = c.scenes.expand((s) => s.items).firstWhere((i) => i.sourceId == text.id);
+    final before = (item.transform.width, item.transform.x + item.transform.width / 2);
+    final old = (text.settings['fontSize'] as num?)?.toDouble() ?? 96;
+    c.setTextFontSize(text.id, old * 2);
+    expect(item.transform.width, closeTo(before.$1 * 2, 0.001));
+    expect(item.transform.x + item.transform.width / 2, closeTo(before.$2, 0.001));
+    expect(text.settings['fontSize'], old * 2);
+  });
 }

@@ -450,9 +450,12 @@ class _MixerChannel extends StatelessWidget {
   Widget build(BuildContext context) {
     final scope = AppScope.of(context);
     final studio = scope.studio;
-    final isMic = source.type == SourceType.audioInput;
+    // OBSpad records one microphone: the first Mic/Aux source.
+    final primaryMic = studio.sources.where((s) => s.type == SourceType.audioInput).firstOrNull;
+    final extraMic = source.type == SourceType.audioInput && primaryMic?.id != source.id;
+    final isMic = source.type == SourceType.audioInput && !extraMic;
     final level = switch (source.type) {
-      SourceType.audioInput => scope.output.micLevel,
+      SourceType.audioInput => extraMic ? null : scope.output.micLevel,
       // Video sources: what the tablet plays, while this video is playing.
       SourceType.media =>
         scope.media.controllerFor(source.id)?.value.isPlaying ?? false ? scope.output.outputLevel : null,
@@ -474,6 +477,13 @@ class _MixerChannel extends StatelessWidget {
             ),
           ]),
           if (isMic) _InputDeviceRow(source: source),
+          if (extraMic)
+            Text(
+              'Not captured: OBSpad records one microphone (${primaryMic?.name}). '
+              'Choose which input it uses there, or remove this source.',
+              key: ValueKey('extra-mic-${source.id}'),
+              style: const TextStyle(color: ObsColors.warn, fontSize: 12),
+            ),
           if (source.type == SourceType.audioOutput)
             const Text('Desktop audio (other apps)', style: TextStyle(color: ObsColors.textDim, fontSize: 12)),
           const SizedBox(height: 4),

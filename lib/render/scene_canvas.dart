@@ -86,8 +86,9 @@ class SceneItemView extends StatelessWidget {
 
     // Crop: show only the inner part of the source, scaled to the box.
     if (t.cropLeft > 0 || t.cropTop > 0 || t.cropRight > 0 || t.cropBottom > 0) {
-      final fx = math.max(0.01, 1 - t.cropLeft - t.cropRight);
-      final fy = math.max(0.01, 1 - t.cropTop - t.cropBottom);
+      // Never crop away more than 90% of a side pair.
+      final fx = math.max(0.1, 1 - t.cropLeft - t.cropRight);
+      final fy = math.max(0.1, 1 - t.cropTop - t.cropBottom);
       final fullW = t.width / fx, fullH = t.height / fy;
       child = ClipRect(
         child: OverflowBox(

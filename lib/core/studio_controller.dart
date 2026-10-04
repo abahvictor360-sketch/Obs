@@ -37,7 +37,7 @@ class StudioController extends ChangeNotifier {
   /// being inspected. Unique, bottom-most first.
   List<Source> get activeSources {
     final out = <String, Source>{};
-    for (final scene in {programScene, previewScene}) {
+    for (final scene in {programScene, previewScene, ?_outgoing}) {
       for (final item in scene.items) {
         if (!item.visible) continue;
         final s = sourceById(item.sourceId);
@@ -204,10 +204,12 @@ class StudioController extends ChangeNotifier {
       collection.previewSceneId = sceneId;
     } else {
       if (collection.programSceneId != sceneId) {
+        final outgoing = programScene;
         collection.programSceneId = sceneId;
         collection.previewSceneId = sceneId;
         _active = null;
         transitionSerial++;
+        _holdOutgoing(outgoing);
       }
     }
     _changed();
@@ -263,6 +265,7 @@ class StudioController extends ChangeNotifier {
   /// transition; otherwise the selected transition is used.
   void transitionToProgram({QuickTransition? using}) {
     if (!canTransition) return;
+    final outgoing = programScene;
     final oldProgram = collection.programSceneId;
     if (oldProgram == collection.previewSceneId) {
       // Same scene: send the Preview's edits live; Preview keeps the scene.
@@ -276,7 +279,27 @@ class StudioController extends ChangeNotifier {
     _active = using;
     tBar = 0;
     transitionSerial++;
+    _holdOutgoing(outgoing);
+    _pruneOrphans();
     _changed();
+  }
+
+  /// The scene leaving program during a transition keeps its sources running
+  /// (cameras, videos, pages) until the transition has finished drawing it.
+  Scene? _outgoing;
+  Timer? _outgoingTimer;
+
+  void _holdOutgoing(Scene? scene) {
+    _outgoingTimer?.cancel();
+    if (scene == null || activeTransition == TransitionType.cut) {
+      _outgoing = null;
+      return;
+    }
+    _outgoing = scene;
+    _outgoingTimer = Timer(Duration(milliseconds: activeTransitionMs + 150), () {
+      _outgoing = null;
+      notifyListeners();
+    });
   }
 
   /// Studio mode T-bar position (0 = program, 1 = preview fully in). Not
@@ -462,6 +485,29 @@ class StudioController extends ChangeNotifier {
     _changed();
   }
 
+  /// Text font size: the text is drawn to fill its box, so the box grows or
+  /// shrinks with the size (keeping its centre), like OBS's text source.
+  void setTextFontSize(String sourceId, double size) {
+    final src = sourceById(sourceId);
+    if (src == null) return;
+    final old = (src.settings['fontSize'] as num?)?.toDouble() ?? 96;
+    src.settings['fontSize'] = size;
+    if (old > 0 && size > 0) {
+      final k = size / old;
+      for (final scene in collection.scenes) {
+        for (final it in scene.items.where((i) => i.sourceId == sourceId)) {
+          final t = it.transform;
+          final cx = t.x + t.width / 2, cy = t.y + t.height / 2;
+          t.width *= k;
+          t.height *= k;
+          t.x = cx - t.width / 2;
+          t.y = cy - t.height / 2;
+        }
+      }
+    }
+    _changed();
+  }
+
   void updateSourceSettings(String sourceId, Map<String, dynamic> values) {
     final s = sourceById(sourceId);
     if (s == null) return;
@@ -475,16 +521,22 @@ class StudioController extends ChangeNotifier {
     final scene = editingScene;
     final idx = scene.items.indexWhere((i) => i.id == itemId);
     if (idx < 0) return;
-    final item = scene.items.removeAt(idx);
+    scene.items.removeAt(idx);
     if (selectedItemId == itemId) selectedItemId = null;
-    if (usageCount(item.sourceId) == 0) {
-      final src = sourceById(item.sourceId);
-      // Audio input sources live in the mixer even without scene items.
-      if (src != null && src.type != SourceType.audioInput) {
-        collection.sources.remove(src);
-      }
-    }
+    _pruneOrphans();
     _changed();
+  }
+
+  /// Deletes sources no scene uses any more. Sources still live in the
+  /// Studio Mode program copy wait until the next Transition, so removing
+  /// an item in Preview doesn't take it off air early. Audio input sources
+  /// live in the mixer even without scene items.
+  void _pruneOrphans() {
+    final live = studioMode ? _programSnapshot : null;
+    collection.sources.removeWhere((src) =>
+        src.type != SourceType.audioInput &&
+        usageCount(src.id) == 0 &&
+        !(live?.items.any((i) => i.sourceId == src.id) ?? false));
   }
 
   /// Deletes a source everywhere (all scenes).
@@ -726,6 +778,8 @@ class StudioController extends ChangeNotifier {
   void replaceCollection(SceneCollection c) {
     collection = c;
     selectedItemId = null;
+    inspectedSourceId = null;
+    _programSnapshot = null; // the new program, not the old copy
     transitionSerial++;
     _changed();
   }
@@ -767,6 +821,7 @@ class StudioController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _outgoingTimer?.cancel();
     if (_saveTimer != null) {
       save();
     }
