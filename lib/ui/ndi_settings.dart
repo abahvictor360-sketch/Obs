@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../app_scope.dart';
 import '../plugins/plugin_manager.dart';
+import 'about.dart';
 import 'theme.dart';
 
 /// Settings and live status for the built-in NDI Output plugin.
@@ -94,8 +95,19 @@ class _NdiSettingsPanelState extends State<NdiSettingsPanel> {
               const Text(
                 'Receivers see it as "DEVICE (name)". Program video and audio are sent while the app is '
                 'open; while a Screen Capture source is live, NDI keeps the last frame. '
-                'NDI® is a registered trademark of Vizrt NDI AB (ndi.video).',
+                'NDI® is a registered trademark of Vizrt NDI AB.',
                 style: TextStyle(color: ObsColors.textDim, fontSize: 12),
+              ),
+              // The NDI SDK license asks for a link to ndi.video wherever NDI is used.
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  key: const ValueKey('ndi-link'),
+                  style: TextButton.styleFrom(padding: EdgeInsets.zero),
+                  icon: const Icon(Icons.open_in_new, size: 16),
+                  label: const Text('ndi.video'),
+                  onPressed: () => openWebsite('ndi.video'),
+                ),
               ),
             ],
           ),
