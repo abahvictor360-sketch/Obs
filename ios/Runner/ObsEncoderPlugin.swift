@@ -103,6 +103,9 @@ final class ObsEncoderPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
             audio?.gain = micGain
             meter?.gain = micGain
             result(nil)
+        case "setOutputMetering":
+            // iOS doesn't let apps measure what the system plays.
+            result(nil)
         case "setMetering":
             meterWanted = args["enabled"] as? Bool ?? false
             updateMeter()

@@ -132,6 +132,11 @@ abstract class EncoderBackend {
   /// Nothing is encoded; the encoder takes over while it runs.
   Future<void> setMetering(bool enabled);
 
+  /// Level of the sound the tablet plays (video sources, other apps), where
+  /// the platform allows measuring it (Android).
+  Future<void> setOutputMetering(bool enabled);
+  Stream<AudioLevel> get outputLevels;
+
   /// Gain for other apps' audio captured along with the screen.
   Future<void> setScreenAudioGain(double gain);
 
@@ -175,6 +180,7 @@ class MethodChannelEncoder implements EncoderBackend {
   StreamSubscription<dynamic>? _sub;
   final _packets = StreamController<EncodedPacket>.broadcast(sync: true);
   final _levels = StreamController<AudioLevel>.broadcast();
+  final _outputLevels = StreamController<AudioLevel>.broadcast();
   final _errors = StreamController<String>.broadcast();
   final _screen = StreamController<ScreenCaptureState>.broadcast();
   final _pcm = StreamController<PcmChunk>.broadcast(sync: true);
@@ -204,7 +210,8 @@ class MethodChannelEncoder implements EncoderBackend {
           data: e['data'] as Uint8List,
         ));
       case 'level':
-        _levels.add(AudioLevel((e['rms'] as num).toDouble(), (e['peak'] as num).toDouble()));
+        final l = AudioLevel((e['rms'] as num).toDouble(), (e['peak'] as num).toDouble());
+        (e['source'] == 'output' ? _outputLevels : _levels).add(l);
       case 'error':
         _errors.add('${e['message']}');
       case 'pcm':
@@ -263,6 +270,11 @@ class MethodChannelEncoder implements EncoderBackend {
 
   @override
   Future<void> setMetering(bool enabled) => _method.invokeMethod('setMetering', {'enabled': enabled});
+
+  @override
+  Future<void> setOutputMetering(bool enabled) => _method.invokeMethod('setOutputMetering', {'enabled': enabled});
+  @override
+  Stream<AudioLevel> get outputLevels => _outputLevels.stream;
 
   @override
   Future<void> setPcmTap(bool enabled) => _method.invokeMethod('setPcmTap', {'enabled': enabled});

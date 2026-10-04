@@ -442,7 +442,15 @@ class _MixerChannel extends StatelessWidget {
     final scope = AppScope.of(context);
     final studio = scope.studio;
     final isMic = source.type == SourceType.audioInput;
-    final level = isMic ? scope.output.micLevel : null;
+    final level = switch (source.type) {
+      SourceType.audioInput => scope.output.micLevel,
+      // Video sources: what the tablet plays, while this video is playing.
+      SourceType.media =>
+        scope.media.controllerFor(source.id)?.value.isPlaying ?? false ? scope.output.outputLevel : null,
+      SourceType.audioOutput => scope.output.outputLevel,
+      SourceType.screen => scope.output.screenState.active ? scope.output.outputLevel : null,
+      _ => null,
+    };
     final db = ampToDb(source.volume);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),

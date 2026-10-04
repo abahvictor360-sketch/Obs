@@ -35,6 +35,12 @@ class FakeEncoder implements EncoderBackend {
   final metering = <bool>[];
   @override
   Future<void> setMetering(bool enabled) async => metering.add(enabled);
+  final outputCtl = StreamController<AudioLevel>.broadcast(sync: true);
+  final outputMetering = <bool>[];
+  @override
+  Future<void> setOutputMetering(bool enabled) async => outputMetering.add(enabled);
+  @override
+  Stream<AudioLevel> get outputLevels => outputCtl.stream;
   @override
   Stream<String> get errors => const Stream.empty();
   @override
@@ -285,6 +291,17 @@ void main() {
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     await tester.pump();
     expect(enc.metering.last, isTrue);
+
+    // Desktop audio / video sources: the meter follows what the tablet plays.
+    final had = studio.collection.sources.any((s) =>
+        s.type == SourceType.media || s.type == SourceType.audioOutput || s.type == SourceType.screen);
+    if (!had) expect(enc.outputMetering, isEmpty);
+    studio.addNewSource(SourceType.audioOutput);
+    await tester.pump();
+    expect(enc.outputMetering.last, isTrue);
+    enc.outputCtl.add(const AudioLevel(0.2, 0.5));
+    await tester.pump();
+    expect(output.outputLevel.peak, 0.5);
     await tester.pump(const Duration(seconds: 3));
   });
 

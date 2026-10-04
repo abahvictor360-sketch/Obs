@@ -19,10 +19,11 @@ import io.flutter.plugin.common.MethodChannel
  *   isSupported, start(config), stop, frame(data,width,height), requestKeyframe,
  *   setMicGain(gain), startRecording -> path, stopRecording -> path,
  *   setMetering(enabled): mic levels while no output runs
+ *   setOutputMetering(enabled): level of what the tablet plays
  *
  * Events (channel "obs_tablet/encoder_events"), all maps with a "type":
  *   packet {kind: video|audio, config, key, pts (us), data}
- *   level  {rms, peak}
+ *   level  {rms, peak, source: mic|output}
  *   error  {message}
  */
 class ObsEncoderPlugin(private val activity: Activity, messenger: BinaryMessenger) :
@@ -40,6 +41,8 @@ class ObsEncoderPlugin(private val activity: Activity, messenger: BinaryMessenge
     private var meter: MicMeter? = null
     private var meterWanted = false
     private var meterAsked = false
+    private var outputMeter: OutputMeter? = null
+    private var outputMeterWanted = false
 
     @Volatile private var appAudioGain = 1.0f
     @Volatile private var pcmTapEnabled = false
@@ -120,6 +123,11 @@ class ObsEncoderPlugin(private val activity: Activity, messenger: BinaryMessenge
                 "setMetering" -> {
                     meterWanted = call.argument<Boolean>("enabled") ?: false
                     updateMeter()
+                    result.success(null)
+                }
+                "setOutputMetering" -> {
+                    outputMeterWanted = call.argument<Boolean>("enabled") ?: false
+                    updateOutputMeter()
                     result.success(null)
                 }
                 "setScreenAudioGain" -> {
@@ -253,6 +261,7 @@ class ObsEncoderPlugin(private val activity: Activity, messenger: BinaryMessenge
         pendingAudio = null
         if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
             if (video != null) start?.invoke() else updateMeter()
+            updateOutputMeter()
         } else if (start != null) {
             emitError("Microphone permission denied: streaming without audio")
         }
@@ -283,6 +292,24 @@ class ObsEncoderPlugin(private val activity: Activity, messenger: BinaryMessenge
             it.gain = micGain
             it.start()
         }
+    }
+
+    /** The Visualizer needs the microphone permission too. */
+    private fun updateOutputMeter() {
+        if (outputMeterWanted && !micGranted() && !meterAsked) {
+            meterAsked = true
+            activity.requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), MIC_REQUEST)
+        }
+        if (!outputMeterWanted || !micGranted()) {
+            outputMeter?.stop()
+            outputMeter = null
+            return
+        }
+        if (outputMeter != null) return
+        val m = OutputMeter { rms, peak ->
+            emit(mapOf("type" to "level", "source" to "output", "rms" to rms.toDouble(), "peak" to peak.toDouble()))
+        }
+        if (m.start()) outputMeter = m
     }
 
     private fun stopMeter() {
@@ -322,6 +349,8 @@ class ObsEncoderPlugin(private val activity: Activity, messenger: BinaryMessenge
     fun dispose() {
         stop()
         stopMeter()
+        outputMeter?.stop()
+        outputMeter = null
         ScreenCapture.stateListener = null
         setNdiNetworking(false)
         ScreenCapture.stop(activity)

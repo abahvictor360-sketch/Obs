@@ -70,6 +70,9 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
   int laggedFrames = 0;
   double outputFps = 0;
   AudioLevel micLevel = const AudioLevel(0, 0);
+
+  /// What the tablet is playing: video sources and other apps (Android).
+  AudioLevel outputLevel = const AudioLevel(0, 0);
   int reconnectAttempt = 0;
 
   bool? _supported;
@@ -83,6 +86,7 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
   bool _capturing = false;
   StreamSubscription<EncodedPacket>? _packetSub;
   StreamSubscription<AudioLevel>? _levelSub;
+  StreamSubscription<AudioLevel>? _outputLevelSub;
   StreamSubscription<String>? _errorSub;
   StreamSubscription<ScreenCaptureState>? _screenSub;
 
@@ -103,6 +107,7 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
   int _framesThisSecond = 0;
   double _lastMicGain = -1;
   bool _metering = false;
+  bool _outputMetering = false;
   double _lastScreenGain = -1;
 
   /// Called with every program frame sent to the encoder (RGBA), so the
@@ -129,6 +134,10 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
     _supported = await backend.isSupported() && sinksSupported;
     _levelSub = backend.levels.listen((l) {
       micLevel = l;
+      notifyListeners();
+    });
+    _outputLevelSub = backend.outputLevels.listen((l) {
+      outputLevel = l;
       notifyListeners();
     });
     _errorSub = backend.errors.listen((e) {
@@ -159,9 +168,17 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
   /// Keeps the Mic/Aux meter live (like OBS) whenever the app is in front and
   /// the collection has a microphone, not only while streaming or recording.
   void _updateMetering() {
-    final want = encoderSupported &&
+    final types = {for (final s in studio.collection.sources) s.type};
+    final wantOut = encoderSupported &&
         _appResumed &&
-        studio.collection.sources.any((s) => s.type == SourceType.audioInput);
+        (types.contains(SourceType.media) || types.contains(SourceType.audioOutput) || types.contains(SourceType.screen));
+    if (wantOut != _outputMetering) {
+      _outputMetering = wantOut;
+      if (!wantOut) outputLevel = const AudioLevel(0, 0);
+      backend.setOutputMetering(wantOut).catchError((_) {});
+    }
+
+    final want = encoderSupported && _appResumed && types.contains(SourceType.audioInput);
     if (want == _metering) return;
     _metering = want;
     if (!want && !_encoderRunning) {
@@ -671,6 +688,7 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
     _statsTimer?.cancel();
     _packetSub?.cancel();
     _levelSub?.cancel();
+    _outputLevelSub?.cancel();
     _errorSub?.cancel();
     _screenSub?.cancel();
     _pcmSub?.cancel();
