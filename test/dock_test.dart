@@ -258,4 +258,58 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 3));
   });
+  testWidgets('View › Multiview (Fullscreen): pick the screen it goes to', (tester) async {
+    tester.view.physicalSize = const Size(1366, 1024);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    dock = {
+      ...dock,
+      'displays': [screen, tv],
+    };
+    final studio = StudioController(storage: MemoryStorage());
+    final output = OutputEngine(studio: studio, backend: FakeEncoder());
+    await output.init();
+    final devices = DeviceService();
+    await tester.runAsync(devices.init);
+    final tracker = DeviceActivityTracker(studio, devices);
+    await tester.pumpWidget(ObsTabletApp(
+      studio: studio,
+      output: output,
+      cameras: CameraService(),
+      media: MediaService(),
+      plugins: PluginManager(createPlatformPluginBackend()),
+      devices: devices,
+      networkVideo: NetworkVideoService(),
+    ));
+    await tester.pump();
+
+    await tester.tap(find.text('View'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('menu-multiview')));
+    await tester.pumpAndSettle();
+    expect(find.text('HDMI  1920×1080'), findsOneWidget);
+    expect(find.text('Living room TV  3840×2160'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('menu-multiview-7')));
+    await tester.runAsync(pumpEventQueue);
+    await tester.pumpAndSettle();
+    expect(studio.settings.externalDisplay, 'multiview');
+    expect(studio.settings.externalDisplayId, '7');
+    expect(calls.lastWhere((c) => c.method == 'setDisplayMode').arguments, {'mode': 'multiview', 'displayId': '7'});
+
+    // The Program projector can go to the other screen the same way.
+    await tester.tap(find.text('View'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('menu-projector')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('menu-projector-tablet')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('menu-program-2')));
+    await tester.runAsync(pumpEventQueue);
+    await tester.pumpAndSettle();
+    expect((studio.settings.externalDisplay, studio.settings.externalDisplayId), ('program', '2'));
+    expect(tester.takeException(), isNull);
+
+    tracker.dispose();
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 3));
+  });
 }

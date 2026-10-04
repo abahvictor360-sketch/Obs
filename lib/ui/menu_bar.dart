@@ -14,6 +14,7 @@ import 'dock_panel.dart';
 import 'docks.dart';
 import 'browser_dock.dart';
 import 'exit.dart';
+import 'projector_menu.dart';
 import 'update_prompt.dart';
 import 'item_menu.dart';
 import 'plugins_screen.dart';
@@ -40,6 +41,33 @@ class ObsMenuBar extends StatelessWidget {
           onPressed: onPressed,
           child: Text(label),
         );
+
+    final devices = scope.devices;
+
+    /// One entry per connected screen; the one showing [mode] is checked.
+    List<Widget> screenItems(String mode) {
+      final screens = devices.dock.displays;
+      if (screens.isEmpty) {
+        return [
+          item('No screen connected', null, icon: Icons.desktop_access_disabled_outlined),
+        ];
+      }
+      final current = devices.dock.display;
+      return [
+        for (final d in screens)
+          MenuItemButton(
+            key: ValueKey('menu-$mode-${d.id}'),
+            leadingIcon: Icon(
+              current?.id == d.id && current!.presenting && studio.settings.externalDisplay == mode
+                  ? Icons.check
+                  : Icons.desktop_windows_outlined,
+              size: 18,
+            ),
+            onPressed: () => sendToScreen(studio, d, mode),
+            child: Text('${d.name}  ${d.width}×${d.height}'),
+          ),
+      ];
+    }
 
     final selected = studio.selectedItemId;
     final selectedItem = selected == null ? null : studio.editingScene.items.where((i) => i.id == selected).firstOrNull;
@@ -96,21 +124,28 @@ class ObsMenuBar extends StatelessWidget {
               child: const Text('Studio Mode'),
             ),
             const Divider(height: 1),
-            const Padding(
-              padding: EdgeInsets.fromLTRB(12, 8, 12, 4),
-              child: Text('Connected screen', style: TextStyle(fontSize: 12, color: ObsColors.textDim)),
+            // Like OBS: pick the screen for the Multiview or the Program.
+            SubmenuButton(
+              key: const ValueKey('menu-multiview'),
+              leadingIcon: const Icon(Icons.grid_view, size: 18),
+              menuChildren: screenItems('multiview'),
+              child: const Text('Multiview (Fullscreen)'),
             ),
-            for (final (mode, label) in const [
-              ('program', 'Program (fullscreen projector)'),
-              ('multiview', 'Multiview'),
-              ('mirror', 'Mirror tablet'),
-            ])
-              RadioMenuButton<String>(
-                value: mode,
-                groupValue: studio.settings.externalDisplay,
-                onChanged: (v) => studio.updateSettings((s) => s.externalDisplay = v ?? 'program'),
-                child: Text(label),
-              ),
+            SubmenuButton(
+              key: const ValueKey('menu-projector'),
+              leadingIcon: const Icon(Icons.fullscreen, size: 18),
+              menuChildren: [
+                item('This tablet', () => openProjector(context),
+                    icon: Icons.tablet_android, key: const ValueKey('menu-projector-tablet')),
+                const Divider(height: 1),
+                ...screenItems('program'),
+              ],
+              child: const Text('Fullscreen Projector (Program)'),
+            ),
+            if (devices.dock.display?.presenting ?? false)
+              item('Stop projecting (mirror the tablet)',
+                  () => studio.updateSettings((s) => s.externalDisplay = 'mirror'),
+                  icon: Icons.cancel_presentation_outlined, key: const ValueKey('menu-projector-stop')),
           ],
           child: const Text('View'),
         ),

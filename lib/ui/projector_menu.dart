@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../app_scope.dart';
+import '../core/studio_controller.dart';
 import '../devices/device_service.dart';
 import '../render/program_view.dart';
 import 'theme.dart';
@@ -42,10 +43,7 @@ Future<void> showProjectorMenu(BuildContext context, Offset globalPosition) asyn
         ]),
       );
 
-  void sendTo(ExternalDisplayInfo d, String m) => studio.updateSettings((s) {
-        s.externalDisplay = m;
-        s.externalDisplayId = d.id.isEmpty ? null : d.id;
-      });
+  void sendTo(ExternalDisplayInfo d, String m) => sendToScreen(studio, d, m);
 
   final action = await showMenu<VoidCallback>(
     context: context,
@@ -89,6 +87,12 @@ Future<void> showProjectorMenu(BuildContext context, Offset globalPosition) asyn
   );
   action?.call();
 }
+
+/// Shows [mode] ('program' or 'multiview') on connected screen [d].
+void sendToScreen(StudioController studio, ExternalDisplayInfo d, String mode) => studio.updateSettings((s) {
+      s.externalDisplay = mode;
+      s.externalDisplayId = d.id.isEmpty ? null : d.id;
+    });
 
 /// Fullscreen Projector on the tablet: just the program, edge to edge.
 /// Tap or press back to close.

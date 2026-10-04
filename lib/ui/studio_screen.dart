@@ -137,7 +137,7 @@ class _TopBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final scope = AppScope.of(context);
     return ListenableBuilder(
-      listenable: Listenable.merge([scope.studio, scope.output]),
+      listenable: Listenable.merge([scope.studio, scope.output, scope.devices]),
       builder: (context, _) {
         final out = scope.output;
         return Container(
