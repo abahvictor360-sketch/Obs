@@ -30,6 +30,7 @@
 		DB1C0C4DB2E42BD47938F13D /* ObsLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27A94EF8B8B0250453DD48C5 /* ObsLink.swift */; };
 		F5CD73901140942A6556A6C4 /* DevicesPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F3994C524C61B212FEB2328 /* DevicesPlugin.swift */; };
 		A1B2C3D4E5F60718293A4B5C /* MicMeter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2C3D4E5F60718293A4B5C6D /* MicMeter.swift */; };
+		C3D4E5F60718293A4B5C6D7E /* MicProcessing.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4E5F60718293A4B5C6D7E8F /* MicProcessing.swift */; };
 		FB6E60BA1271A635F91C2DBA /* AppEncoders.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3CA800AE7A7AA75484E7255 /* AppEncoders.swift */; };
 /* End PBXBuildFile section */
 
@@ -107,6 +108,7 @@
 		D2C73ECC8FBD178B881DF668 /* H264Encoder.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = H264Encoder.swift; sourceTree = "<group>"; };
 		E377E53D0271C5C714EE2A02 /* Extension.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = Extension.xcconfig; path = Flutter/Extension.xcconfig; sourceTree = "<group>"; };
 		B2C3D4E5F60718293A4B5C6D /* MicMeter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MicMeter.swift; sourceTree = "<group>"; };
+		D4E5F60718293A4B5C6D7E8F /* MicProcessing.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MicProcessing.swift; sourceTree = "<group>"; };
 		E3CA800AE7A7AA75484E7255 /* AppEncoders.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppEncoders.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -205,6 +207,7 @@
 				74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */,
 				1BEB53600C9C5DD1496F623F /* ObsEncoderPlugin.swift */,
 				B2C3D4E5F60718293A4B5C6D /* MicMeter.swift */,
+				D4E5F60718293A4B5C6D7E8F /* MicProcessing.swift */,
 				E3CA800AE7A7AA75484E7255 /* AppEncoders.swift */,
 				800D1F1F663B6F4BD1ABD7A3 /* Mp4Writer.swift */,
 				C44BA31EFAA83E8C474D036D /* ScreenReceiver.swift */,
@@ -419,6 +422,7 @@
 				7884E8682EC3CC0700C636F2 /* SceneDelegate.swift in Sources */,
 				5A40FDE02B43C07065B68830 /* ObsEncoderPlugin.swift in Sources */,
 				A1B2C3D4E5F60718293A4B5C /* MicMeter.swift in Sources */,
+				C3D4E5F60718293A4B5C6D7E /* MicProcessing.swift in Sources */,
 				FB6E60BA1271A635F91C2DBA /* AppEncoders.swift in Sources */,
 				2A458D18F3A4800D8ED93127 /* Mp4Writer.swift in Sources */,
 				9F48B887BCA3599EE60A0AC7 /* ScreenReceiver.swift in Sources */,

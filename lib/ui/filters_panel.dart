@@ -79,6 +79,7 @@ class _FiltersPanelState extends State<FiltersPanel> {
     final available = [
       if (source.type.isVisual) ...FilterKind.values.where((k) => !k.isAudio),
       if (source.type.hasAudio) FilterKind.gain,
+      if (source.type == SourceType.audioInput) ...FilterKind.values.where((k) => k.micOnly),
     ];
     final filters = source.filters;
     final selected = filters.where((f) => f.id == _selected).firstOrNull ?? filters.firstOrNull;
@@ -281,6 +282,8 @@ class _FilterSettings extends StatelessWidget {
     String pct(double v) => '${(v * 100).round()}%';
     String signed(double v) => '${v >= 0 ? '+' : ''}${(v * 100).round()}';
     String whole(double v) => '${v.round()}';
+    String db(double v) => '${v.toStringAsFixed(1)} dB';
+    String ms(double v) => '${v.round()} ms';
 
     Widget keyColor() => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           const Text('Key color', style: TextStyle(color: ObsColors.textDim)),
@@ -365,6 +368,31 @@ class _FilterSettings extends StatelessWidget {
           if (f.settings['shape'] != 'circle') slider('Corner radius', 'radius', 0, 0.5, pct, def: 0.1),
         ],
       FilterKind.gain => [slider('Gain', 'db', -30, 30, (v) => '${v >= 0 ? '+' : ''}${v.toStringAsFixed(1)} dB')],
+      FilterKind.noiseSuppression => [
+          const Text(
+            'Removes steady background noise (fans, hum, traffic) using the tablet\'s own noise reduction. '
+            'Add a Noise Gate after it to silence the mic between sentences.',
+            style: TextStyle(color: ObsColors.textDim, fontSize: 13),
+          ),
+        ],
+      FilterKind.noiseGate => [
+          slider('Close threshold', 'closeDb', -96, 0, db, def: -32),
+          slider('Open threshold', 'openDb', -96, 0, db, def: -26),
+          slider('Attack time', 'attackMs', 1, 500, ms, def: 25),
+          slider('Hold time', 'holdMs', 1, 2000, ms, def: 200),
+          slider('Release time', 'releaseMs', 1, 2000, ms, def: 150),
+        ],
+      FilterKind.compressor => [
+          slider('Ratio', 'ratio', 1, 32, (v) => '${v.toStringAsFixed(1)}:1', def: 10),
+          slider('Threshold', 'thresholdDb', -60, 0, db, def: -18),
+          slider('Attack', 'attackMs', 1, 500, ms, def: 6),
+          slider('Release', 'releaseMs', 1, 1000, ms, def: 60),
+          slider('Output gain', 'outputDb', -32, 32, db, def: 0),
+        ],
+      FilterKind.limiter => [
+          slider('Threshold', 'thresholdDb', -60, 0, db, def: -6),
+          slider('Release', 'releaseMs', 1, 1000, ms, def: 60),
+        ],
     };
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       ...children,

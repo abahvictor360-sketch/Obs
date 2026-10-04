@@ -8,6 +8,7 @@ import '../output/output_engine.dart';
 import 'add_source.dart';
 import 'dialogs.dart';
 import 'dock_layout.dart';
+import 'filters_panel.dart';
 import 'exit.dart';
 import 'item_menu.dart';
 import 'plugins_screen.dart';
@@ -485,16 +486,19 @@ class _MixerChannel extends StatelessWidget {
                   onChanged: (f) => studio.setVolume(source.id, faderToGain(f)),
                 ),
               ),
-              if (studio.itemsOf(source.id).firstOrNull case final it?)
-                IconButton(
-                  icon: Icon(
-                    Icons.auto_awesome_outlined,
-                    size: 20,
-                    color: source.filters.any((f) => f.enabled) ? ObsColors.accent : ObsColors.textDim,
-                  ),
-                  tooltip: 'Filters',
-                  onPressed: () => showSourceFilters(context, it.id),
+              if (isMic) _MicAdjustButton(source: source),
+              IconButton(
+                icon: Icon(
+                  Icons.auto_awesome_outlined,
+                  size: 20,
+                  color: source.filters.any((f) => f.enabled) ? ObsColors.accent : ObsColors.textDim,
                 ),
+                tooltip: 'Filters',
+                onPressed: () => switch (studio.itemsOf(source.id).firstOrNull) {
+                  final it? => showSourceFilters(context, it.id),
+                  null => showFiltersWindow(context, sourceId: source.id),
+                },
+              ),
               IconButton(
                 icon: Icon(source.muted ? Icons.volume_off : Icons.volume_up),
                 color: source.muted ? ObsColors.live : ObsColors.text,
@@ -505,6 +509,79 @@ class _MixerChannel extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Mic adjustments: one tap to switch the common voice filters on or off
+/// (they're ordinary filters, fine-tuned in the Filters window).
+class _MicAdjustButton extends StatelessWidget {
+  const _MicAdjustButton({required this.source});
+
+  final Source source;
+
+  static const _kinds = [FilterKind.noiseSuppression, FilterKind.noiseGate, FilterKind.compressor, FilterKind.limiter];
+
+  @override
+  Widget build(BuildContext context) {
+    final studio = AppScope.of(context).studio;
+    SourceFilter? find(FilterKind k) => source.filters.where((f) => f.kind == k).firstOrNull;
+    bool on(FilterKind k) => find(k)?.enabled ?? false;
+    final boost = source.filters.where((f) => f.kind == FilterKind.gain && f.enabled).firstOrNull?.dbl('db') ?? 0;
+    final active = _kinds.any(on) || boost != 0;
+
+    void toggle(FilterKind k) {
+      final f = find(k);
+      if (f == null) {
+        studio.addFilter(source.id, k);
+      } else {
+        studio.updateFilter(source.id, f.id, enabled: !f.enabled);
+      }
+    }
+
+    void setBoost(double db) {
+      final f = source.filters.where((f) => f.kind == FilterKind.gain).firstOrNull;
+      if (f == null) {
+        if (db == 0) return;
+        final added = studio.addFilter(source.id, FilterKind.gain);
+        studio.updateFilter(source.id, added.id, name: 'Mic boost', values: {'db': db});
+      } else {
+        studio.updateFilter(source.id, f.id, enabled: true, values: {'db': db});
+      }
+    }
+
+    return PopupMenuButton<VoidCallback>(
+      key: ValueKey('mic-adjust-${source.id}'),
+      tooltip: 'Mic adjustments',
+      icon: Icon(Icons.tune, size: 20, color: active ? ObsColors.accent : ObsColors.textDim),
+      onSelected: (action) => action(),
+      itemBuilder: (context) => [
+        const PopupMenuItem(
+          enabled: false,
+          height: 32,
+          child: Text('Mic adjustments', style: TextStyle(fontSize: 12, color: ObsColors.textDim)),
+        ),
+        for (final k in _kinds)
+          CheckedPopupMenuItem<VoidCallback>(
+            key: ValueKey('mic-adjust-${k.name}'),
+            value: () => toggle(k),
+            checked: on(k),
+            child: Text(k.label),
+          ),
+        const PopupMenuDivider(),
+        for (final db in const [0.0, 6.0, 12.0, 20.0])
+          CheckedPopupMenuItem<VoidCallback>(
+            key: ValueKey('mic-boost-${db.round()}'),
+            value: () => setBoost(db),
+            checked: boost == db,
+            child: Text(db == 0 ? 'No mic boost' : 'Mic boost +${db.round()} dB'),
+          ),
+        const PopupMenuDivider(),
+        PopupMenuItem<VoidCallback>(
+          value: () => showFiltersWindow(context, sourceId: source.id),
+          child: const Text('All filters and settings…'),
+        ),
+      ],
     );
   }
 }

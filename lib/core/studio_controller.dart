@@ -608,6 +608,42 @@ class StudioController extends ChangeNotifier {
   }
 
   /// Effective microphone gain sent to the native audio pipeline.
+  /// The microphone's processing chain for the native audio path, from the
+  /// first Mic/Aux source's enabled filters, in order:
+  /// `{noiseSuppression: bool, chain: [{type: gate|compressor|limiter, ...}]}`.
+  Map<String, Object> get micProcessing {
+    final mic = collection.sources.where((s) => s.type == SourceType.audioInput).firstOrNull;
+    var ns = false;
+    final chain = <Map<String, Object>>[];
+    for (final f in mic?.filters ?? const <SourceFilter>[]) {
+      if (!f.enabled) continue;
+      switch (f.kind) {
+        case FilterKind.noiseSuppression:
+          ns = true;
+        case FilterKind.noiseGate:
+          chain.add({
+            'type': 'gate',
+            for (final k in ['closeDb', 'openDb', 'attackMs', 'holdMs', 'releaseMs']) k: f.dbl(k, f.kind.defaults[k] as double),
+          });
+        case FilterKind.compressor:
+          chain.add({
+            'type': 'compressor',
+            for (final k in ['ratio', 'thresholdDb', 'attackMs', 'releaseMs', 'outputDb'])
+              k: f.dbl(k, f.kind.defaults[k] as double),
+          });
+        case FilterKind.limiter:
+          chain.add({
+            'type': 'limiter',
+            'thresholdDb': f.dbl('thresholdDb', -6),
+            'releaseMs': f.dbl('releaseMs', 60),
+          });
+        default:
+          break;
+      }
+    }
+    return {'noiseSuppression': ns, 'chain': chain};
+  }
+
   double get micGain {
     final mics = collection.sources.where((s) => s.type == SourceType.audioInput);
     if (mics.isEmpty) return 0;

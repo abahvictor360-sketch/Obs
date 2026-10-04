@@ -336,6 +336,7 @@ class AudioEncoder(
     private lateinit var codec: MediaCodec
     private lateinit var record: AudioRecord
     private var thread: Thread? = null
+    private val processor = MicProcessor(sampleRate)
 
     @SuppressLint("MissingPermission") // checked by ObsEncoderPlugin before start()
     fun start() {
@@ -349,6 +350,7 @@ class AudioEncoder(
             max(minBuf, 4096 * channels * 2),
         )
         AudioRouting.attach(record) // USB / chosen microphone
+        MicProcessing.attach(record) // Noise Suppression filter
         val format = MediaFormat.createAudioFormat(MediaFormat.MIMETYPE_AUDIO_AAC, sampleRate, channels).apply {
             setInteger(MediaFormat.KEY_AAC_PROFILE, MediaCodecInfo.CodecProfileLevel.AACObjectLC)
             setInteger(MediaFormat.KEY_BIT_RATE, bitrate)
@@ -388,10 +390,13 @@ class AudioEncoder(
             val count = read / 2
             bb.asShortBuffer().get(shorts, 0, count)
             val g = gain
+            // Mic: fader/gain, then its filters (gate, compressor, limiter).
+            for (i in 0 until count) shorts[i] = (shorts[i] * g).toInt().coerceIn(-32768, 32767).toShort()
+            processor.process(shorts, count, channels)
             val app = readAppAudio(count)
             val ag = appGain
             for (i in 0 until count) {
-                var mixed = shorts[i] * g
+                var mixed = shorts[i].toFloat()
                 if (app != null) mixed += app[i] * ag
                 val s = mixed.toInt().coerceIn(-32768, 32767)
                 shorts[i] = s.toShort()
@@ -520,6 +525,7 @@ class AudioEncoder(
             record.stop()
         } catch (_: Exception) {
         }
+        MicProcessing.detach(record)
         record.release()
         playback?.let {
             try { it.stop() } catch (_: Exception) {}

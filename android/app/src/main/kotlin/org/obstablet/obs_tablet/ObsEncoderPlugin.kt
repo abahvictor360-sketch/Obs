@@ -125,6 +125,10 @@ class ObsEncoderPlugin(private val activity: Activity, messenger: BinaryMessenge
                     updateMeter()
                     result.success(null)
                 }
+                "setMicProcessing" -> {
+                    MicProcessing.configure(call.arguments as? Map<*, *> ?: emptyMap<String, Any>())
+                    result.success(null)
+                }
                 "setOutputMetering" -> {
                     outputMeterWanted = call.argument<Boolean>("enabled") ?: false
                     updateOutputMeter()

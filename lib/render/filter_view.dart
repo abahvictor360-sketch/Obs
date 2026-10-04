@@ -221,7 +221,12 @@ Widget applySourceFilters(Source source, Widget child) {
                 child: child,
               ),
             ),
-      FilterKind.gain => child,
+      FilterKind.gain ||
+      FilterKind.noiseSuppression ||
+      FilterKind.noiseGate ||
+      FilterKind.compressor ||
+      FilterKind.limiter =>
+        child,
     };
   }
   return child;

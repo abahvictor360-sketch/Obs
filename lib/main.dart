@@ -21,6 +21,8 @@ import 'ui/theme.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  // Always landscape, like a production switcher (either way up).
+  await SystemChrome.setPreferredOrientations([DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]);
   await FilterShaders.load();
 
   final studio = await StudioController.load(StudioStorage.platformDefault());

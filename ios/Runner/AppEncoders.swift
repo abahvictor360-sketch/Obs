@@ -133,6 +133,7 @@ final class AppAudioEncoder {
     var onLevel: ((_ rms: Float, _ peak: Float) -> Void)?
 
     // Audio thread state.
+    private let processor = MicProcessor(sampleRate: sampleRate)
     private var resampler = LinearResampler(targetRate: sampleRate)
     private var pending: [Float] = []
     private var appScratch = [Float](repeating: 0, count: 8192)
@@ -166,6 +167,7 @@ final class AppAudioEncoder {
 
     func start() throws {
         AudioRouting.apply() // USB / chosen microphone
+        MicProcessing.applyVoiceProcessing(engine) // Noise Suppression filter
         let input = engine.inputNode
         let format = input.outputFormat(forBus: 0)
         input.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, when in
@@ -173,6 +175,14 @@ final class AppAudioEncoder {
         }
         engine.prepare()
         try engine.start()
+    }
+
+    /// Noise Suppression turned on/off: voice processing can only change
+    /// while the engine is stopped, so restart the input (a short gap).
+    func restartInput() {
+        engine.inputNode.removeTap(onBus: 0)
+        engine.stop()
+        try? start()
     }
 
     func stop() {
@@ -206,8 +216,11 @@ final class AppAudioEncoder {
         let got = ScreenReceiver.shared.appAudio.read(into: &appScratch, count)
         let g = gain
         let ag = appGain
+        // Mic: fader/gain, then its filters (gate, compressor, limiter).
+        for i in 0..<count { samples[i] *= g }
+        processor.process(&samples)
         for i in 0..<count {
-            var v = samples[i] * g
+            var v = samples[i]
             if got > 0 { v += appScratch[i] * ag }
             v = max(-1, min(1, v))
             samples[i] = v

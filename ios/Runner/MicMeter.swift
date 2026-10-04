@@ -14,6 +14,7 @@ final class MicMeter {
     }
 
     private let onLevel: (_ rms: Float, _ peak: Float) -> Void
+    private var processor: MicProcessor?
 
     init(onLevel: @escaping (_ rms: Float, _ peak: Float) -> Void) {
         self.onLevel = onLevel
@@ -21,9 +22,11 @@ final class MicMeter {
 
     func start() throws {
         AudioRouting.apply() // USB / Bluetooth / chosen microphone
+        MicProcessing.applyVoiceProcessing(engine) // Noise Suppression filter
         let input = engine.inputNode
         let format = input.outputFormat(forBus: 0)
         guard format.sampleRate > 0, format.channelCount > 0 else { return }
+        processor = MicProcessor(sampleRate: format.sampleRate)
         // About 50 ms per reading, the same rate as the encoder's levels.
         let size = AVAudioFrameCount(max(1024, format.sampleRate / 20))
         input.installTap(onBus: 0, bufferSize: size, format: format) { [weak self] buffer, _ in
@@ -45,14 +48,19 @@ final class MicMeter {
         let chCount = Int(buffer.format.channelCount)
         guard n > 0, chCount > 0 else { return }
         let g = gain / Float(chCount)
-        var sum: Float = 0
-        var peak: Float = 0
+        var mono = [Float](repeating: 0, count: n)
         for i in 0..<n {
             var v: Float = 0
             for c in 0..<chCount { v += channels[c][i] }
-            v = min(abs(v * g), 1)
-            sum += v * v
-            peak = max(peak, v)
+            mono[i] = v * g
+        }
+        processor?.process(&mono) // the meter shows the filtered mic
+        var sum: Float = 0
+        var peak: Float = 0
+        for v in mono {
+            let a = min(abs(v), 1)
+            sum += a * a
+            peak = max(peak, a)
         }
         onLevel(sqrt(sum / Float(n)), peak)
     }

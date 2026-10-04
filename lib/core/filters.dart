@@ -14,12 +14,34 @@ enum FilterKind {
   mask('Mask (Shape)'),
 
   /// Audio: volume boost/cut before the mixer fader.
-  gain('Gain');
+  gain('Gain'),
+
+  /// Audio (microphone): the device's own noise reduction (Android
+  /// NoiseSuppressor, iPad voice processing).
+  noiseSuppression('Noise Suppression'),
+
+  /// Audio (microphone): mutes the mic below a level (breathing, room hum).
+  noiseGate('Noise Gate'),
+
+  /// Audio (microphone): evens out loud and quiet speech.
+  compressor('Compressor'),
+
+  /// Audio (microphone): keeps peaks under a ceiling (no clipping).
+  limiter('Limiter');
 
   const FilterKind(this.label);
   final String label;
 
-  bool get isAudio => this == FilterKind.gain;
+  bool get isAudio =>
+      this == FilterKind.gain ||
+      this == FilterKind.noiseSuppression ||
+      this == FilterKind.noiseGate ||
+      this == FilterKind.compressor ||
+      this == FilterKind.limiter;
+
+  /// Processed by the native microphone path, so only for Audio Input
+  /// Capture (Mic/Aux) sources.
+  bool get micOnly => isAudio && this != FilterKind.gain;
 
   /// Needs a fragment shader (Impeller): not available on every device.
   bool get usesShader =>
@@ -78,6 +100,23 @@ enum FilterKind {
             'radius': 0.1, // fraction of the shorter side
           },
         FilterKind.gain => {'db': 0.0}, // -30..30
+        FilterKind.noiseSuppression => {},
+        // OBS's defaults.
+        FilterKind.noiseGate => {
+            'closeDb': -32.0,
+            'openDb': -26.0,
+            'attackMs': 25.0,
+            'holdMs': 200.0,
+            'releaseMs': 150.0,
+          },
+        FilterKind.compressor => {
+            'ratio': 10.0,
+            'thresholdDb': -18.0,
+            'attackMs': 6.0,
+            'releaseMs': 60.0,
+            'outputDb': 0.0,
+          },
+        FilterKind.limiter => {'thresholdDb': -6.0, 'releaseMs': 60.0},
       };
 }
 

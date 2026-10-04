@@ -35,6 +35,9 @@ class FakeEncoder implements EncoderBackend {
   final metering = <bool>[];
   @override
   Future<void> setMetering(bool enabled) async => metering.add(enabled);
+  final micProcessing = <Map<String, Object>>[];
+  @override
+  Future<void> setMicProcessing(Map<String, Object> config) async => micProcessing.add(config);
   final outputCtl = StreamController<AudioLevel>.broadcast(sync: true);
   final outputMetering = <bool>[];
   @override
@@ -331,6 +334,39 @@ void main() {
     await tester.tap(find.byKey(ValueKey('close-dock-${d.dockId}')));
     await tester.pumpAndSettle();
     expect(find.byKey(ValueKey('dock-${d.dockId}')), findsNothing);
+    expect(tester.takeException(), isNull);
+    await tester.pump(const Duration(seconds: 3));
+  });
+
+  testWidgets('Mic adjustments: voice filters in one tap, sent to the audio engine', (tester) async {
+    final enc = FakeEncoder(supported: true);
+    final (studio, _) = await _pump(tester, const Size(1366, 1024), backend: enc);
+    final mic = studio.sources.firstWhere((s) => s.type == SourceType.audioInput);
+    expect(enc.micProcessing.last, {'noiseSuppression': false, 'chain': <Object>[]});
+
+    Future<void> pick(String key) async {
+      await tester.tap(find.byKey(ValueKey('mic-adjust-${mic.id}')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(ValueKey(key)));
+      await tester.pumpAndSettle();
+    }
+
+    await pick('mic-adjust-noiseSuppression');
+    await pick('mic-adjust-noiseGate');
+    await pick('mic-adjust-limiter');
+    await pick('mic-boost-12');
+    expect(mic.filters.map((f) => f.kind),
+        [FilterKind.noiseSuppression, FilterKind.noiseGate, FilterKind.limiter, FilterKind.gain]);
+    expect(mic.filterGain, closeTo(3.98, 0.01));
+    final cfg = enc.micProcessing.last;
+    expect(cfg['noiseSuppression'], isTrue);
+    final chain = cfg['chain'] as List;
+    expect(chain.map((s) => (s as Map)['type']), ['gate', 'limiter']);
+    expect((chain.first as Map)['closeDb'], -32.0);
+
+    // Off again with the same switch.
+    await pick('mic-adjust-noiseGate');
+    expect((enc.micProcessing.last['chain'] as List).map((s) => (s as Map)['type']), ['limiter']);
     expect(tester.takeException(), isNull);
     await tester.pump(const Duration(seconds: 3));
   });

@@ -40,6 +40,7 @@ class MicMeter(private val onLevel: (Float, Float) -> Unit) {
             return
         }
         AudioRouting.attach(record) // USB / Bluetooth / chosen microphone
+        MicProcessing.attach(record) // Noise Suppression filter
         try {
             record.startRecording()
         } catch (_: Exception) {
@@ -53,6 +54,7 @@ class MicMeter(private val onLevel: (Float, Float) -> Unit) {
     private fun loop(record: AudioRecord, rate: Int) {
         // ~50 ms per reading, the same rate as the encoder's levels.
         val buf = ShortArray(rate / 20)
+        val processor = MicProcessor(rate)
         try {
             while (running) {
                 val n = record.read(buf, 0, buf.size)
@@ -61,10 +63,12 @@ class MicMeter(private val onLevel: (Float, Float) -> Unit) {
                     continue
                 }
                 val g = gain
+                for (i in 0 until n) buf[i] = (buf[i] * g).toInt().coerceIn(-32768, 32767).toShort()
+                processor.process(buf, n, 1) // the meter shows the filtered mic
                 var sum = 0.0
                 var peak = 0f
                 for (i in 0 until n) {
-                    val f = minOf(abs(buf[i] * g) / 32768f, 1f)
+                    val f = abs(buf[i].toInt()) / 32768f
                     sum += (f * f).toDouble()
                     if (f > peak) peak = f
                 }
@@ -72,6 +76,7 @@ class MicMeter(private val onLevel: (Float, Float) -> Unit) {
             }
         } finally {
             try { record.stop() } catch (_: Exception) {}
+            MicProcessing.detach(record)
             record.release()
         }
     }

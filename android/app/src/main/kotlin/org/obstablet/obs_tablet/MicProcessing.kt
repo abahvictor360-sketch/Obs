@@ -1,0 +1,149 @@
+package org.obstablet.obs_tablet
+
+import android.media.AudioRecord
+import android.media.audiofx.NoiseSuppressor
+import kotlin.math.abs
+import kotlin.math.exp
+import kotlin.math.log10
+import kotlin.math.max
+import kotlin.math.pow
+
+/**
+ * The microphone's audio filters (Noise Suppression, Noise Gate, Compressor,
+ * Limiter), set from Dart with "setMicProcessing". Applied to the stream,
+ * recordings, NDI and the mixer meter.
+ */
+object MicProcessing {
+    sealed class Stage {
+        data class Gate(val closeDb: Float, val openDb: Float, val attackMs: Float, val holdMs: Float, val releaseMs: Float) : Stage()
+        data class Compressor(val ratio: Float, val thresholdDb: Float, val attackMs: Float, val releaseMs: Float, val outputDb: Float) : Stage()
+    }
+
+    @Volatile var chain: List<Stage> = emptyList()
+        private set
+    @Volatile var noiseSuppression = false
+        private set
+
+    private val suppressors = java.util.Collections.synchronizedMap(java.util.WeakHashMap<AudioRecord, NoiseSuppressor>())
+
+    fun configure(args: Map<*, *>) {
+        fun f(m: Map<*, *>, k: String, def: Double) = ((m[k] as? Number)?.toDouble() ?: def).toFloat()
+        chain = (args["chain"] as? List<*>).orEmpty().mapNotNull { raw ->
+            val m = raw as? Map<*, *> ?: return@mapNotNull null
+            when (m["type"]) {
+                "gate" -> Stage.Gate(f(m, "closeDb", -32.0), f(m, "openDb", -26.0), f(m, "attackMs", 25.0),
+                    f(m, "holdMs", 200.0), f(m, "releaseMs", 150.0))
+                "compressor" -> Stage.Compressor(f(m, "ratio", 10.0), f(m, "thresholdDb", -18.0), f(m, "attackMs", 6.0),
+                    f(m, "releaseMs", 60.0), f(m, "outputDb", 0.0))
+                // A limiter is a compressor with an (almost) infinite ratio and instant attack.
+                "limiter" -> Stage.Compressor(1000f, f(m, "thresholdDb", -6.0), 0.1f, f(m, "releaseMs", 60.0), 0f)
+                else -> null
+            }
+        }
+        noiseSuppression = args["noiseSuppression"] == true
+        synchronized(suppressors) { suppressors.values.forEach { setEnabled(it, noiseSuppression) } }
+    }
+
+    /** Adds the platform noise suppressor to a microphone recording. */
+    fun attach(record: AudioRecord) {
+        if (!NoiseSuppressor.isAvailable()) return
+        try {
+            val ns = NoiseSuppressor.create(record.audioSessionId) ?: return
+            setEnabled(ns, noiseSuppression)
+            suppressors[record] = ns
+        } catch (_: Exception) {}
+    }
+
+    fun detach(record: AudioRecord) {
+        suppressors.remove(record)?.let { try { it.release() } catch (_: Exception) {} }
+    }
+
+    private fun setEnabled(ns: NoiseSuppressor, on: Boolean) {
+        try { ns.enabled = on } catch (_: Exception) {}
+    }
+}
+
+/** Per-recording state for [MicProcessing.chain] (envelopes, gate state). */
+class MicProcessor(private val sampleRate: Int) {
+    private var stages: List<MicProcessing.Stage> = emptyList()
+    private var gateEnv = FloatArray(0)
+    private var gateGain = FloatArray(0)
+    private var gateHeld = FloatArray(0)
+    private var gateOpen = BooleanArray(0)
+    private var compEnvDb = FloatArray(0)
+    private var atk = FloatArray(0)
+    private var rel = FloatArray(0)
+    private val envFall = coef(10f)
+
+    private fun coef(ms: Float) = if (ms <= 0f) 0f else exp(-1f / (ms / 1000f * sampleRate))
+
+    private fun db(x: Float) = if (x <= 1e-6f) -120f else 20f * log10(x)
+
+    /** Processes interleaved PCM in place. */
+    fun process(samples: ShortArray, count: Int, channels: Int) {
+        val chain = MicProcessing.chain
+        if (chain.isEmpty()) return
+        if (chain !== stages) {
+            stages = chain
+            gateEnv = FloatArray(chain.size)
+            gateGain = FloatArray(chain.size) { 1f }
+            gateHeld = FloatArray(chain.size)
+            gateOpen = BooleanArray(chain.size) { true }
+            compEnvDb = FloatArray(chain.size) { -120f }
+            atk = FloatArray(chain.size) {
+                when (val st = chain[it]) {
+                    is MicProcessing.Stage.Gate -> coef(st.attackMs)
+                    is MicProcessing.Stage.Compressor -> coef(st.attackMs)
+                }
+            }
+            rel = FloatArray(chain.size) {
+                when (val st = chain[it]) {
+                    is MicProcessing.Stage.Gate -> coef(st.releaseMs)
+                    is MicProcessing.Stage.Compressor -> coef(st.releaseMs)
+                }
+            }
+        }
+        val frames = count / max(channels, 1)
+        for (fr in 0 until frames) {
+            // Detector: loudest channel of this frame.
+            var peak = 0f
+            for (c in 0 until channels) peak = max(peak, abs(samples[fr * channels + c] / 32768f))
+            var gain = 1f
+            for ((i, st) in chain.withIndex()) {
+                val level = peak * gain
+                when (st) {
+                    is MicProcessing.Stage.Gate -> {
+                        // Peak envelope with a fast rise and ~10 ms fall.
+                        gateEnv[i] = max(level, gateEnv[i] * envFall)
+                        val envDb = db(gateEnv[i])
+                        if (envDb >= st.openDb) {
+                            gateOpen[i] = true
+                            gateHeld[i] = 0f
+                        } else if (envDb < st.closeDb && gateOpen[i]) {
+                            gateHeld[i] += 1000f / sampleRate
+                            if (gateHeld[i] >= st.holdMs) gateOpen[i] = false
+                        }
+                        val target = if (gateOpen[i]) 1f else 0f
+                        val k = if (target > gateGain[i]) atk[i] else rel[i]
+                        gateGain[i] = target + (gateGain[i] - target) * k
+                        gain *= gateGain[i]
+                    }
+                    is MicProcessing.Stage.Compressor -> {
+                        val inDb = db(level)
+                        val k = if (inDb > compEnvDb[i]) atk[i] else rel[i]
+                        compEnvDb[i] = inDb + (compEnvDb[i] - inDb) * k
+                        val over = compEnvDb[i] - st.thresholdDb
+                        val reduction = if (over > 0f) over * (1f - 1f / st.ratio) else 0f
+                        gain *= 10f.pow((st.outputDb - reduction) / 20f)
+                    }
+                }
+            }
+            if (gain != 1f) {
+                for (c in 0 until channels) {
+                    val j = fr * channels + c
+                    samples[j] = (samples[j] * gain).toInt().coerceIn(-32768, 32767).toShort()
+                }
+            }
+        }
+    }
+}

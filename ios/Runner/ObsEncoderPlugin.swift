@@ -31,6 +31,14 @@ final class ObsEncoderPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
         registrar.addMethodCallDelegate(instance, channel: method)
         events.setStreamHandler(instance)
         instance.setUpScreenReceiver()
+        MicProcessing.shared.onNoiseSuppressionChange = { [weak instance] in
+            guard let plugin = instance else { return }
+            plugin.audio?.restartInput()
+            if plugin.meter != nil {
+                plugin.stopMeter()
+                plugin.updateMeter()
+            }
+        }
     }
 
     func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError? {
@@ -102,6 +110,9 @@ final class ObsEncoderPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
             micGain = Float(args["gain"] as? Double ?? 1)
             audio?.gain = micGain
             meter?.gain = micGain
+            result(nil)
+        case "setMicProcessing":
+            MicProcessing.shared.configure(args)
             result(nil)
         case "setOutputMetering":
             // iOS doesn't let apps measure what the system plays.

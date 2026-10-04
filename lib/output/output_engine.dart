@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
@@ -107,6 +108,7 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
   int _framesThisSecond = 0;
   double _lastMicGain = -1;
   bool _metering = false;
+  String? _lastMicProcessing;
   bool _outputMetering = false;
   double _lastScreenGain = -1;
 
@@ -653,6 +655,12 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
   void _onStudioChanged() {
     _layersDirty = true;
     final g = studio.micGain;
+    final mp = studio.micProcessing;
+    final mpKey = jsonEncode(mp);
+    if (mpKey != _lastMicProcessing && encoderSupported) {
+      _lastMicProcessing = mpKey;
+      backend.setMicProcessing(mp).catchError((_) {});
+    }
     // Also while idle: the meter shows the level after the fader, like OBS.
     if (g != _lastMicGain) {
       _lastMicGain = g;

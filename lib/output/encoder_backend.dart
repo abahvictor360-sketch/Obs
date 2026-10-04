@@ -132,6 +132,10 @@ abstract class EncoderBackend {
   /// Nothing is encoded; the encoder takes over while it runs.
   Future<void> setMetering(bool enabled);
 
+  /// Microphone processing (see StudioController.micProcessing), applied
+  /// natively to the stream, recordings, NDI and the meter.
+  Future<void> setMicProcessing(Map<String, Object> config);
+
   /// Level of the sound the tablet plays (video sources, other apps), where
   /// the platform allows measuring it (Android).
   Future<void> setOutputMetering(bool enabled);
@@ -270,6 +274,9 @@ class MethodChannelEncoder implements EncoderBackend {
 
   @override
   Future<void> setMetering(bool enabled) => _method.invokeMethod('setMetering', {'enabled': enabled});
+
+  @override
+  Future<void> setMicProcessing(Map<String, Object> config) => _method.invokeMethod('setMicProcessing', config);
 
   @override
   Future<void> setOutputMetering(bool enabled) => _method.invokeMethod('setOutputMetering', {'enabled': enabled});
