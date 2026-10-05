@@ -142,8 +142,9 @@ void sendToScreen(StudioController studio, ExternalDisplayInfo d, String mode) =
     });
 
 /// Fullscreen Projector on the tablet: the program (or the Multiview with
-/// [multiview]) edge to edge. Needs no connected screen. Tap or press back to
-/// close.
+/// [multiview]) edge to edge. Needs no connected screen. Tap (the Program) or
+/// press back to close; the Multiview has a close button, since tapping its
+/// tiles switches scenes and sources.
 void openProjector(BuildContext context, {bool multiview = false}) {
   Navigator.of(context).push(PageRouteBuilder<void>(
     opaque: true,
@@ -163,6 +164,8 @@ class ProjectorScreen extends StatefulWidget {
 }
 
 class _ProjectorScreenState extends State<ProjectorScreen> {
+  MultiviewTiles _tiles = MultiviewTiles.scenes;
+
   @override
   void initState() {
     super.initState();
@@ -178,6 +181,43 @@ class _ProjectorScreenState extends State<ProjectorScreen> {
   @override
   Widget build(BuildContext context) {
     final studio = AppScope.of(context).studio;
+    if (widget.multiview) {
+      return Scaffold(
+        key: const ValueKey('projector-screen'),
+        backgroundColor: Colors.black,
+        body: Stack(children: [
+          Center(child: FittedBox(child: Multiview(interactive: true, tiles: _tiles))),
+          Positioned(
+            top: 8,
+            right: 8,
+            child: Row(children: [
+              SegmentedButton<MultiviewTiles>(
+                key: const ValueKey('multiview-tiles'),
+                showSelectedIcon: false,
+                style: const ButtonStyle(
+                  visualDensity: VisualDensity.compact,
+                  backgroundColor: WidgetStatePropertyAll(Color(0xB0000000)),
+                ),
+                segments: const [
+                  ButtonSegment(value: MultiviewTiles.scenes, label: Text('Scenes'), icon: Icon(Icons.grid_view)),
+                  ButtonSegment(value: MultiviewTiles.sources, label: Text('Sources'), icon: Icon(Icons.videocam_outlined)),
+                ],
+                selected: {_tiles},
+                onSelectionChanged: (v) => setState(() => _tiles = v.first),
+              ),
+              const SizedBox(width: 8),
+              IconButton.filled(
+                key: const ValueKey('projector-close'),
+                tooltip: 'Close',
+                style: const ButtonStyle(backgroundColor: WidgetStatePropertyAll(Color(0xB0000000))),
+                onPressed: () => Navigator.of(context).maybePop(),
+                icon: const Icon(Icons.close, color: Colors.white),
+              ),
+            ]),
+          ),
+        ]),
+      );
+    }
     return Scaffold(
       backgroundColor: Colors.black,
       body: GestureDetector(
@@ -185,12 +225,10 @@ class _ProjectorScreenState extends State<ProjectorScreen> {
         behavior: HitTestBehavior.opaque,
         onTap: () => Navigator.of(context).maybePop(),
         child: Center(
-          child: widget.multiview
-              ? const FittedBox(child: Multiview())
-              : AspectRatio(
-                  aspectRatio: studio.settings.canvasWidth / studio.settings.canvasHeight,
-                  child: const ProgramView(capture: false),
-                ),
+          child: AspectRatio(
+            aspectRatio: studio.settings.canvasWidth / studio.settings.canvasHeight,
+            child: const ProgramView(capture: false),
+          ),
         ),
       ),
     );

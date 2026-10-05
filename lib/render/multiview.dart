@@ -2,11 +2,15 @@ import 'package:flutter/material.dart';
 
 import '../app_scope.dart';
 import '../core/models.dart';
+import 'filter_view.dart';
 import 'scene_canvas.dart';
 
 /// Logical size the Multiview is laid out at; it's captured scaled to the
 /// connected screen.
 const kMultiviewSize = Size(1280, 720);
+
+/// What the small tiles of the Multiview show.
+enum MultiviewTiles { scenes, sources }
 
 /// OBS's Multiview: Preview and Program on top, the first 8 scenes below.
 /// The program scene has a red border, the preview scene a green one.
@@ -15,8 +19,16 @@ const kMultiviewSize = Size(1280, 720);
 ///   │   Preview    │   Program    │
 ///   ├────┬────┬────┼────┬────┬────┤ ...
 ///   │ 1  │ 2  │ 3  │ 4  │          (2 rows of 4)
+///
+/// With [tiles] = sources, the small tiles are the sources of the scene being
+/// edited instead. When [interactive] (fullscreen on the tablet), tapping a
+/// scene switches to it, tapping the Preview transitions it to Program
+/// (Studio Mode) and tapping a source cuts to it.
 class Multiview extends StatelessWidget {
-  const Multiview({super.key});
+  const Multiview({super.key, this.interactive = false, this.tiles = MultiviewTiles.scenes});
+
+  final bool interactive;
+  final MultiviewTiles tiles;
 
   static const _program = Color(0xFFD7334B);
   static const _preview = Color(0xFF3FB950);
@@ -39,13 +51,15 @@ class Multiview extends StatelessWidget {
         ];
 
         Widget tile(
-          Scene s,
+          Widget picture,
           String label,
           Color? border, {
           double labelSize = 14,
           List<(String, Color)> badges = const [],
+          VoidCallback? onTap,
+          Key? key,
         }) {
-          return Container(
+          final box = Container(
             decoration: BoxDecoration(
               color: Colors.black,
               border: Border.all(color: border ?? const Color(0xFF3C404D), width: border == null ? 1 : 4),
@@ -53,9 +67,7 @@ class Multiview extends StatelessWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                ClipRect(
-                  child: FittedBox(child: SceneCanvas(scene: s, showPlaceholders: false)),
-                ),
+                ClipRect(child: FittedBox(child: picture)),
                 Positioned(
                   left: 0,
                   right: 0,
@@ -95,6 +107,40 @@ class Multiview extends StatelessWidget {
               ],
             ),
           );
+          if (!interactive || onTap == null) return box;
+          return GestureDetector(key: key, behavior: HitTestBehavior.opaque, onTap: onTap, child: box);
+        }
+
+        Widget canvas(Scene s) => SceneCanvas(scene: s, showPlaceholders: false);
+
+        // The small tiles: scenes, or the pictures in the scene being edited
+        // (top-most first).
+        final small = <Widget>[];
+        if (tiles == MultiviewTiles.scenes) {
+          for (final (i, s) in scenes.indexed) {
+            final border = s.id == program.id ? _program : (s.id == preview.id ? _preview : null);
+            small.add(tile(canvas(s), '${i + 1}. ${s.name}', border,
+                key: ValueKey('multiview-scene-${s.id}'), onTap: () => studio.selectScene(s.id)));
+          }
+        } else {
+          final editing = studio.editingScene;
+          final cw = studio.settings.canvasWidth.toDouble(), ch = studio.settings.canvasHeight.toDouble();
+          for (final item in editing.items.reversed) {
+            final source = studio.sourceById(item.sourceId);
+            if (source == null || !source.type.isVisual) continue;
+            if (small.length == 8) break;
+            final picture = SizedBox(
+              width: cw,
+              height: ch,
+              child: ColoredBox(
+                color: Colors.black,
+                child: applySourceFilters(source, SourceRenderer(source: source, fit: FitMode.contain, showPlaceholder: false)),
+              ),
+            );
+            final border = item.visible ? (studio.studioMode ? _preview : _program) : null;
+            small.add(tile(picture, '${small.length + 1}. ${source.name}', border,
+                key: ValueKey('multiview-source-${item.id}'), onTap: () => studio.soloItem(item.id)));
+          }
         }
 
         final w = kMultiviewSize.width, h = kMultiviewSize.height;
@@ -110,9 +156,14 @@ class Multiview extends StatelessWidget {
                   height: h / 2,
                   child: Row(
                     children: [
-                      Expanded(child: tile(preview, 'Preview · ${preview.name}', _preview, labelSize: 18)),
                       Expanded(
-                        child: tile(program, 'Program · ${program.name}', _program, labelSize: 18, badges: badges),
+                        child: tile(canvas(preview), 'Preview · ${preview.name}', _preview, labelSize: 18,
+                            key: const ValueKey('multiview-preview'),
+                            onTap: studio.studioMode ? studio.transitionToProgram : null),
+                      ),
+                      Expanded(
+                        child: tile(canvas(program), 'Program · ${program.name}', _program,
+                            labelSize: 18, badges: badges),
                       ),
                     ],
                   ),
@@ -124,15 +175,9 @@ class Multiview extends StatelessWidget {
                       children: [
                         for (var col = 0; col < 4; col++)
                           Expanded(
-                            child: Builder(
-                              builder: (context) {
-                                final i = row * 4 + col;
-                                if (i >= scenes.length) return const ColoredBox(color: Color(0xFF111216));
-                                final s = scenes[i];
-                                final border = s.id == program.id ? _program : (s.id == preview.id ? _preview : null);
-                                return tile(s, '${i + 1}. ${s.name}', border);
-                              },
-                            ),
+                            child: row * 4 + col < small.length
+                                ? small[row * 4 + col]
+                                : const ColoredBox(color: Color(0xFF111216)),
                           ),
                       ],
                     ),
