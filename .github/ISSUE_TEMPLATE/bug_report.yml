@@ -1,0 +1,72 @@
+name: Something isn't working
+description: Report a problem with OBSpad on your tablet or iPad.
+title: "[Bug] "
+labels: ["bug", "tester feedback"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for testing OBSpad! One problem per report helps us fix it faster.
+        Tip: **Help › Send Feedback** in the app fills in the build and system for you.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+      placeholder: |
+        I added a Media Source with a video and started streaming to Facebook.
+        I expected to hear the video's sound in the stream, but viewers heard nothing.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to make it happen again
+      placeholder: |
+        1. Add a Media Source
+        2. Pick a video
+        3. Start Streaming
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part of the app?
+      options:
+        - Streaming (Facebook, YouTube, Twitch, RTMP)
+        - Recording
+        - Cameras and capture cards
+        - Screen capture
+        - Audio (mics, mixer, meters, sound cards)
+        - Video and media sources
+        - Scenes, Studio Mode and transitions
+        - Filters
+        - External screen, dock or casting
+        - NDI
+        - Plugins
+        - Settings and saving
+        - Installing or updating
+        - Something else
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Tablet model
+      placeholder: Samsung Galaxy Tab S9, iPad Air (5th gen), Lenovo Tab P11…
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: Android or iPadOS version
+      placeholder: Android 14 / iPadOS 17.5
+  - type: input
+    id: build
+    attributes:
+      label: OBSpad build
+      description: Help › About OBSpad, or the release you downloaded (build-42…)
+      placeholder: build-42
+  - type: textarea
+    id: extra
+    attributes:
+      label: Screenshots, videos or anything else
+      description: Drag images or screen recordings here. Accessories you used (dock, HDMI adapter, USB mic, capture card) help too.

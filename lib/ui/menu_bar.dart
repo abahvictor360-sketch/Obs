@@ -11,6 +11,7 @@ import 'add_source.dart';
 import 'dialogs.dart';
 import 'dock_layout.dart';
 import 'dock_panel.dart';
+import 'feedback.dart';
 import 'docks.dart';
 import 'browser_dock.dart';
 import 'exit.dart';
@@ -199,6 +200,8 @@ class ObsMenuBar extends StatelessWidget {
             item('Check for Updates…', () => checkForUpdates(context),
                 icon: Icons.system_update_outlined, key: const ValueKey('menu-check-updates')),
             item('Keyboard Shortcuts', () => showShortcutsHelp(context), icon: Icons.keyboard_outlined),
+            item('Send Feedback…', () => showFeedback(context),
+                icon: Icons.feedback_outlined, key: const ValueKey('menu-feedback')),
             item('About OBSpad', () => _about(context), icon: Icons.info_outline),
           ],
           child: const Text('Help'),

@@ -5,8 +5,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="description" content="OBSpad turns an Android tablet or iPad into a live production studio modeled on OBS Studio. Download the APK or IPA.">
 <meta property="og:title" content="OBSpad: your live studio, on a tablet">
-<meta property="og:description" content="Scenes, Studio Mode, chroma key and Facebook Live streaming on Android tablets and iPad.">
-<meta property="og:image" content="img/main.jpg">
+<meta property="og:description" content="Scenes, Studio Mode, filters and Facebook Live streaming on Android tablets and iPad. Free, in public testing: try it and tell us what to fix.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://obspad.vercel.app/">
+<meta property="og:site_name" content="OBSpad">
+<meta property="og:image" content="https://obspad.vercel.app/img/main.jpg">
+<meta property="og:image:alt" content="OBSpad in Studio Mode on a tablet: Preview and Program side by side.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="OBSpad: your live studio, on a tablet">
+<meta name="twitter:description" content="An OBS-style live production app for Android tablets and iPad. Free, in public testing.">
+<meta name="twitter:image" content="https://obspad.vercel.app/img/main.jpg">
 <link rel="icon" type="image/png" href="favicon.png">
 <title>OBSpad</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -232,6 +240,14 @@ footer .credit { color: var(--ink); font-weight: 600; }
 .guides ol { margin: 0 0 16px; padding-left: 1.3em; color: var(--muted); display: grid; gap: 8px; }
 .guides ol b { color: var(--ink); }
 @media (max-width: 760px) { .guides { grid-template-columns: minmax(0, 1fr); } }
+/* Public testing */
+.testing { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 28px; align-items: center; background: var(--tint); border: 1px solid var(--line); border-radius: 28px; padding: clamp(24px, 4vw, 44px); }
+.testing > div:first-child { display: grid; gap: 14px; }
+.testing h2 { font-size: clamp(2rem, 4vw, 2.6rem); font-weight: 800; }
+.testing p { color: var(--muted); }
+.testing-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+.testing .card ol { margin: 12px 0 0; padding-left: 1.2em; color: var(--muted); display: grid; gap: 8px; }
+@media (max-width: 860px) { .testing { grid-template-columns: minmax(0, 1fr); } }
 @media (prefers-reduced-motion: reduce) {
   .band .track { animation: none; }
   .btn, .badge, summary::after { transition: none; }
@@ -250,6 +266,7 @@ footer .credit { color: var(--ink); font-weight: 600; }
       <li><a href="#how">How it works</a></li>
       <li><a href="#install">Install</a></li>
       <li><a href="#guides">Guides</a></li>
+      <li><a href="#feedback">Feedback</a></li>
       <li><a href="#about">About</a></li>
       <li><a href="#faq">FAQ</a></li>
     </ul>
@@ -260,7 +277,7 @@ footer .credit { color: var(--ink); font-weight: 600; }
   </header>
 
   <div class="hero">
-    <span class="pill"><span class="dot"></span>New: stereo sound, several mics and video audio in the stream</span>
+    <a class="pill" href="#feedback" style="text-decoration:none"><span class="dot"></span>Now in public testing: try it and tell us what to fix</a>
     <h1>Your live studio, <span>on a tablet.</span></h1>
     <p class="lede">OBSpad turns an Android tablet or iPad into a full production desk, modeled on OBS Studio. Build scenes, preview in Studio Mode, key out a green screen and go live on Facebook, YouTube or Twitch with just your stream key.</p>
     <div class="badges" id="download">
@@ -553,6 +570,32 @@ footer .credit { color: var(--ink); font-weight: 600; }
     </div>
   </section>
 
+  <section id="feedback">
+    <div class="testing">
+      <div>
+        <span class="pill solid" style="justify-self:start">Public testing</span>
+        <h2>Help test OBSpad</h2>
+        <p>OBSpad is new and built by one developer. Install it, use it for a real stream, and tell us what doesn&rsquo;t work and what&rsquo;s missing. Every report shapes the next build.</p>
+        <div class="testing-actions">
+          <a class="btn btn-brand" href="https://github.com/abahvictor360-sketch/Obs/issues/new?template=bug_report.yml">Report a problem</a>
+          <a class="btn btn-ghost" href="https://github.com/abahvictor360-sketch/Obs/issues/new?template=feature_request.yml">Suggest a feature</a>
+        </div>
+        <p class="fine">Opens a short form on GitHub (a free account is needed). In the app: <b>Help &rsaquo; Send Feedback</b> fills in your build for you. See what others reported in <a href="https://github.com/abahvictor360-sketch/Obs/issues">open issues</a>.</p>
+      </div>
+      <div class="card">
+        <h3>What to try</h3>
+        <ol>
+          <li>Stream a short test to Facebook Live or YouTube with a camera, a picture and some text.</li>
+          <li>Play a video with sound, and switch scenes with the T-bar.</li>
+          <li>Plug in what you use: USB mic or interface, capture card, HDMI adapter or dock.</li>
+          <li>Record while streaming and check the file.</li>
+          <li>Leave it running for 30 minutes: does it stay smooth and cool?</li>
+        </ol>
+        <p class="fine" style="margin-top:12px">Please mention your tablet model and what you plugged in.</p>
+      </div>
+    </div>
+  </section>
+
   <section id="about">
     <div class="about">
       <div class="copy">
@@ -588,6 +631,10 @@ footer .credit { color: var(--ink); font-weight: 600; }
         <details open>
           <summary>Is OBSpad free?</summary>
           <p>Yes. The test builds on GitHub are free to download and use.</p>
+        </details>
+        <details>
+          <summary>I found a bug or I miss a feature. Where do I tell you?</summary>
+          <p>In the app, open <b>Help &rsaquo; Send Feedback</b>, or use <a href="https://github.com/abahvictor360-sketch/Obs/issues/new?template=bug_report.yml">Report a problem</a> and <a href="https://github.com/abahvictor360-sketch/Obs/issues/new?template=feature_request.yml">Suggest a feature</a> on GitHub. Include your tablet model, the build number and what you had plugged in; a screenshot or screen recording helps most.</p>
         </details>
         <details>
           <summary>Do I need OBS Studio on a computer?</summary>
