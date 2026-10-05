@@ -326,6 +326,58 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 3));
   });
+  testWidgets('Multiview goes fullscreen on the tablet with no screen connected', (tester) async {
+    tester.view.physicalSize = const Size(1366, 1024);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    dock = {...dock, 'display': null, 'displays': const []};
+    final studio = StudioController(storage: MemoryStorage());
+    final output = OutputEngine(studio: studio, backend: FakeEncoder());
+    await output.init();
+    final devices = DeviceService();
+    await tester.runAsync(devices.init);
+    expect(devices.dock.displays, isEmpty);
+    await tester.pumpWidget(ObsTabletApp(
+      studio: studio,
+      output: output,
+      cameras: CameraService(),
+      media: MediaService(),
+      plugins: PluginManager(createPlatformPluginBackend()),
+      devices: devices,
+      networkVideo: NetworkVideoService(),
+    ));
+    await tester.pump();
+
+    // View › Multiview (Fullscreen) › This tablet.
+    await tester.tap(find.text('View'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('menu-multiview')));
+    await tester.pumpAndSettle();
+    expect(find.text('No screen connected'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('menu-multiview-tablet')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('projector-screen')), findsOneWidget);
+    expect(find.descendant(of: find.byKey(const ValueKey('projector-screen')), matching: find.byType(Multiview)),
+        findsOneWidget);
+    // Nothing is sent to a screen.
+    expect(studio.settings.externalDisplay, isNot('multiview'));
+    await tester.tap(find.byKey(const ValueKey('projector-screen')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('projector-screen')), findsNothing);
+
+    // The send-program menu offers it too.
+    await tester.tap(find.byKey(const ValueKey('send-program')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('projector-tablet-multiview')));
+    await tester.pumpAndSettle();
+    expect(find.byType(Multiview), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('projector-screen')));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 3));
+  });
   testWidgets('Cast to a wireless screen opens the system casting and sends the program there', (tester) async {
     tester.view.physicalSize = const Size(1366, 1024);
     tester.view.devicePixelRatio = 1;
