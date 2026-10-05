@@ -141,7 +141,12 @@ class ObsMenuBar extends StatelessWidget {
             SubmenuButton(
               key: const ValueKey('menu-multiview'),
               leadingIcon: const Icon(Icons.grid_view, size: 18),
-              menuChildren: screenItems('multiview'),
+              menuChildren: [
+                item('This tablet', () => openProjector(context, multiview: true),
+                    icon: Icons.tablet_android, key: const ValueKey('menu-multiview-tablet')),
+                const Divider(height: 1),
+                ...screenItems('multiview'),
+              ],
               child: const Text('Multiview (Fullscreen)'),
             ),
             SubmenuButton(

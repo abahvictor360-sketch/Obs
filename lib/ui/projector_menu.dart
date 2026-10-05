@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import '../app_scope.dart';
 import '../core/studio_controller.dart';
 import '../devices/device_service.dart';
+import '../render/multiview.dart';
 import '../render/program_view.dart';
 import 'theme.dart';
 
@@ -57,6 +58,8 @@ Future<void> showProjectorMenu(BuildContext context, Offset globalPosition) asyn
       ),
       entry('This tablet (fullscreen)', () => openProjector(context),
           icon: Icons.fullscreen, key: const ValueKey('projector-tablet')),
+      entry('This tablet: Multiview', () => openProjector(context, multiview: true),
+          icon: Icons.grid_view, key: const ValueKey('projector-tablet-multiview')),
       if (screens.isEmpty)
         entry('No screen connected', null,
             icon: Icons.desktop_access_disabled_outlined,
@@ -138,24 +141,31 @@ void sendToScreen(StudioController studio, ExternalDisplayInfo d, String mode) =
       s.externalDisplayId = d.id.isEmpty ? null : d.id;
     });
 
-/// Fullscreen Projector on the tablet: just the program, edge to edge.
-/// Tap or press back to close.
-void openProjector(BuildContext context) {
+/// Fullscreen Projector on the tablet: the program (or the Multiview with
+/// [multiview]) edge to edge. Needs no connected screen. Tap (the Program) or
+/// press back to close; the Multiview has a close button, since tapping its
+/// tiles switches scenes and sources.
+void openProjector(BuildContext context, {bool multiview = false}) {
   Navigator.of(context).push(PageRouteBuilder<void>(
     opaque: true,
-    pageBuilder: (_, _, _) => const ProjectorScreen(),
+    pageBuilder: (_, _, _) => ProjectorScreen(multiview: multiview),
     transitionsBuilder: (_, a, _, child) => FadeTransition(opacity: a, child: child),
   ));
 }
 
 class ProjectorScreen extends StatefulWidget {
-  const ProjectorScreen({super.key});
+  const ProjectorScreen({super.key, this.multiview = false});
+
+  /// Shows the Multiview instead of the program.
+  final bool multiview;
 
   @override
   State<ProjectorScreen> createState() => _ProjectorScreenState();
 }
 
 class _ProjectorScreenState extends State<ProjectorScreen> {
+  MultiviewTiles _tiles = MultiviewTiles.scenes;
+
   @override
   void initState() {
     super.initState();
@@ -171,6 +181,43 @@ class _ProjectorScreenState extends State<ProjectorScreen> {
   @override
   Widget build(BuildContext context) {
     final studio = AppScope.of(context).studio;
+    if (widget.multiview) {
+      return Scaffold(
+        key: const ValueKey('projector-screen'),
+        backgroundColor: Colors.black,
+        body: Stack(children: [
+          Center(child: FittedBox(child: Multiview(interactive: true, tiles: _tiles))),
+          Positioned(
+            top: 8,
+            right: 8,
+            child: Row(children: [
+              SegmentedButton<MultiviewTiles>(
+                key: const ValueKey('multiview-tiles'),
+                showSelectedIcon: false,
+                style: const ButtonStyle(
+                  visualDensity: VisualDensity.compact,
+                  backgroundColor: WidgetStatePropertyAll(Color(0xB0000000)),
+                ),
+                segments: const [
+                  ButtonSegment(value: MultiviewTiles.scenes, label: Text('Scenes'), icon: Icon(Icons.grid_view)),
+                  ButtonSegment(value: MultiviewTiles.sources, label: Text('Sources'), icon: Icon(Icons.videocam_outlined)),
+                ],
+                selected: {_tiles},
+                onSelectionChanged: (v) => setState(() => _tiles = v.first),
+              ),
+              const SizedBox(width: 8),
+              IconButton.filled(
+                key: const ValueKey('projector-close'),
+                tooltip: 'Close',
+                style: const ButtonStyle(backgroundColor: WidgetStatePropertyAll(Color(0xB0000000))),
+                onPressed: () => Navigator.of(context).maybePop(),
+                icon: const Icon(Icons.close, color: Colors.white),
+              ),
+            ]),
+          ),
+        ]),
+      );
+    }
     return Scaffold(
       backgroundColor: Colors.black,
       body: GestureDetector(

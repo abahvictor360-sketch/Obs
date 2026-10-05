@@ -647,6 +647,19 @@ class StudioController extends ChangeNotifier {
     _changed();
   }
 
+  /// Cut to a source, like a hardware switcher: [itemId] becomes the only
+  /// visible picture in the scene; its other visual items are hidden (audio
+  /// is left alone). One undo step brings them back.
+  void soloItem(String itemId) {
+    final scene = editingScene;
+    if (!scene.items.any((i) => i.id == itemId)) return;
+    for (final item in scene.items) {
+      if (sourceById(item.sourceId)?.type.isVisual ?? false) item.visible = item.id == itemId;
+    }
+    breakUndoGroup(); // each cut is its own step, however quick
+    _changed();
+  }
+
   void setItemLocked(String itemId, bool locked) {
     final item = itemById(itemId);
     if (item == null) return;

@@ -3,6 +3,8 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:obs_tablet/app_scope.dart';
+import 'package:obs_tablet/core/models.dart';
 import 'package:obs_tablet/core/storage.dart';
 import 'package:obs_tablet/core/studio_controller.dart';
 import 'package:obs_tablet/devices/device_service.dart';
@@ -13,6 +15,7 @@ import 'package:obs_tablet/output/output_engine.dart';
 import 'package:obs_tablet/plugins/plugin_manager.dart';
 import 'package:obs_tablet/render/multiview.dart';
 import 'package:obs_tablet/render/media_services.dart';
+import 'package:obs_tablet/ui/projector_menu.dart';
 
 import 'widget_test.dart' show FakeEncoder;
 
@@ -323,6 +326,118 @@ void main() {
     expect(tester.takeException(), isNull);
 
     tracker.dispose();
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 3));
+  });
+  testWidgets('Multiview goes fullscreen on the tablet with no screen connected', (tester) async {
+    tester.view.physicalSize = const Size(1366, 1024);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    dock = {...dock, 'display': null, 'displays': const []};
+    final studio = StudioController(storage: MemoryStorage());
+    final first = studio.programScene;
+    final second = studio.addScene('Second');
+    final cam1 = studio.addNewSource(SourceType.color, name: 'Cam 1');
+    final cam2 = studio.addNewSource(SourceType.color, name: 'Cam 2');
+    studio.selectScene(first.id);
+    final output = OutputEngine(studio: studio, backend: FakeEncoder());
+    await output.init();
+    final devices = DeviceService();
+    await tester.runAsync(devices.init);
+    expect(devices.dock.displays, isEmpty);
+    await tester.pumpWidget(ObsTabletApp(
+      studio: studio,
+      output: output,
+      cameras: CameraService(),
+      media: MediaService(),
+      plugins: PluginManager(createPlatformPluginBackend()),
+      devices: devices,
+      networkVideo: NetworkVideoService(),
+    ));
+    await tester.pump();
+
+    // View › Multiview (Fullscreen) › This tablet.
+    await tester.tap(find.text('View'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('menu-multiview')));
+    await tester.pumpAndSettle();
+    expect(find.text('No screen connected'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('menu-multiview-tablet')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('projector-screen')), findsOneWidget);
+    expect(find.descendant(of: find.byKey(const ValueKey('projector-screen')), matching: find.byType(Multiview)),
+        findsOneWidget);
+    // Nothing is sent to a screen.
+    expect(studio.settings.externalDisplay, isNot('multiview'));
+
+    // Tap a scene to switch to it.
+    await tester.tap(find.byKey(ValueKey('multiview-scene-${second.id}')));
+    await tester.pumpAndSettle();
+    expect(studio.programScene.id, second.id);
+    expect(find.byKey(const ValueKey('projector-screen')), findsOneWidget);
+
+    // Sources: tap one to cut to it; the others in the scene are hidden.
+    await tester.tap(find.text('Sources'));
+    await tester.pumpAndSettle();
+    expect(find.text('1. Cam 2'), findsOneWidget);
+    expect(find.text('2. Cam 1'), findsOneWidget);
+    await tester.tap(find.byKey(ValueKey('multiview-source-${cam1.id}')));
+    await tester.pumpAndSettle();
+    expect((studio.itemById(cam1.id)!.visible, studio.itemById(cam2.id)!.visible), (true, false));
+    await tester.tap(find.byKey(ValueKey('multiview-source-${cam2.id}')));
+    await tester.pumpAndSettle();
+    expect((studio.itemById(cam1.id)!.visible, studio.itemById(cam2.id)!.visible), (false, true));
+    studio.undo();
+    expect((studio.itemById(cam1.id)!.visible, studio.itemById(cam2.id)!.visible), (true, false));
+
+    await tester.tap(find.byKey(const ValueKey('projector-close')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('projector-screen')), findsNothing);
+
+    // The send-program menu offers it too.
+    await tester.tap(find.byKey(const ValueKey('send-program')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('projector-tablet-multiview')));
+    await tester.pumpAndSettle();
+    expect(find.byType(Multiview), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('projector-close')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('projector-screen')), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+  testWidgets('Studio Mode: a scene tile goes to Preview, the Preview tile transitions it', (tester) async {
+    tester.view.physicalSize = const Size(1366, 1024);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final studio = StudioController(storage: MemoryStorage());
+    final first = studio.programScene;
+    final second = studio.addScene('Second');
+    studio.selectScene(first.id);
+    studio.setStudioMode(true);
+    final output = OutputEngine(studio: studio, backend: FakeEncoder());
+    await output.init();
+    await tester.pumpWidget(MaterialApp(
+      home: AppScope(
+        studio: studio,
+        output: output,
+        cameras: CameraService(),
+        media: MediaService(),
+        plugins: PluginManager(createPlatformPluginBackend()),
+        devices: DeviceService(),
+        networkVideo: NetworkVideoService(),
+        child: const ProjectorScreen(multiview: true),
+      ),
+    ));
+    await tester.pump();
+
+    await tester.tap(find.byKey(ValueKey('multiview-scene-${second.id}')));
+    await tester.pump();
+    expect((studio.previewScene.id, studio.programScene.id), (second.id, first.id));
+    await tester.tap(find.byKey(const ValueKey('multiview-preview')));
+    await tester.pump(const Duration(seconds: 2));
+    expect(studio.programScene.id, second.id);
+    expect(tester.takeException(), isNull);
+
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 3));
   });
