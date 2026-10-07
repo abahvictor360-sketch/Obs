@@ -239,6 +239,11 @@ footer .credit { color: var(--ink); font-weight: 600; }
 .guides summary small { font: 500 .85rem/1.3 var(--body); color: var(--muted); }
 .guides ol { margin: 0 0 16px; padding-left: 1.3em; color: var(--muted); display: grid; gap: 8px; }
 .guides ol b { color: var(--ink); }
+.guides .gestures { margin: 0 0 16px; display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.6fr); gap: 10px 16px; }
+.guides .gestures dt { font-weight: 700; color: var(--ink); }
+.guides .gestures dd { margin: 0; color: var(--muted); }
+.guides .gestures dd b { color: var(--ink); }
+@media (max-width: 480px) { .guides .gestures { grid-template-columns: minmax(0, 1fr); gap: 2px; } .guides .gestures dd { margin-bottom: 10px; } }
 @media (max-width: 760px) { .guides { grid-template-columns: minmax(0, 1fr); } }
 /* Public testing */
 .testing { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 28px; align-items: center; background: var(--tint); border: 1px solid var(--line); border-radius: 28px; padding: clamp(24px, 4vw, 44px); }
@@ -550,6 +555,16 @@ footer .credit { color: var(--ink); font-weight: 600; }
       <details>
         <summary><span>Use the Multiview<small>Preview, Program and up to 16 scenes</small></span></summary>
         <ol><li>Open <b>View &rsaquo; Multiview (Fullscreen)</b> and pick <b>This tablet</b>, or a connected screen or TV.</li><li>On the tablet, tap a scene to put it in Preview, or double-tap it (or hold it for a second) to send it straight to Program with your transition.</li><li>Choose 4, 6, 8 or 16 scenes with the layout button at the top. Close it with the &times; button or the back gesture. Program shows a red border, Preview a green one.</li></ol>
+      </details>
+      <details>
+        <summary><span>Multiview touch controls<small>Tap, double-tap and hold</small></span></summary>
+        <dl class="gestures">
+          <dt>Tap a scene</dt><dd>Puts it in <b>Preview</b> (green border). With Studio Mode off, it goes live straight away.</dd>
+          <dt>Double-tap a scene</dt><dd>Sends it to <b>Program</b> (red border) with your transition. The scene that was live moves to Preview.</dd>
+          <dt>Hold a scene for 1 second</dt><dd>The same as a double-tap: the scene goes live. A shorter hold does nothing.</dd>
+          <dt>Layout button (top right)</dt><dd>Shows 4, 6, 8 or 16 scenes below Preview and Program.</dd>
+          <dt>Back to OBSpad, &times;, back gesture or Esc</dt><dd>Closes the Multiview and returns to the studio.</dd>
+        </dl>
       </details>
       <details>
         <summary><span>Cast to a smart TV<small>Smart View, Miracast or AirPlay</small></span></summary>
