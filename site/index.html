@@ -248,6 +248,13 @@ footer .credit { color: var(--ink); font-weight: 600; }
 .testing-actions { display: flex; gap: 12px; flex-wrap: wrap; }
 .testing .card ol { margin: 12px 0 0; padding-left: 1.2em; color: var(--muted); display: grid; gap: 8px; }
 @media (max-width: 860px) { .testing { grid-template-columns: minmax(0, 1fr); } }
+/* Multiview spotlight */
+.spot { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: clamp(28px, 5vw, 56px); align-items: center; }
+.spot .copy { display: grid; gap: 14px; }
+.spot h2 { font-size: clamp(2rem, 4vw, 2.8rem); font-weight: 800; }
+.spot .copy p { color: var(--muted); }
+.spot .checks li b { color: var(--ink); }
+@media (max-width: 960px) { .spot { grid-template-columns: minmax(0, 1fr); } }
 @media (prefers-reduced-motion: reduce) {
   .band .track { animation: none; }
   .btn, .badge, summary::after { transition: none; }
@@ -352,6 +359,22 @@ footer .credit { color: var(--ink); font-weight: 600; }
     <div><h3>Plugins from GitHub</h3><p>Paste a GitHub link to add overlays, chat, scene rotators and control panels, in a sandbox.</p></div>
   </div>
 
+  <section id="multiview">
+    <div class="spot">
+      <div class="shot"><div class="tablet"><img src="img/multiview.jpg" alt="OBSpad's Multiview: Preview with a green border and Program with a red border and LIVE and REC badges on top, and eight numbered scenes below." loading="lazy"></div></div>
+      <div class="copy">
+        <span class="pill solid" style="justify-self:start">Multiview</span>
+        <h2>Every scene at a glance</h2>
+        <p>Like OBS Studio&rsquo;s Multiview: Preview and Program on top, your first eight scenes below. Program has a red border, Preview a green one, with LIVE and REC badges.</p>
+        <ul class="checks">
+          <li><span><b>Full screen on the tablet:</b> tap a scene to put it in Preview, then Transition.</span></li>
+          <li><span><b>On a second screen:</b> a monitor on your dock, USB-C or HDMI, or a smart TV, while you run the show on the tablet.</span></li>
+          <li><span>Open it from <b>View &rsaquo; Multiview (Fullscreen)</b>, or long-press Program.</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
   <section id="how">
     <div class="head">
       <span class="pill solid">How it works</span>
@@ -413,6 +436,7 @@ footer .credit { color: var(--ink); font-weight: 600; }
         <li>Pinch to scale, twist to rotate, snap to edges</li>
         <li>Menu bar, closable and resizable docks</li>
         <li><b>Undo/Redo</b>, keyboard shortcuts and nested scenes</li>
+        <li><b>Multiview</b> full screen on the tablet or a second screen</li>
       </ul></div>
       <div class="card"><h3><i></i>Sources</h3><ul>
         <li>Front and back cameras up to 4K, with zoom, torch and exposure</li>
@@ -522,6 +546,10 @@ footer .credit { color: var(--ink); font-weight: 600; }
       <details open>
         <summary><span>Show the program on a TV or monitor<small>Cable, USB-C or docking station</small></span></summary>
         <ol><li>Plug the monitor into the tablet with a USB-C to HDMI adapter, or into your docking station.</li><li>OBSpad shows the <b>Program</b> on it full screen. To choose, long-press Program, or use <b>View &rsaquo; Fullscreen Projector</b> or <b>View &rsaquo; Multiview</b>.</li><li>Nothing shows up? Open <b>Tools &rsaquo; Docking Station &amp; Screen</b>: it lists what the tablet detects and why a screen may be missing.</li></ol>
+      </details>
+      <details>
+        <summary><span>Use the Multiview<small>Preview, Program and 8 scenes at once</small></span></summary>
+        <ol><li>Open <b>View &rsaquo; Multiview (Fullscreen)</b> and pick <b>This tablet</b>, or a connected screen or TV.</li><li>On the tablet, tap a scene to put it in Preview (or straight to Program when Studio Mode is off), then use Transition.</li><li>Close it with the &times; button or the back gesture. Program shows a red border, Preview a green one.</li></ol>
       </details>
       <details>
         <summary><span>Cast to a smart TV<small>Smart View, Miracast or AirPlay</small></span></summary>
