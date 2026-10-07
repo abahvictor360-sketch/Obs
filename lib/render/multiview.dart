@@ -16,7 +16,11 @@ const kMultiviewSize = Size(1280, 720);
 ///   ├────┬────┬────┼────┬────┬────┤ ...
 ///   │ 1  │ 2  │ 3  │ 4  │          (2 rows of 4)
 class Multiview extends StatelessWidget {
-  const Multiview({super.key});
+  const Multiview({super.key, this.onSceneTap});
+
+  /// Tapping a scene tile (fullscreen Multiview on the tablet): like OBS's
+  /// "click to preview / switch".
+  final void Function(Scene scene)? onSceneTap;
 
   static const _program = Color(0xFFD7334B);
   static const _preview = Color(0xFF3FB950);
@@ -130,7 +134,14 @@ class Multiview extends StatelessWidget {
                                 if (i >= scenes.length) return const ColoredBox(color: Color(0xFF111216));
                                 final s = scenes[i];
                                 final border = s.id == program.id ? _program : (s.id == preview.id ? _preview : null);
-                                return tile(s, '${i + 1}. ${s.name}', border);
+                                final t = tile(s, '${i + 1}. ${s.name}', border);
+                                if (onSceneTap == null) return t;
+                                return GestureDetector(
+                                  key: ValueKey('multiview-scene-${s.id}'),
+                                  behavior: HitTestBehavior.opaque,
+                                  onTap: () => onSceneTap!(s),
+                                  child: t,
+                                );
                               },
                             ),
                           ),

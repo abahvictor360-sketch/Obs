@@ -380,4 +380,46 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 3));
   });
+  testWidgets('View › Multiview (Fullscreen) › This tablet: tap a scene to preview it', (tester) async {
+    tester.view.physicalSize = const Size(1366, 1024);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final studio = StudioController(storage: MemoryStorage())..setStudioMode(true);
+    final second = studio.addScene('Worship');
+    final output = OutputEngine(studio: studio, backend: FakeEncoder());
+    await output.init();
+    final devices = DeviceService();
+    await tester.runAsync(devices.init);
+    await tester.pumpWidget(ObsTabletApp(
+      studio: studio,
+      output: output,
+      cameras: CameraService(),
+      media: MediaService(),
+      plugins: PluginManager(createPlatformPluginBackend()),
+      devices: devices,
+      networkVideo: NetworkVideoService(),
+    ));
+    await tester.pump();
+    final program = studio.programScene.id;
+
+    await tester.tap(find.text('View'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('menu-multiview')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('menu-multiview-tablet')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('multiview-projector')), findsOneWidget);
+
+    await tester.tap(find.byKey(ValueKey('multiview-scene-${second.id}')));
+    await tester.pumpAndSettle();
+    expect(studio.previewScene.id, second.id);
+    expect(studio.programScene.id, program);
+
+    await tester.tap(find.byKey(const ValueKey('multiview-projector-close')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('multiview-projector')), findsNothing);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 3));
+  });
 }

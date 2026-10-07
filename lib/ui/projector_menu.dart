@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import '../app_scope.dart';
 import '../core/studio_controller.dart';
 import '../devices/device_service.dart';
+import '../render/multiview.dart';
 import '../render/program_view.dart';
 import 'theme.dart';
 
@@ -57,6 +58,8 @@ Future<void> showProjectorMenu(BuildContext context, Offset globalPosition) asyn
       ),
       entry('This tablet (fullscreen)', () => openProjector(context),
           icon: Icons.fullscreen, key: const ValueKey('projector-tablet')),
+      entry('This tablet: Multiview', () => openMultiviewProjector(context),
+          icon: Icons.grid_view, key: const ValueKey('projector-tablet-multiview')),
       if (screens.isEmpty)
         entry('No screen connected', null,
             icon: Icons.desktop_access_disabled_outlined,
@@ -146,6 +149,70 @@ void openProjector(BuildContext context) {
     pageBuilder: (_, _, _) => const ProjectorScreen(),
     transitionsBuilder: (_, a, _, child) => FadeTransition(opacity: a, child: child),
   ));
+}
+
+/// Fullscreen Multiview on the tablet: Preview, Program and the scenes.
+/// Tap a scene to preview it (or switch to it outside Studio Mode); the
+/// close button or back exits.
+void openMultiviewProjector(BuildContext context) {
+  Navigator.of(context).push(PageRouteBuilder<void>(
+    opaque: true,
+    pageBuilder: (_, _, _) => const MultiviewProjectorScreen(),
+    transitionsBuilder: (_, a, _, child) => FadeTransition(opacity: a, child: child),
+  ));
+}
+
+class MultiviewProjectorScreen extends StatefulWidget {
+  const MultiviewProjectorScreen({super.key});
+
+  @override
+  State<MultiviewProjectorScreen> createState() => _MultiviewProjectorScreenState();
+}
+
+class _MultiviewProjectorScreenState extends State<MultiviewProjectorScreen> {
+  @override
+  void initState() {
+    super.initState();
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  }
+
+  @override
+  void dispose() {
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final studio = AppScope.of(context).studio;
+    return Scaffold(
+      key: const ValueKey('multiview-projector'),
+      backgroundColor: Colors.black,
+      body: Stack(children: [
+        Center(
+          child: FittedBox(
+            child: SizedBox.fromSize(
+              size: kMultiviewSize,
+              child: Multiview(onSceneTap: (s) => studio.selectScene(s.id)),
+            ),
+          ),
+        ),
+        Positioned(
+          top: 8,
+          right: 8,
+          child: SafeArea(
+            child: IconButton.filledTonal(
+              key: const ValueKey('multiview-projector-close'),
+              tooltip: 'Close Multiview',
+              style: IconButton.styleFrom(backgroundColor: const Color(0x99000000), foregroundColor: Colors.white),
+              icon: const Icon(Icons.close),
+              onPressed: () => Navigator.of(context).maybePop(),
+            ),
+          ),
+        ),
+      ]),
+    );
+  }
 }
 
 class ProjectorScreen extends StatefulWidget {
