@@ -8,7 +8,12 @@ import 'scene_canvas.dart';
 /// connected screen.
 const kMultiviewSize = Size(1280, 720);
 
-/// OBS's Multiview: Preview and Program on top, the first 8 scenes below.
+/// Columns and rows of the scene grid for each Multiview layout (scene
+/// count), filling the bottom half of the 16:9 Multiview.
+const kMultiviewGrids = {4: (4, 1), 6: (3, 2), 8: (4, 2), 16: (8, 2)};
+
+/// OBS's Multiview: Preview and Program on top, the first 4, 6, 8 or 16
+/// scenes below (the multiviewScenes setting).
 /// The program scene has a red border, the preview scene a green one.
 ///
 ///   ┌──────────────┬──────────────┐
@@ -35,7 +40,10 @@ class Multiview extends StatelessWidget {
         final out = scope.output;
         final program = studio.programScene;
         final preview = studio.studioMode ? studio.previewScene : program;
-        final scenes = studio.scenes.take(8).toList();
+        final count = studio.settings.multiviewScenes;
+        final (cols, rows) = kMultiviewGrids[count] ?? (4, 2);
+        final sceneLabel = switch (count) { 4 => 16.0, 16 => 11.0, _ => 14.0 };
+        final scenes = studio.scenes.take(cols * rows).toList();
         final badges = [
           if (out.isStreaming) ('LIVE', _program),
           if (out.isRecording) ('REC', const Color(0xFFE0603A)),
@@ -121,20 +129,20 @@ class Multiview extends StatelessWidget {
                     ],
                   ),
                 ),
-                for (var row = 0; row < 2; row++)
+                for (var row = 0; row < rows; row++)
                   SizedBox(
-                    height: h / 4,
+                    height: h / 2 / rows,
                     child: Row(
                       children: [
-                        for (var col = 0; col < 4; col++)
+                        for (var col = 0; col < cols; col++)
                           Expanded(
                             child: Builder(
                               builder: (context) {
-                                final i = row * 4 + col;
+                                final i = row * cols + col;
                                 if (i >= scenes.length) return const ColoredBox(color: Color(0xFF111216));
                                 final s = scenes[i];
                                 final border = s.id == program.id ? _program : (s.id == preview.id ? _preview : null);
-                                final t = tile(s, '${i + 1}. ${s.name}', border);
+                                final t = tile(s, '${i + 1}. ${s.name}', border, labelSize: sceneLabel);
                                 if (onSceneTap == null) return t;
                                 return GestureDetector(
                                   key: ValueKey('multiview-scene-${s.id}'),

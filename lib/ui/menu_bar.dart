@@ -146,6 +146,22 @@ class ObsMenuBar extends StatelessWidget {
                     icon: Icons.tablet_android, key: const ValueKey('menu-multiview-tablet')),
                 const Divider(height: 1),
                 ...screenItems('multiview'),
+                const Divider(height: 1),
+                SubmenuButton(
+                  key: const ValueKey('menu-multiview-layout'),
+                  leadingIcon: const Icon(Icons.dashboard_outlined, size: 18),
+                  menuChildren: [
+                    for (final n in OutputSettings.multiviewLayouts)
+                      RadioMenuButton<int>(
+                        key: ValueKey('menu-multiview-layout-$n'),
+                        value: n,
+                        groupValue: studio.settings.multiviewScenes,
+                        onChanged: (v) => studio.updateSettings((s) => s.multiviewScenes = v ?? 8),
+                        child: Text('$n scenes'),
+                      ),
+                  ],
+                  child: Text('Layout: ${studio.settings.multiviewScenes} scenes'),
+                ),
               ],
               child: const Text('Multiview (Fullscreen)'),
             ),

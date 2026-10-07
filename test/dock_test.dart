@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:obs_tablet/core/models.dart';
 import 'package:obs_tablet/core/storage.dart';
 import 'package:obs_tablet/core/studio_controller.dart';
 import 'package:obs_tablet/devices/device_service.dart';
@@ -419,6 +420,70 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('multiview-projector')), findsNothing);
     expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 3));
+  });
+  testWidgets('Multiview layout: 4, 6, 8 or 16 scenes, from the View menu or the fullscreen Multiview',
+      (tester) async {
+    tester.view.physicalSize = const Size(1366, 1024);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final studio = StudioController(storage: MemoryStorage())..setStudioMode(true);
+    while (studio.scenes.length < 12) {
+      studio.addScene();
+    }
+    final output = OutputEngine(studio: studio, backend: FakeEncoder());
+    await output.init();
+    final devices = DeviceService();
+    await tester.runAsync(devices.init);
+    await tester.pumpWidget(ObsTabletApp(
+      studio: studio,
+      output: output,
+      cameras: CameraService(),
+      media: MediaService(),
+      plugins: PluginManager(createPlatformPluginBackend()),
+      devices: devices,
+      networkVideo: NetworkVideoService(),
+    ));
+    await tester.pump();
+    int tiles() => find.byWidgetPredicate((w) => '${w.key}'.contains('multiview-scene-')).evaluate().length;
+
+    // View › Multiview (Fullscreen) › Layout › 4 scenes.
+    await tester.tap(find.text('View'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('menu-multiview')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('menu-multiview-layout')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('menu-multiview-layout-4')).first);
+    await tester.pumpAndSettle();
+    expect(studio.settings.multiviewScenes, 4);
+
+    await tester.tap(find.text('View'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('menu-multiview')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('menu-multiview-tablet')));
+    await tester.pumpAndSettle();
+    expect(tiles(), 4);
+
+    // From the fullscreen Multiview itself.
+    for (final (n, shown) in [(16, 12), (6, 6), (8, 8)]) {
+      await tester.tap(find.byKey(const ValueKey('multiview-layout')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(ValueKey('multiview-layout-$n')));
+      await tester.pumpAndSettle();
+      expect(studio.settings.multiviewScenes, n);
+      expect(tiles(), shown, reason: '$n-scene layout with 12 scenes');
+    }
+    expect(tester.takeException(), isNull);
+
+    // Saved with the settings.
+    expect(OutputSettings.fromJson({...studio.settings.toJson(), 'multiviewScenes': 16}).multiviewScenes, 16);
+    expect(OutputSettings.fromJson({...studio.settings.toJson(), 'multiviewScenes': 5}).multiviewScenes, 8);
+
+    await tester.tap(find.byKey(const ValueKey('multiview-projector-close')));
+    await tester.pumpAndSettle();
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 3));
   });

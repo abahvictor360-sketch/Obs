@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../app_scope.dart';
+import '../core/models.dart';
 import '../core/studio_controller.dart';
 import '../devices/device_service.dart';
 import '../render/multiview.dart';
@@ -201,13 +202,38 @@ class _MultiviewProjectorScreenState extends State<MultiviewProjectorScreen> {
           top: 8,
           right: 8,
           child: SafeArea(
-            child: IconButton.filledTonal(
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              ListenableBuilder(
+                listenable: studio,
+                builder: (context, _) => PopupMenuButton<int>(
+                  key: const ValueKey('multiview-layout'),
+                  tooltip: 'Multiview layout',
+                  initialValue: studio.settings.multiviewScenes,
+                  onSelected: (n) => studio.updateSettings((s) => s.multiviewScenes = n),
+                  itemBuilder: (_) => [
+                    for (final n in OutputSettings.multiviewLayouts)
+                      PopupMenuItem(value: n, key: ValueKey('multiview-layout-$n'), child: Text('$n scenes')),
+                  ],
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(color: const Color(0x99000000), borderRadius: BorderRadius.circular(20)),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      const Icon(Icons.dashboard_outlined, color: Colors.white, size: 18),
+                      const SizedBox(width: 6),
+                      Text('${studio.settings.multiviewScenes} scenes', style: const TextStyle(color: Colors.white)),
+                    ]),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton.filledTonal(
               key: const ValueKey('multiview-projector-close'),
               tooltip: 'Close Multiview',
               style: IconButton.styleFrom(backgroundColor: const Color(0x99000000), foregroundColor: Colors.white),
               icon: const Icon(Icons.close),
               onPressed: () => Navigator.of(context).maybePop(),
             ),
+            ]),
           ),
         ),
       ]),

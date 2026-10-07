@@ -621,6 +621,7 @@ class OutputSettings {
     this.streamDelaySec = 0,
     this.audioChannels = 2,
     this.replaySeconds = 30,
+    this.multiviewScenes = 8,
     this.confirmStartStop = true,
     this.preferWired = true,
     this.externalDisplay = 'program',
@@ -661,6 +662,10 @@ class OutputSettings {
 
   /// Replay Buffer length in seconds.
   int replaySeconds;
+
+  /// Scenes shown in the Multiview below Preview and Program: 4, 6, 8 or 16.
+  int multiviewScenes;
+  static const multiviewLayouts = [4, 6, 8, 16];
   bool confirmStartStop;
 
   /// Send traffic over a USB Ethernet adapter when one is connected (Android;
@@ -745,6 +750,7 @@ class OutputSettings {
         'streamDelaySec': streamDelaySec,
         'audioChannels': audioChannels,
         'replaySeconds': replaySeconds,
+        'multiviewScenes': multiviewScenes,
         'confirmStartStop': confirmStartStop,
         'preferWired': preferWired,
         'externalDisplay': externalDisplay,
@@ -778,6 +784,9 @@ class OutputSettings {
       streamDelaySec: i('streamDelaySec', d.streamDelaySec).clamp(0, 600),
       audioChannels: i('audioChannels', d.audioChannels) == 1 ? 1 : 2,
       replaySeconds: i('replaySeconds', d.replaySeconds).clamp(5, 300),
+      multiviewScenes: OutputSettings.multiviewLayouts.contains(j['multiviewScenes'])
+          ? j['multiviewScenes'] as int
+          : d.multiviewScenes,
       confirmStartStop: j['confirmStartStop'] as bool? ?? d.confirmStartStop,
       preferWired: j['preferWired'] as bool? ?? d.preferWired,
       externalDisplay: const ['program', 'multiview', 'mirror'].contains(j['externalDisplay'])
