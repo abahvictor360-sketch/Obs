@@ -206,7 +206,10 @@ class _MultiviewProjectorScreenState extends State<MultiviewProjectorScreen> {
           child: FittedBox(
             child: SizedBox.fromSize(
               size: kMultiviewSize,
-              child: Multiview(onSceneTap: (s) => studio.selectScene(s.id)),
+              child: Multiview(
+                onSceneTap: (s) => studio.selectScene(s.id),
+                onSceneTransition: (s) => studio.sendSceneToProgram(s.id),
+              ),
             ),
           ),
         ),
@@ -263,6 +266,32 @@ class _MultiviewProjectorScreenState extends State<MultiviewProjectorScreen> {
               icon: const Icon(Icons.arrow_back),
               label: const Text('Back to OBSpad'),
               onPressed: _close,
+            ),
+          ),
+        ),
+        Positioned(
+          top: 8,
+          left: 0,
+          right: 0,
+          child: SafeArea(
+            child: IgnorePointer(
+              child: Center(
+                child: ListenableBuilder(
+                  listenable: studio,
+                  builder: (context, _) => Container(
+                    margin: const EdgeInsets.only(top: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(color: const Color(0x99000000), borderRadius: BorderRadius.circular(16)),
+                    child: Text(
+                      studio.studioMode
+                          ? 'Tap a scene: Preview  ·  Double-tap or hold 1s: Program'
+                          : 'Tap a scene to switch to it',
+                      key: const ValueKey('multiview-hint'),
+                      style: const TextStyle(color: Colors.white, fontSize: 12),
+                    ),
+                  ),
+                ),
+              ),
             ),
           ),
         ),

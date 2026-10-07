@@ -415,6 +415,30 @@ void main() {
     await tester.pumpAndSettle();
     expect(studio.previewScene.id, second.id);
     expect(studio.programScene.id, program);
+    expect(find.textContaining('Double-tap or hold 1s: Program'), findsOneWidget);
+
+    // Double-tap: straight to Program; the old program goes to Preview.
+    final tile = find.byKey(ValueKey('multiview-scene-${second.id}'));
+    await tester.tap(tile);
+    await tester.pump(const Duration(milliseconds: 60));
+    await tester.tap(tile);
+    await tester.pumpAndSettle();
+    expect(studio.programScene.id, second.id);
+    expect(studio.previewScene.id, program);
+
+    // Hold for a second: the first scene goes back to Program. A short hold
+    // does nothing.
+    final first = find.byKey(ValueKey('multiview-scene-$program'));
+    var g = await tester.startGesture(tester.getCenter(first));
+    await tester.pump(const Duration(milliseconds: 600));
+    await g.up();
+    await tester.pumpAndSettle();
+    expect(studio.programScene.id, second.id);
+    g = await tester.startGesture(tester.getCenter(first));
+    await tester.pump(const Duration(milliseconds: 1100));
+    await g.up();
+    await tester.pumpAndSettle();
+    expect(studio.programScene.id, program);
 
     expect(find.text('Back to OBSpad'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('multiview-projector-close')));

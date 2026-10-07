@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import '../app_scope.dart';
@@ -21,11 +22,14 @@ const kMultiviewGrids = {4: (4, 1), 6: (3, 2), 8: (4, 2), 16: (8, 2)};
 ///   ├────┬────┬────┼────┬────┬────┤ ...
 ///   │ 1  │ 2  │ 3  │ 4  │          (2 rows of 4)
 class Multiview extends StatelessWidget {
-  const Multiview({super.key, this.onSceneTap});
+  const Multiview({super.key, this.onSceneTap, this.onSceneTransition});
 
   /// Tapping a scene tile (fullscreen Multiview on the tablet): like OBS's
   /// "click to preview / switch".
   final void Function(Scene scene)? onSceneTap;
+
+  /// Double-tapping or holding a scene tile for a second: put it live.
+  final void Function(Scene scene)? onSceneTransition;
 
   static const _program = Color(0xFFD7334B);
   static const _preview = Color(0xFF3FB950);
@@ -143,11 +147,11 @@ class Multiview extends StatelessWidget {
                                 final s = scenes[i];
                                 final border = s.id == program.id ? _program : (s.id == preview.id ? _preview : null);
                                 final t = tile(s, '${i + 1}. ${s.name}', border, labelSize: sceneLabel);
-                                if (onSceneTap == null) return t;
-                                return GestureDetector(
+                                if (onSceneTap == null && onSceneTransition == null) return t;
+                                return _SceneTileGestures(
                                   key: ValueKey('multiview-scene-${s.id}'),
-                                  behavior: HitTestBehavior.opaque,
-                                  onTap: () => onSceneTap!(s),
+                                  onTap: onSceneTap == null ? null : () => onSceneTap!(s),
+                                  onGoLive: onSceneTransition == null ? null : () => onSceneTransition!(s),
                                   child: t,
                                 );
                               },
@@ -188,6 +192,41 @@ class MultiviewHost extends StatelessWidget {
           child: RepaintBoundary(key: scope.output.multiviewKey, child: const Multiview()),
         );
       },
+    );
+  }
+}
+
+/// Tap, double-tap and a one-second hold on a Multiview scene.
+class _SceneTileGestures extends StatelessWidget {
+  const _SceneTileGestures({super.key, this.onTap, this.onGoLive, required this.child});
+
+  static const holdDuration = Duration(seconds: 1);
+
+  final VoidCallback? onTap;
+  final VoidCallback? onGoLive;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return RawGestureDetector(
+      behavior: HitTestBehavior.opaque,
+      gestures: {
+        TapGestureRecognizer: GestureRecognizerFactoryWithHandlers<TapGestureRecognizer>(
+          TapGestureRecognizer.new,
+          (r) => r.onTap = onTap,
+        ),
+        if (onGoLive != null) ...{
+          DoubleTapGestureRecognizer: GestureRecognizerFactoryWithHandlers<DoubleTapGestureRecognizer>(
+            DoubleTapGestureRecognizer.new,
+            (r) => r.onDoubleTap = onGoLive,
+          ),
+          LongPressGestureRecognizer: GestureRecognizerFactoryWithHandlers<LongPressGestureRecognizer>(
+            () => LongPressGestureRecognizer(duration: holdDuration),
+            (r) => r.onLongPress = onGoLive,
+          ),
+        },
+      },
+      child: child,
     );
   }
 }

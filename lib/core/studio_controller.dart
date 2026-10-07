@@ -332,6 +332,20 @@ class StudioController extends ChangeNotifier {
     _changed();
   }
 
+  /// Puts [sceneId] live straight away with the current transition (Multiview
+  /// double-tap / hold). In Studio Mode it goes through Preview, so the old
+  /// program scene ends up in Preview, like OBS.
+  void sendSceneToProgram(String sceneId) {
+    if (sceneById(sceneId) == null) return;
+    if (!studioMode) {
+      selectScene(sceneId);
+      return;
+    }
+    if (collection.programSceneId == sceneId) return;
+    selectScene(sceneId);
+    transitionToProgram();
+  }
+
   /// The scene leaving program during a transition keeps its sources running
   /// (cameras, videos, pages) until the transition has finished drawing it.
   Scene? _outgoing;
