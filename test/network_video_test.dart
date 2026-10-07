@@ -121,4 +121,43 @@ void main() {
     expect(service.feed('src')!.state, FeedState.retrying);
     service.dispose();
   });
+
+  group('phone camera (front / back)', () {
+    test('IP Webcam is switched with its front-camera setting; DroidCam is not', () {
+      Map<String, dynamic> ip(String? cam) => {'kind': 'ipWebcam', 'host': '192.168.1.23', 'phoneCamera': cam};
+      expect(phoneCameraUrl(ip('front')), 'http://192.168.1.23:8080/settings/ffc?set=on');
+      expect(phoneCameraUrl(ip('back')), 'http://192.168.1.23:8080/settings/ffc?set=off');
+      expect(phoneCameraUrl(ip('app')), isNull);
+      expect(phoneCameraUrl(ip(null)), isNull);
+      expect(phoneCameraUrl({'kind': 'ipWebcam', 'host': '', 'phoneCamera': 'front'}), isNull);
+      expect(phoneCameraUrl({'kind': 'droidcam', 'host': '192.168.1.23', 'phoneCamera': 'front'}), isNull);
+    });
+
+    test('the request is sent once per change, and again when the phone was not reachable', () async {
+      final sent = <String>[];
+      var reachable = false;
+      final service = NetworkVideoService(get: (url) async {
+        sent.add(url);
+        return reachable;
+      });
+      const front = 'http://p:8080/settings/ffc?set=on';
+      const back = 'http://p:8080/settings/ffc?set=off';
+      service.applyPhoneCameras({'a': front});
+      await Future<void>.delayed(Duration.zero);
+      // The phone app wasn't started: retried on the next update.
+      reachable = true;
+      service.applyPhoneCameras({'a': front});
+      await Future<void>.delayed(Duration.zero);
+      service.applyPhoneCameras({'a': front});
+      service.applyPhoneCameras({'a': back});
+      await Future<void>.delayed(Duration.zero);
+      expect(sent, [front, front, back]);
+      // Hidden, then shown again: switched again.
+      service.applyPhoneCameras({});
+      service.applyPhoneCameras({'a': back});
+      expect(sent.last, back);
+      expect(sent, hasLength(4));
+      service.dispose();
+    });
+  });
 }

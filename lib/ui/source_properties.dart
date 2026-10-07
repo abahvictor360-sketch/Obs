@@ -952,6 +952,29 @@ class _NetworkVideoSettings extends StatelessWidget {
                   onChanged: (v) => set('resolution', v ?? 'auto'),
                 ),
               ],
+              const SizedBox(height: 12),
+              const Text('Phone camera', style: TextStyle(color: ObsColors.textDim)),
+              const SizedBox(height: 6),
+              if (kind == NetworkVideoKind.ipWebcam)
+                SegmentedButton<String>(
+                  key: const ValueKey('phone-camera'),
+                  segments: const [
+                    ButtonSegment(value: 'back', label: Text('Back'), icon: Icon(Icons.camera_rear)),
+                    ButtonSegment(value: 'front', label: Text('Front'), icon: Icon(Icons.camera_front)),
+                    ButtonSegment(value: 'app', label: Text('As in the app')),
+                  ],
+                  selected: {
+                    switch (s['phoneCamera']) { 'front' => 'front', 'back' => 'back', _ => 'app' },
+                  },
+                  onSelectionChanged: (v) => set('phoneCamera', v.first),
+                )
+              else
+                const Text(
+                  'DroidCam: tap the switch-camera button in the DroidCam app on the phone to use its front '
+                  'or back camera. DroidCam doesn\'t let other apps switch it; IP Webcam does.',
+                  key: ValueKey('droidcam-camera-help'),
+                  style: TextStyle(color: ObsColors.textDim, fontSize: 13),
+                ),
             ] else
               _SettingTextField(
                 key: ValueKey('url-${kind.name}'),

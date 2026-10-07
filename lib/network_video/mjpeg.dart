@@ -22,6 +22,28 @@ enum NetworkVideoKind {
       NetworkVideoKind.values.where((k) => k.name == n).firstOrNull ?? NetworkVideoKind.droidcam;
 }
 
+/// http://host:port of a phone app source, or null if it has no IP yet.
+String? _phoneBase(Map<String, dynamic> s, NetworkVideoKind kind) {
+  var host = (s['host'] as String? ?? '').trim();
+  if (host.isEmpty) return null;
+  host = host.replaceFirst(RegExp(r'^https?://'), '').replaceFirst(RegExp(r'/.*$'), '');
+  final hasPort = RegExp(r':\d+$').hasMatch(host);
+  final port = (s['port'] as num?)?.toInt() ?? kind.defaultPort;
+  return 'http://$host${hasPort ? '' : ':$port'}';
+}
+
+/// The request that turns the phone's front or back camera on, for the
+/// source's "phoneCamera" setting ('front' / 'back'; 'app' or unset leaves
+/// it as chosen in the phone app). Only IP Webcam can be switched remotely:
+/// DroidCam's camera is chosen in the DroidCam app.
+String? phoneCameraUrl(Map<String, dynamic> s) {
+  final kind = NetworkVideoKind.fromName(s['kind'] as String?);
+  final cam = s['phoneCamera'] as String?;
+  if (kind != NetworkVideoKind.ipWebcam || (cam != 'front' && cam != 'back')) return null;
+  final base = _phoneBase(s, kind);
+  return base == null ? null : '$base/settings/ffc?set=${cam == 'front' ? 'on' : 'off'}';
+}
+
 /// Builds the URL to open from a Network Video source's settings, or null
 /// if it isn't configured yet.
 String? networkVideoUrl(Map<String, dynamic> s) {
@@ -31,12 +53,8 @@ String? networkVideoUrl(Map<String, dynamic> s) {
     if (url.isEmpty) return null;
     return url.contains('://') ? url : 'http://$url';
   }
-  var host = (s['host'] as String? ?? '').trim();
-  if (host.isEmpty) return null;
-  host = host.replaceFirst(RegExp(r'^https?://'), '').replaceFirst(RegExp(r'/.*$'), '');
-  final hasPort = RegExp(r':\d+$').hasMatch(host);
-  final port = (s['port'] as num?)?.toInt() ?? kind.defaultPort;
-  final base = 'http://$host${hasPort ? '' : ':$port'}';
+  final base = _phoneBase(s, kind);
+  if (base == null) return null;
   switch (kind) {
     case NetworkVideoKind.droidcam:
       // DroidCam picks the size from the query, e.g. /video?1280x720.

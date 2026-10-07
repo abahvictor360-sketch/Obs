@@ -40,9 +40,29 @@ class NetworkFeed {
 /// Video from other devices on the network: a phone running DroidCam or
 /// IP Webcam, IP cameras (MJPEG), or HLS/HTTP streams.
 class NetworkVideoService extends ChangeNotifier {
-  NetworkVideoService({ByteStreamOpener? opener}) : _open = opener ?? transport.openHttpStream;
+  NetworkVideoService({ByteStreamOpener? opener, Future<bool> Function(String url)? get})
+      : _open = opener ?? transport.openHttpStream,
+        _get = get ?? transport.httpGet;
 
   final ByteStreamOpener _open;
+  final Future<bool> Function(String url) _get;
+
+  /// Camera switch requests last sent, per source (see [phoneCameraUrl]).
+  final Map<String, String> _cameraSent = {};
+
+  /// Switches each phone to the camera its source asks for (front or back),
+  /// once per change and each time the source becomes active again.
+  void applyPhoneCameras(Map<String, String> wanted) {
+    _cameraSent.removeWhere((id, _) => !wanted.containsKey(id));
+    for (final e in wanted.entries) {
+      if (_cameraSent[e.key] == e.value) continue;
+      _cameraSent[e.key] = e.value;
+      _get(e.value).then((ok) {
+        // Not reachable yet (phone app not started): try again on the next change.
+        if (!ok && _cameraSent[e.key] == e.value) _cameraSent.remove(e.key);
+      });
+    }
+  }
   final Map<String, NetworkFeed> _feeds = {};
 
   bool get supported => transport.supported;
@@ -243,11 +263,15 @@ class NetworkVideoTracker {
   void _sync() {
     if (!service.supported) return;
     final wanted = <String, (NetworkVideoKind, String)>{};
+    final cameras = <String, String>{};
     for (final s in studio.activeSources) {
       if (s.type != SourceType.networkVideo) continue;
       final url = networkVideoUrl(s.settings);
       if (url != null) wanted[s.id] = (NetworkVideoKind.fromName(s.settings['kind'] as String?), url);
+      final cam = phoneCameraUrl(s.settings);
+      if (cam != null) cameras[s.id] = cam;
     }
+    service.applyPhoneCameras(cameras);
     service.sync(wanted);
   }
 

@@ -4,6 +4,21 @@ import 'dart:io';
 
 const bool supported = true;
 
+/// Sends a GET to [url] (a camera setting) and returns whether it succeeded.
+Future<bool> httpGet(String url) async {
+  final client = HttpClient()..connectionTimeout = const Duration(seconds: 4);
+  try {
+    final req = await client.getUrl(Uri.parse(url));
+    final res = await req.close().timeout(const Duration(seconds: 5));
+    await res.drain<void>();
+    return res.statusCode == 200;
+  } catch (_) {
+    return false;
+  } finally {
+    client.close(force: true);
+  }
+}
+
 /// GETs [url] and returns the body as a stream. [onCancel] receives a
 /// function that aborts the request.
 Future<Stream<List<int>>> openHttpStream(String url, void Function(void Function()) onCancel) async {
