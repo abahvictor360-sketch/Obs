@@ -416,7 +416,32 @@ void main() {
     expect(studio.previewScene.id, second.id);
     expect(studio.programScene.id, program);
 
+    expect(find.text('Back to OBSpad'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('multiview-projector-close')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('multiview-projector')), findsNothing);
+    // Back on the studio, not an exit prompt.
+    expect(find.text('Program'), findsWidgets);
+
+    // The back gesture and Esc close it too.
+    Future<void> reopen() async {
+      await tester.tap(find.text('View'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('menu-multiview')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('menu-multiview-tablet')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('multiview-projector')), findsOneWidget);
+    }
+
+    await reopen();
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('multiview-projector')), findsNothing);
+    expect(find.text('Exit OBSpad?'), findsNothing);
+
+    await reopen();
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('multiview-projector')), findsNothing);
     expect(tester.takeException(), isNull);

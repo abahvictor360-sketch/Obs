@@ -183,9 +183,21 @@ class _MultiviewProjectorScreenState extends State<MultiviewProjectorScreen> {
     super.dispose();
   }
 
+  void _close() => Navigator.of(context).maybePop();
+
   @override
   Widget build(BuildContext context) {
     final studio = AppScope.of(context).studio;
+    return CallbackShortcuts(
+      bindings: {const SingleActivator(LogicalKeyboardKey.escape): _close},
+      child: Focus(
+        autofocus: true,
+        child: _body(context, studio),
+      ),
+    );
+  }
+
+  Widget _body(BuildContext context, StudioController studio) {
     return Scaffold(
       key: const ValueKey('multiview-projector'),
       backgroundColor: Colors.black,
@@ -227,13 +239,31 @@ class _MultiviewProjectorScreenState extends State<MultiviewProjectorScreen> {
               ),
               const SizedBox(width: 8),
               IconButton.filledTonal(
-              key: const ValueKey('multiview-projector-close'),
-              tooltip: 'Close Multiview',
-              style: IconButton.styleFrom(backgroundColor: const Color(0x99000000), foregroundColor: Colors.white),
-              icon: const Icon(Icons.close),
-              onPressed: () => Navigator.of(context).maybePop(),
-            ),
+                key: const ValueKey('multiview-projector-x'),
+                tooltip: 'Close Multiview',
+                style: IconButton.styleFrom(backgroundColor: const Color(0x99000000), foregroundColor: Colors.white),
+                icon: const Icon(Icons.close),
+                onPressed: _close,
+              ),
             ]),
+          ),
+        ),
+        // Always visible way back to the studio.
+        Positioned(
+          top: 8,
+          left: 8,
+          child: SafeArea(
+            child: FilledButton.icon(
+              key: const ValueKey('multiview-projector-close'),
+              style: FilledButton.styleFrom(
+                backgroundColor: ObsColors.accent,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              ),
+              icon: const Icon(Icons.arrow_back),
+              label: const Text('Back to OBSpad'),
+              onPressed: _close,
+            ),
           ),
         ),
       ]),
