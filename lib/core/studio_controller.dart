@@ -541,6 +541,8 @@ class StudioController extends ChangeNotifier {
       case SourceType.screen:
       case SourceType.usbVideo:
       case SourceType.networkVideo:
+      case SourceType.ndiInput:
+      case SourceType.rtmpInput:
         return ItemTransform(width: cw, height: ch, fit: FitMode.contain);
       case SourceType.image:
         final w = cw / 2, h = ch / 2;
@@ -829,10 +831,15 @@ class StudioController extends ChangeNotifier {
         'channel': mic.settings['channel'] as String? ?? 'mix',
         'gain': mic.muted ? 0.0 : mic.volume,
         'chain': chain,
+        'delayMs': mic.syncOffsetMs,
       });
     }
     return {'noiseSuppression': ns, 'inputs': inputs};
   }
+
+  /// Audio sync offset for a source's sound, 0–2000 ms.
+  void setSyncOffset(String sourceId, int ms) =>
+      updateSourceSettings(sourceId, {'syncOffsetMs': ms.clamp(0, 2000)});
 
   double get micGain {
     final mics = collection.sources.where((s) => s.type == SourceType.audioInput);

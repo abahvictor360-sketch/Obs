@@ -143,6 +143,13 @@ abstract class EncoderBackend {
   /// Media Sources whose audio is mixed into the output: {id, path, gain,
   /// playing, positionMs, loop}. Their levels come on [mediaLevels].
   Future<void> setMediaAudio(List<Map<String, Object>> sources);
+
+  /// Network sources whose sound is pushed live (NDI, RTMP input):
+  /// {id, gain, delayMs} each. Their levels arrive as media levels.
+  Future<void> setLiveAudio(List<Map<String, Object>> sources);
+
+  /// Interleaved float PCM for live source [id].
+  Future<void> pushLiveAudio(String id, Float32List pcm, int channels, int rate);
   Stream<(String, AudioLevel)> get mediaLevels;
 
   /// Each Mic/Aux source's level (after its filters and fader).
@@ -307,6 +314,14 @@ class MethodChannelEncoder implements EncoderBackend {
   @override
   Future<void> setMediaAudio(List<Map<String, Object>> sources) =>
       _method.invokeMethod('setMediaAudio', {'sources': sources});
+
+  @override
+  Future<void> setLiveAudio(List<Map<String, Object>> sources) =>
+      _method.invokeMethod('setLiveAudio', {'sources': sources});
+
+  @override
+  Future<void> pushLiveAudio(String id, Float32List pcm, int channels, int rate) =>
+      _method.invokeMethod('pushLiveAudio', {'id': id, 'data': pcm, 'channels': channels, 'rate': rate});
   @override
   Stream<(String, AudioLevel)> get mediaLevels => _mediaLevels.stream;
   @override

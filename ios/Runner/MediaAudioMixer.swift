@@ -37,13 +37,17 @@ final class MediaAudioMixer {
             }
             t!.gain = Float((m["gain"] as? NSNumber)?.doubleValue ?? 1)
             t!.loop = (m["loop"] as? Bool) ?? true
-            t!.sync(positionMs: Int64((m["positionMs"] as? NSNumber)?.int64Value ?? 0),
-                    playing: (m["playing"] as? Bool) ?? false)
+            // Audio sync offset: the sound runs that much behind the picture.
+            let offset = (m["delayMs"] as? NSNumber)?.int64Value ?? 0
+            let pos = (m["positionMs"] as? NSNumber)?.int64Value ?? 0
+            t!.sync(positionMs: max(0, pos - offset), playing: (m["playing"] as? Bool) ?? false)
         }
     }
 
     /// Adds the playing tracks in stereo to [left]/[right] (same length).
     func mixStereo(left: inout [Float], right: inout [Float]) {
+        // Network sources (NDI, RTMP input) are mixed alongside.
+        LiveAudio.shared.mixStereo(left: &left, right: &right)
         lock.lock()
         let active = tracks.values.filter { $0.playing }
         lock.unlock()
@@ -73,6 +77,7 @@ final class MediaAudioMixer {
     /// Adds the playing tracks to mono samples (-1...1) and advances them.
     /// With mix false they only advance (meters while nothing is encoded).
     func mix(into samples: inout [Float], mix: Bool = true) {
+        LiveAudio.shared.mix(into: &samples, mix: mix)
         lock.lock()
         let active = tracks.values.filter { $0.playing }
         lock.unlock()

@@ -36,6 +36,14 @@ enum SourceType {
 
   /// Phone camera / IP camera over Wi-Fi (DroidCam, IP Webcam, MJPEG, HLS).
   networkVideo('Network Video (phone / IP camera)'),
+
+  /// Video and sound from an NDI® sender on the network (vMix, OBS with
+  /// DistroAV, PTZ cameras, NDI HX Camera on a phone, another OBSpad).
+  ndiInput('NDI® Source'),
+
+  /// A phone app or encoder streaming RTMP to this tablet (Larix, Prism,
+  /// OBS, GoPro, another OBSpad), with its sound.
+  rtmpInput('Phone / Encoder (RTMP)'),
   image('Image'),
 
   /// Several images shown one after another with a transition.
@@ -71,7 +79,16 @@ enum SourceType {
       this == SourceType.audioInput ||
       this == SourceType.audioOutput ||
       this == SourceType.media ||
-      this == SourceType.screen;
+      this == SourceType.screen ||
+      this == SourceType.ndiInput ||
+      this == SourceType.rtmpInput;
+
+  /// Sound that can be delayed with an audio sync offset.
+  bool get hasSyncOffset =>
+      this == SourceType.audioInput ||
+      this == SourceType.media ||
+      this == SourceType.ndiInput ||
+      this == SourceType.rtmpInput;
 
   static SourceType fromName(String name) =>
       SourceType.values.firstWhere((t) => t.name == name, orElse: () => SourceType.color);
@@ -102,6 +119,10 @@ class Source {
 
   /// Filter chain (first applied first), like OBS's Filters window.
   final List<SourceFilter> filters;
+
+  /// Audio sync offset (OBS's Advanced Audio Properties): how much later
+  /// this source's sound plays, 0–2000 ms, to line it up with the picture.
+  int get syncOffsetMs => ((settings['syncOffsetMs'] as num?)?.toInt() ?? 0).clamp(0, 2000);
 
   /// Product of the enabled Gain filters.
   double get filterGain =>
@@ -175,6 +196,16 @@ class SourceDefaults {
           'host': '', // phone IP shown in the DroidCam / IP Webcam app
           'url': '', // for the URL kinds
           'resolution': 'auto', // DroidCam only, e.g. 1280x720
+        };
+      case SourceType.ndiInput:
+        return {
+          'ndiName': '', // "MACHINE (Source)" as NDI lists it
+          'lowBandwidth': false, // NDI's preview stream: less Wi-Fi and CPU
+        };
+      case SourceType.rtmpInput:
+        return {
+          // rtmp://<tablet>:1935/live/<streamKey>
+          'streamKey': 'phone${1 + DateTime.now().microsecondsSinceEpoch % 900}',
         };
       case SourceType.image:
         return {

@@ -22,6 +22,7 @@ final class MicProcessing {
         let gain: Float
         let chain: [Stage]
         let version: Int
+        var delayMs: Int = 0
     }
 
     private let lock = NSLock()
@@ -76,7 +77,8 @@ final class MicProcessing {
                              channel: m["channel"] as? String ?? "mix",
                              gain: Float((m["gain"] as? NSNumber)?.doubleValue ?? 1),
                              chain: MicProcessing.parseChain(m["chain"] as? [Any]),
-                             version: v)
+                             version: v,
+                             delayMs: (m["delayMs"] as? NSNumber)?.intValue ?? 0)
             }
         } else {
             _inputs = [Input(id: "", channel: "mix", gain: _inputs.first?.gain ?? 1,
@@ -105,6 +107,7 @@ final class MicProcessing {
 /// its level.
 final class MicBus {
     private var processors: [String: MicProcessor] = [:]
+    private var delays: [String: DelayLine] = [:]
     private var sums: [String: (sum: Float, peak: Float, frames: Int)] = [:]
 
     func mix(_ buffer: AVAudioPCMBuffer) -> [Float] {
@@ -142,6 +145,12 @@ final class MicBus {
                 processors[input.id] = proc
             }
             proc.process(&tmp, chain: input.chain, version: input.version)
+            // Audio sync offset (lines the mic up with a camera that lags).
+            if input.delayMs > 0 || delays[input.id] != nil {
+                let line = delays[input.id] ?? DelayLine(sampleRate: rate)
+                delays[input.id] = line
+                line.process(&tmp, delayMs: input.delayMs)
+            }
             let g = input.gain
             var acc = sums[input.id] ?? (0, 0, 0)
             for i in 0..<n {
@@ -161,6 +170,7 @@ final class MicBus {
         if processors.count > inputs.count {
             let ids = Set(inputs.map { $0.id })
             processors = processors.filter { ids.contains($0.key) }
+            delays = delays.filter { ids.contains($0.key) }
         }
         return out
     }

@@ -44,7 +44,10 @@ object MediaAudioMixer {
                 }
                 t.gain = (m["gain"] as? Number)?.toFloat() ?: 1f
                 t.loop = m["loop"] as? Boolean ?: true
-                t.sync((m["positionMs"] as? Number)?.toLong() ?: 0L, m["playing"] as? Boolean ?: false)
+                // Audio sync offset: the sound runs that much behind the picture.
+                val offset = (m["delayMs"] as? Number)?.toLong() ?: 0L
+                val pos = (m["positionMs"] as? Number)?.toLong() ?: 0L
+                t.sync(max(0L, pos - offset), m["playing"] as? Boolean ?: false)
             }
         }
     }
@@ -59,6 +62,8 @@ object MediaAudioMixer {
      * the meters while nothing is encoded).
      */
     fun mixInto(samples: ShortArray, count: Int, channels: Int, mix: Boolean = true) {
+        // Network sources (NDI, RTMP input) are mixed alongside.
+        LiveAudio.mixInto(samples, count, channels, mix)
         val active = synchronized(tracks) { tracks.values.filter { it.playing } }
         if (active.isEmpty()) return
         val frames = count / max(channels, 1)

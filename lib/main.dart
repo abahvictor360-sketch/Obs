@@ -7,6 +7,7 @@ import 'core/storage.dart';
 import 'core/studio_controller.dart';
 import 'core/update_service.dart';
 import 'devices/device_service.dart';
+import 'live/live_inputs.dart';
 import 'ndi/ndi_controller.dart';
 import 'network_video/network_video_service.dart';
 import 'output/external_display_output.dart';
@@ -43,6 +44,8 @@ Future<void> main() async {
   ExternalDisplayOutput(output: output, devices: devices);
   final networkVideo = NetworkVideoService();
   NetworkVideoTracker(studio, networkVideo);
+  final liveInputs = LiveInputs();
+  LiveInputsTracker(studio, liveInputs, output: output);
   media.nativeAudio = output.encoderSupported;
   MediaAudioBridge(studio, media, output);
   BrowserSourceTracker(studio, BrowserSourceService.instance);
@@ -53,7 +56,16 @@ Future<void> main() async {
     }
     ..start();
 
-  runApp(ObsTabletApp(studio: studio, output: output, cameras: cameras, media: media, plugins: plugins, devices: devices, networkVideo: networkVideo));
+  runApp(ObsTabletApp(
+    studio: studio,
+    output: output,
+    cameras: cameras,
+    media: media,
+    plugins: plugins,
+    devices: devices,
+    networkVideo: networkVideo,
+    liveInputs: liveInputs,
+  ));
 }
 
 class ObsTabletApp extends StatefulWidget {
@@ -66,6 +78,7 @@ class ObsTabletApp extends StatefulWidget {
     required this.plugins,
     required this.devices,
     required this.networkVideo,
+    this.liveInputs,
   });
 
   final StudioController studio;
@@ -76,11 +89,16 @@ class ObsTabletApp extends StatefulWidget {
   final DeviceService devices;
   final NetworkVideoService networkVideo;
 
+  /// NDI® and RTMP inputs (created on demand when not given, e.g. in tests).
+  final LiveInputs? liveInputs;
+
   @override
   State<ObsTabletApp> createState() => _ObsTabletAppState();
 }
 
 class _ObsTabletAppState extends State<ObsTabletApp> with WidgetsBindingObserver {
+  late final LiveInputs _liveInputs = widget.liveInputs ?? LiveInputs();
+
   @override
   void initState() {
     super.initState();
@@ -111,6 +129,7 @@ class _ObsTabletAppState extends State<ObsTabletApp> with WidgetsBindingObserver
       plugins: widget.plugins,
       devices: widget.devices,
       networkVideo: widget.networkVideo,
+      liveInputs: _liveInputs,
       child: MaterialApp(
         title: 'OBSpad',
         debugShowCheckedModeBanner: false,

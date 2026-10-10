@@ -32,6 +32,8 @@
 		A1B2C3D4E5F60718293A4B5C /* MicMeter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2C3D4E5F60718293A4B5C6D /* MicMeter.swift */; };
 		C3D4E5F60718293A4B5C6D7E /* MicProcessing.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4E5F60718293A4B5C6D7E8F /* MicProcessing.swift */; };
 		E5F60718293A4B5C6D7E8F90 /* MediaAudioMixer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F60718293A4B5C6D7E8F9001 /* MediaAudioMixer.swift */; };
+		28204B21FE9A96D735123128 /* StreamInPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE9A96D735123128C2675D24 /* StreamInPlugin.swift */; };
+		B49A6CC69A516685D0236E6E /* LiveAudio.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A516685D0236E6E94F1BC11 /* LiveAudio.swift */; };
 		FB6E60BA1271A635F91C2DBA /* AppEncoders.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3CA800AE7A7AA75484E7255 /* AppEncoders.swift */; };
 /* End PBXBuildFile section */
 
@@ -111,6 +113,8 @@
 		B2C3D4E5F60718293A4B5C6D /* MicMeter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MicMeter.swift; sourceTree = "<group>"; };
 		D4E5F60718293A4B5C6D7E8F /* MicProcessing.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MicProcessing.swift; sourceTree = "<group>"; };
 		F60718293A4B5C6D7E8F9001 /* MediaAudioMixer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MediaAudioMixer.swift; sourceTree = "<group>"; };
+		FE9A96D735123128C2675D24 /* StreamInPlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = StreamInPlugin.swift; sourceTree = "<group>"; };
+		9A516685D0236E6E94F1BC11 /* LiveAudio.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LiveAudio.swift; sourceTree = "<group>"; };
 		E3CA800AE7A7AA75484E7255 /* AppEncoders.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppEncoders.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -211,6 +215,8 @@
 				B2C3D4E5F60718293A4B5C6D /* MicMeter.swift */,
 				D4E5F60718293A4B5C6D7E8F /* MicProcessing.swift */,
 				F60718293A4B5C6D7E8F9001 /* MediaAudioMixer.swift */,
+				FE9A96D735123128C2675D24 /* StreamInPlugin.swift */,
+				9A516685D0236E6E94F1BC11 /* LiveAudio.swift */,
 				E3CA800AE7A7AA75484E7255 /* AppEncoders.swift */,
 				800D1F1F663B6F4BD1ABD7A3 /* Mp4Writer.swift */,
 				C44BA31EFAA83E8C474D036D /* ScreenReceiver.swift */,
@@ -427,6 +433,8 @@
 				A1B2C3D4E5F60718293A4B5C /* MicMeter.swift in Sources */,
 				C3D4E5F60718293A4B5C6D7E /* MicProcessing.swift in Sources */,
 				E5F60718293A4B5C6D7E8F90 /* MediaAudioMixer.swift in Sources */,
+				28204B21FE9A96D735123128 /* StreamInPlugin.swift in Sources */,
+				B49A6CC69A516685D0236E6E /* LiveAudio.swift in Sources */,
 				FB6E60BA1271A635F91C2DBA /* AppEncoders.swift in Sources */,
 				2A458D18F3A4800D8ED93127 /* Mp4Writer.swift in Sources */,
 				9F48B887BCA3599EE60A0AC7 /* ScreenReceiver.swift in Sources */,

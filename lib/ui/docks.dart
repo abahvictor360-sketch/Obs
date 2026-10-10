@@ -464,6 +464,7 @@ class _MixerChannel extends StatelessWidget {
       SourceType.media => scope.output.mediaLevels[source.id] ??
           (scope.media.controllerFor(source.id)?.value.isPlaying ?? false ? scope.output.outputLevel : null),
       SourceType.audioOutput => scope.output.outputLevel,
+      SourceType.ndiInput || SourceType.rtmpInput => scope.output.mediaLevels[source.id],
       SourceType.screen => scope.output.screenState.active ? scope.output.outputLevel : null,
       _ => null,
     };
@@ -505,6 +506,7 @@ class _MixerChannel extends StatelessWidget {
                 ),
               ),
               if (isMic) _MicAdjustButton(source: source),
+              if (source.type.hasSyncOffset) _SyncOffsetButton(source: source),
               IconButton(
                 icon: Icon(
                   Icons.auto_awesome_outlined,
@@ -529,6 +531,80 @@ class _MixerChannel extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Audio sync offset, like OBS's Advanced Audio Properties: delays this
+/// source's sound so it lines up with a camera that lags behind.
+class _SyncOffsetButton extends StatelessWidget {
+  const _SyncOffsetButton({required this.source});
+
+  final Source source;
+
+  @override
+  Widget build(BuildContext context) {
+    final ms = source.syncOffsetMs;
+    return IconButton(
+      key: ValueKey('sync-offset-${source.id}'),
+      icon: Icon(Icons.av_timer, size: 20, color: ms > 0 ? ObsColors.accent : ObsColors.textDim),
+      tooltip: ms > 0 ? 'Audio sync offset: $ms ms' : 'Audio sync offset',
+      onPressed: () => showSyncOffsetDialog(context, source.id),
+    );
+  }
+}
+
+Future<void> showSyncOffsetDialog(BuildContext context, String sourceId) {
+  final studio = AppScope.of(context).studio;
+  return showDialog<void>(
+    context: context,
+    builder: (context) => ListenableBuilder(
+      listenable: studio,
+      builder: (context, _) {
+        final source = studio.sourceById(sourceId);
+        if (source == null) return const SizedBox.shrink();
+        final ms = source.syncOffsetMs;
+        void set(int v) => studio.setSyncOffset(sourceId, v);
+        return AlertDialog(
+          key: const ValueKey('sync-offset-dialog'),
+          title: Text('Audio sync offset · ${source.name}'),
+          content: SizedBox(
+            width: 440,
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              const Text(
+                'Delays this sound so it lines up with the picture. Phone and network cameras often show '
+                'the picture later than the mic hears it: clap once on camera and raise this until the clap '
+                'sound and picture match.',
+                style: TextStyle(color: ObsColors.textDim, fontSize: 13),
+              ),
+              const SizedBox(height: 12),
+              Row(children: [
+                IconButton(icon: const Icon(Icons.remove), onPressed: ms > 0 ? () => set(ms - 10) : null),
+                Expanded(
+                  child: Slider(
+                    key: const ValueKey('sync-offset-slider'),
+                    value: ms.toDouble(),
+                    max: 2000,
+                    divisions: 200,
+                    label: '$ms ms',
+                    onChanged: (v) => set(v.round()),
+                  ),
+                ),
+                IconButton(icon: const Icon(Icons.add), onPressed: ms < 2000 ? () => set(ms + 10) : null),
+              ]),
+              Center(
+                child: Text('$ms ms',
+                    key: const ValueKey('sync-offset-value'),
+                    style: const TextStyle(fontSize: 18, fontFeatures: [FontFeature.tabularFigures()])),
+              ),
+            ]),
+          ),
+          actions: [
+            TextButton(onPressed: ms == 0 ? null : () => set(0), child: const Text('Reset')),
+            FilledButton(onPressed: () => Navigator.pop(context), child: const Text('Done')),
+          ],
+        );
+      },
+    ),
+  );
 }
 
 /// Which channel of the audio device a Mic/Aux source takes: both (mixed),

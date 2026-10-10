@@ -106,7 +106,11 @@ class Ndi {
   static const timecodeSynthesize = 0x7fffffffffffffff;
   static const recvColorRgbxRgba = 2;
   static const recvBandwidthHighest = 100;
+  static const recvBandwidthLowest = 0;
+  static const frameTypeNone = 0;
   static const frameTypeVideo = 1;
+  static const frameTypeAudio = 2;
+  static const frameTypeError = 4;
 
   Ndi._(this.lib)
       : initialize = lib.lookupFunction<Bool Function(), bool Function()>('NDIlib_initialize'),
@@ -131,7 +135,7 @@ class Ndi {
   final void Function(Pointer<Void>, Pointer<NdiAudioFrameV2>) sendAudioV2;
   final int Function(Pointer<Void>, int) sendGetNoConnections;
 
-  // Receiving (used by tests to check what we send).
+  // Receiving (NDI Source input; tests also use it to check what we send).
   late final findCreateV2 = lib.lookupFunction<Pointer<Void> Function(Pointer<NdiFindCreate>),
       Pointer<Void> Function(Pointer<NdiFindCreate>)>('NDIlib_find_create_v2');
   late final findDestroy =
@@ -150,6 +154,8 @@ class Ndi {
       'NDIlib_recv_capture_v2');
   late final recvFreeVideoV2 = lib.lookupFunction<Void Function(Pointer<Void>, Pointer<NdiVideoFrameV2>),
       void Function(Pointer<Void>, Pointer<NdiVideoFrameV2>)>('NDIlib_recv_free_video_v2');
+  late final recvFreeAudioV2 = lib.lookupFunction<Void Function(Pointer<Void>, Pointer<NdiAudioFrameV2>),
+      void Function(Pointer<Void>, Pointer<NdiAudioFrameV2>)>('NDIlib_recv_free_audio_v2');
 
   static Ndi? _instance;
   static String? loadError;

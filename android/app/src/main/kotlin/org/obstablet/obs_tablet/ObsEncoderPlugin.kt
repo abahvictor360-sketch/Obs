@@ -63,6 +63,9 @@ class ObsEncoderPlugin(private val activity: Activity, messenger: BinaryMessenge
         MediaAudioMixer.onLevel = { id, rms, peak ->
             emit(mapOf("type" to "level", "source" to "media", "id" to id, "rms" to rms.toDouble(), "peak" to peak.toDouble()))
         }
+        LiveAudio.onLevel = { id, rms, peak ->
+            emit(mapOf("type" to "level", "source" to "media", "id" to id, "rms" to rms.toDouble(), "peak" to peak.toDouble()))
+        }
         ScreenCapture.stateListener = { active, w, h, error ->
             val e = mutableMapOf<String, Any>(
                 "type" to "screen",
@@ -138,6 +141,18 @@ class ObsEncoderPlugin(private val activity: Activity, messenger: BinaryMessenge
                 "setMediaAudio" -> {
                     @Suppress("UNCHECKED_CAST")
                     MediaAudioMixer.update((call.argument<List<Any?>>("sources") ?: emptyList()).filterIsInstance<Map<*, *>>())
+                    result.success(null)
+                }
+                "setLiveAudio" -> {
+                    LiveAudio.update((call.argument<List<Any?>>("sources") ?: emptyList()).filterIsInstance<Map<*, *>>())
+                    result.success(null)
+                }
+                "pushLiveAudio" -> {
+                    val id = call.argument<String>("id")
+                    val data = call.argument<FloatArray>("data")
+                    if (id != null && data != null) {
+                        LiveAudio.push(id, data, call.argument<Int>("channels") ?: 2, call.argument<Int>("rate") ?: 48000)
+                    }
                     result.success(null)
                 }
                 "setMicProcessing" -> {
@@ -375,8 +390,10 @@ class ObsEncoderPlugin(private val activity: Activity, messenger: BinaryMessenge
 
     fun dispose() {
         MediaAudioMixer.onLevel = null
+        LiveAudio.onLevel = null
         MicProcessing.onInputLevel = null
         MediaAudioMixer.clear()
+        LiveAudio.update(emptyList())
         OutputService.set(activity.applicationContext, null)
         stop()
         stopMeter()

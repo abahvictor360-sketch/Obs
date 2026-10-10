@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 
 import 'core/studio_controller.dart';
 import 'devices/device_service.dart';
+import 'live/live_inputs.dart';
 import 'network_video/network_video_service.dart';
 import 'output/output_engine.dart';
 import 'plugins/plugin_manager.dart';
@@ -18,6 +19,7 @@ class AppScope extends InheritedWidget {
     required this.plugins,
     required this.devices,
     required this.networkVideo,
+    required this.liveInputs,
     required super.child,
   });
 
@@ -28,6 +30,7 @@ class AppScope extends InheritedWidget {
   final PluginManager plugins;
   final DeviceService devices;
   final NetworkVideoService networkVideo;
+  final LiveInputs liveInputs;
 
   static AppScope of(BuildContext context) {
     final s = context.dependOnInheritedWidgetOfExactType<AppScope>();
@@ -40,5 +43,6 @@ class AppScope extends InheritedWidget {
       studio != old.studio || output != old.output || cameras != old.cameras || media != old.media ||
       plugins != old.plugins ||
       devices != old.devices ||
-      networkVideo != old.networkVideo;
+      networkVideo != old.networkVideo ||
+      liveInputs != old.liveInputs;
 }

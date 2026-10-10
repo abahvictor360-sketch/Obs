@@ -9,6 +9,8 @@ import 'package:video_player/video_player.dart';
 import '../app_scope.dart';
 import '../browser/browser_source.dart';
 import '../core/models.dart';
+import '../live/rtmp_input_service.dart';
+import '../ndi/ndi_input.dart';
 import '../ui/theme.dart';
 import 'filter_view.dart';
 import 'platform_media.dart';
@@ -173,6 +175,10 @@ class SourceRenderer extends StatelessWidget {
         return _NetworkVideoSource(source: source, fit: _boxFit(fit), showPlaceholder: showPlaceholder);
       case SourceType.usbVideo:
         return _UsbVideoSource(source: source, fit: _boxFit(fit), showPlaceholder: showPlaceholder);
+      case SourceType.ndiInput:
+        return _NdiInputSource(source: source, fit: _boxFit(fit), showPlaceholder: showPlaceholder);
+      case SourceType.rtmpInput:
+        return _RtmpInputSource(source: source, fit: _boxFit(fit), showPlaceholder: showPlaceholder);
       case SourceType.screen:
         return showPlaceholder ? ScreenSourceCard(source: source) : const ColoredBox(color: Colors.black);
       case SourceType.audioInput:
@@ -563,6 +569,113 @@ class _NetworkVideoSource extends StatelessWidget {
           builder: (context, image, _) => image == null
               ? placeholder()
               : RawImage(image: image, fit: fit, filterQuality: FilterQuality.medium),
+        );
+      },
+    );
+  }
+}
+
+/// An NDI® Source: the latest frame from the sender.
+class _NdiInputSource extends StatelessWidget {
+  const _NdiInputSource({required this.source, required this.fit, required this.showPlaceholder});
+
+  final Source source;
+  final BoxFit fit;
+  final bool showPlaceholder;
+
+  @override
+  Widget build(BuildContext context) {
+    final service = AppScope.of(context).liveInputs.ndi;
+    return ListenableBuilder(
+      listenable: service,
+      builder: (context, _) {
+        final feed = service.feed(source.id);
+        Widget placeholder() {
+          if (!showPlaceholder) return const ColoredBox(color: Colors.black);
+          final name = source.settings['ndiName'] as String? ?? '';
+          final String hint;
+          if (!service.available) {
+            hint = service.unavailableReason ?? 'NDI isn\'t available in this build';
+          } else if (name.isEmpty) {
+            hint = 'Tap ⚙ and pick an NDI source';
+          } else if (feed == null) {
+            hint = name;
+          } else {
+            hint = switch (feed.state) {
+              NdiReceiverState.searching => 'Looking for $name…',
+              NdiReceiverState.connected => 'Connecting to $name…',
+              NdiReceiverState.lost => feed.message ?? '$name stopped sending',
+              NdiReceiverState.error => feed.message ?? 'Could not connect to $name',
+            };
+          }
+          return SourcePlaceholder(icon: Icons.settings_input_antenna, label: source.name, hint: hint);
+        }
+
+        if (feed == null) return placeholder();
+        return ListenableBuilder(
+          listenable: feed,
+          builder: (context, _) {
+            final img = feed.image;
+            if (img == null) return placeholder();
+            return RawImage(image: img, fit: fit, filterQuality: FilterQuality.medium);
+          },
+        );
+      },
+    );
+  }
+}
+
+/// A phone or encoder streaming RTMP to the tablet: the hardware decoder's
+/// texture.
+class _RtmpInputSource extends StatelessWidget {
+  const _RtmpInputSource({required this.source, required this.fit, required this.showPlaceholder});
+
+  final Source source;
+  final BoxFit fit;
+  final bool showPlaceholder;
+
+  @override
+  Widget build(BuildContext context) {
+    final service = AppScope.of(context).liveInputs.rtmp;
+    return ListenableBuilder(
+      listenable: service,
+      builder: (context, _) {
+        final feed = service.feed(source.id);
+        Widget placeholder() {
+          if (!showPlaceholder) return const ColoredBox(color: Colors.black);
+          final key = source.settings['streamKey'] as String? ?? '';
+          final String hint;
+          if (!service.supported) {
+            hint = 'Phone / encoder input works in the Android and iPad apps';
+          } else if (service.serverError != null) {
+            hint = service.serverError!;
+          } else if (feed == null || feed.state != RtmpInputState.live) {
+            hint = '${feed?.message != null ? '${feed!.message}\n' : ''}Waiting for a stream to ${service.serverUrl}/$key';
+          } else {
+            hint = feed.message ?? 'Receiving from ${feed.from ?? 'the phone'}…';
+          }
+          return SourcePlaceholder(icon: Icons.phone_android, label: source.name, hint: hint);
+        }
+
+        if (feed == null) return placeholder();
+        return ListenableBuilder(
+          listenable: feed,
+          builder: (context, _) {
+            final tid = feed.textureId;
+            if (tid == null || feed.state != RtmpInputState.live || !feed.hasVideo || feed.width == 0) {
+              return placeholder();
+            }
+            return ClipRect(
+              child: FittedBox(
+                fit: fit,
+                child: SizedBox(
+                  width: feed.width.toDouble(),
+                  height: feed.height.toDouble(),
+                  child: Texture(textureId: tid),
+                ),
+              ),
+            );
+          },
         );
       },
     );

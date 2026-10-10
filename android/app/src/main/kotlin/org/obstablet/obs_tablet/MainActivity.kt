@@ -7,11 +7,13 @@ import io.flutter.embedding.engine.FlutterEngine
 class MainActivity : FlutterActivity() {
     private var encoderPlugin: ObsEncoderPlugin? = null
     private var devicesPlugin: DevicesPlugin? = null
+    private var streamInPlugin: StreamInPlugin? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         encoderPlugin = ObsEncoderPlugin(this, flutterEngine.dartExecutor.binaryMessenger)
         devicesPlugin = DevicesPlugin(this, flutterEngine.dartExecutor.binaryMessenger, flutterEngine.renderer)
+        streamInPlugin = StreamInPlugin(flutterEngine.dartExecutor.binaryMessenger, flutterEngine.renderer)
     }
 
     override fun onRequestPermissionsResult(
@@ -35,6 +37,8 @@ class MainActivity : FlutterActivity() {
         encoderPlugin = null
         devicesPlugin?.dispose()
         devicesPlugin = null
+        streamInPlugin?.dispose()
+        streamInPlugin = null
         super.onDestroy()
     }
 }

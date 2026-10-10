@@ -46,6 +46,7 @@ class MediaAudioBridge {
         'playing': c.value.isPlaying,
         'positionMs': c.value.position.inMilliseconds,
         'loop': s.settings['loop'] as bool? ?? true,
+        'delayMs': s.syncOffsetMs,
       });
     }
     return out;

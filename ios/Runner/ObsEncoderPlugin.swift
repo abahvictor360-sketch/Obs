@@ -38,6 +38,9 @@ final class ObsEncoderPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
         MediaAudioMixer.shared.onLevel = { [weak instance] id, rms, peak in
             instance?.emit(["type": "level", "source": "media", "id": id, "rms": Double(rms), "peak": Double(peak)])
         }
+        LiveAudio.shared.onLevel = { [weak instance] id, rms, peak in
+            instance?.emit(["type": "level", "source": "media", "id": id, "rms": Double(rms), "peak": Double(peak)])
+        }
         MicProcessing.shared.onNoiseSuppressionChange = { [weak instance] in
             guard let plugin = instance else { return }
             plugin.audio?.restartInput()
@@ -120,6 +123,17 @@ final class ObsEncoderPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
             result(nil)
         case "setMediaAudio":
             MediaAudioMixer.shared.update((args["sources"] as? [[String: Any]]) ?? [])
+            result(nil)
+        case "setLiveAudio":
+            LiveAudio.shared.update((args["sources"] as? [[String: Any]]) ?? [])
+            result(nil)
+        case "pushLiveAudio":
+            if let id = args["id"] as? String, let data = (args["data"] as? FlutterStandardTypedData)?.data {
+                let pcm: [Float] = data.withUnsafeBytes { Array($0.bindMemory(to: Float.self)) }
+                LiveAudio.shared.push(id: id, pcm: pcm,
+                                      channels: (args["channels"] as? NSNumber)?.intValue ?? 2,
+                                      rate: (args["rate"] as? NSNumber)?.doubleValue ?? 48000)
+            }
             result(nil)
         case "setLiveOutput":
             // iOS keeps the app alive in the background through its audio session.

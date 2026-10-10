@@ -24,9 +24,9 @@ object MicProcessing {
     }
 
     /** One Mic/Aux source: [channel] "mix", "left" or "right"; [gain] = fader × mute. */
-    class Input(val id: String, val channel: String, val gain: Float, val chain: List<Stage>)
+    class Input(val id: String, val channel: String, val gain: Float, val chain: List<Stage>, val delayMs: Int = 0)
 
-    @Volatile var inputs: List<Input> = listOf(Input("", "mix", 1f, emptyList()))
+    @Volatile var inputs: List<Input> = listOf(Input("", "mix", 1f, emptyList(), 0))
         private set
     @Volatile var noiseSuppression = false
         private set
@@ -66,6 +66,7 @@ object MicProcessing {
                     channel = m["channel"] as? String ?: "mix",
                     gain = (m["gain"] as? Number)?.toFloat() ?: 1f,
                     chain = parseChain(m["chain"] as? List<*>),
+                    delayMs = (m["delayMs"] as? Number)?.toInt() ?: 0,
                 )
             }
         } else {
@@ -102,6 +103,7 @@ object MicProcessing {
  */
 class MicBus(private val sampleRate: Int, private val onLevel: (String, Float, Float) -> Unit) {
     private val processors = HashMap<String, MicProcessor>()
+    private val delays = HashMap<String, DelayLine>()
     private var tmp = FloatArray(0)
     private val sums = HashMap<String, DoubleArray>() // sum, peak, frames
 
@@ -127,6 +129,10 @@ class MicBus(private val sampleRate: Int, private val onLevel: (String, Float, F
                 }
             }
             processors.getOrPut(input.id) { MicProcessor(sampleRate) }.process(tmp, frames, input.chain)
+            // Audio sync offset (lines the mic up with a camera that lags).
+            if (input.delayMs > 0 || delays.containsKey(input.id)) {
+                delays.getOrPut(input.id) { DelayLine(sampleRate) }.process(tmp, frames, input.delayMs)
+            }
             val g = input.gain
             val acc = sums.getOrPut(input.id) { DoubleArray(3) }
             for (f in 0 until frames) {
@@ -145,6 +151,7 @@ class MicBus(private val sampleRate: Int, private val onLevel: (String, Float, F
             }
         }
         if (processors.size > inputs.size) processors.keys.retainAll(inputs.map { it.id }.toSet())
+        if (delays.isNotEmpty()) delays.keys.retainAll(inputs.map { it.id }.toSet())
     }
 }
 

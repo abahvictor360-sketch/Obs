@@ -18,5 +18,8 @@ import UIKit
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "DevicesPlugin") {
       DevicesPlugin.register(with: registrar)
     }
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "StreamInPlugin") {
+      StreamInPlugin.register(with: registrar)
+    }
   }
 }

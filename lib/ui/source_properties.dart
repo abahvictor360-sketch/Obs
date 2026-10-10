@@ -13,6 +13,7 @@ import 'dialogs.dart';
 import 'filters_panel.dart';
 import 'media_import.dart';
 import 'source_settings_more.dart';
+import 'live_input_settings.dart';
 import 'theme.dart';
 
 /// Properties / Transform / Filters for one scene item, in a sheet that
@@ -198,6 +199,8 @@ IconData sourceIcon(SourceType t) => switch (t) {
       SourceType.screen => Icons.screen_share_outlined,
       SourceType.usbVideo => Icons.usb,
       SourceType.networkVideo => Icons.wifi_tethering,
+      SourceType.ndiInput => Icons.settings_input_antenna,
+      SourceType.rtmpInput => Icons.phone_android,
       SourceType.image => Icons.image_outlined,
       SourceType.imageSlideShow => Icons.collections_outlined,
       SourceType.media => Icons.movie_outlined,
@@ -255,6 +258,10 @@ class _SourceSettingsTab extends StatelessWidget {
         children.add(_UsbVideoSettings(source: source));
       case SourceType.networkVideo:
         children.add(_NetworkVideoSettings(source: source));
+      case SourceType.ndiInput:
+        children.add(NdiInputSettings(source: source));
+      case SourceType.rtmpInput:
+        children.add(RtmpInputSettings(source: source));
       case SourceType.image:
       case SourceType.media:
         final isImage = source.type == SourceType.image;
