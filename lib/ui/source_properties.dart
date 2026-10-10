@@ -12,6 +12,7 @@ import '../render/scene_canvas.dart';
 import 'dialogs.dart';
 import 'filters_panel.dart';
 import 'media_import.dart';
+import 'media_link.dart';
 import 'source_settings_more.dart';
 import 'live_input_settings.dart';
 import 'theme.dart';
@@ -277,6 +278,15 @@ class _SourceSettingsTab extends StatelessWidget {
               },
             ),
             OutlinedButton.icon(
+              key: const ValueKey('media-from-link'),
+              icon: const Icon(Icons.link),
+              label: const Text('From a link…'),
+              onPressed: () async {
+                final path = await pickMediaFromLink(context, isImage ? MediaKind.image : MediaKind.video);
+                if (path != null) set('path', path);
+              },
+            ),
+            OutlinedButton.icon(
               icon: Icon(isImage ? Icons.photo_library_outlined : Icons.video_library_outlined),
               label: const Text('Photos / gallery…'),
               onPressed: () async {
@@ -407,6 +417,7 @@ class _SourceSettingsTab extends StatelessWidget {
       case SourceType.imageSlideShow:
         children.add(SlideShowSettings(source: source));
       case SourceType.browser:
+        if (s['guestRoom'] is String) children.add(GuestCameraPanel(source: source));
         children.add(BrowserSettings(source: source));
       case SourceType.audioOutput:
         children.add(const AudioOutputSettings());

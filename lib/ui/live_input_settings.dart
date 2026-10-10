@@ -4,6 +4,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 
 import '../app_scope.dart';
 import '../core/models.dart';
+import '../live/guest_camera.dart';
 import '../live/rtmp_input_service.dart';
 import '../ndi/ndi_input.dart';
 import 'theme.dart';
@@ -237,6 +238,56 @@ class _NdiInputSettingsState extends State<NdiInputSettings> {
           ),
         ]);
       },
+    );
+  }
+}
+
+/// The guest's link and QR code, on a Guest Camera (Browser) source.
+class GuestCameraPanel extends StatelessWidget {
+  const GuestCameraPanel({super.key, required this.source});
+
+  final Source source;
+
+  @override
+  Widget build(BuildContext context) {
+    final studio = AppScope.of(context).studio;
+    final room = source.settings['guestRoom'] as String? ?? '';
+    final link = GuestCamera.pushUrl(room);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        const Text('Guest camera', style: TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Container(
+            color: Colors.white,
+            padding: const EdgeInsets.all(6),
+            child: QrImageView(key: const ValueKey('guest-qr'), data: link, size: 140),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Text(
+              'The guest scans this with their phone camera (or opens the link), allows the camera, and taps '
+              'Start. Their picture appears here a few seconds later. No app or account needed; works on '
+              'Android and iPhone over the internet.\n\n'
+              'Their sound isn\'t included. For a phone with sound, use a Phone / Encoder (RTMP) source.',
+              style: TextStyle(fontSize: 13),
+            ),
+          ),
+        ]),
+        const SizedBox(height: 8),
+        _copyRow(context, 'Guest link', link, key: const ValueKey('guest-link')),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            key: const ValueKey('guest-new-link'),
+            icon: const Icon(Icons.refresh, size: 18),
+            label: const Text('New link (the old one stops working)'),
+            onPressed: () => studio.updateSourceSettings(source.id, GuestCamera.sourceSettings(GuestCamera.newRoom())),
+          ),
+        ),
+        const Divider(),
+      ]),
     );
   }
 }

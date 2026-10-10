@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../app_scope.dart';
 import '../core/models.dart';
+import '../live/guest_camera.dart';
 import '../plugins/plugin_manager.dart';
 import '../plugins/plugin_manifest.dart';
 import 'dialogs.dart';
@@ -65,6 +66,8 @@ Future<void> showAddSource(BuildContext context) async {
             grid([
               for (final t in SourceType.values)
                 if (t != SourceType.plugin) tile(context, sourceIcon(t), t.label, t),
+              tile(context, Icons.qr_code_2, 'Guest Camera (link)', const _GuestCameraChoice(),
+                  subtitle: 'A phone joins by QR code'),
             ]),
             if (pluginTypes.isNotEmpty || overlays.isNotEmpty || pluginMedia.isNotEmpty) ...[
               const SizedBox(height: 20),
@@ -98,6 +101,16 @@ Future<void> showAddSource(BuildContext context) async {
       'width': o.width.toDouble(),
       'height': o.height.toDouble(),
     });
+    studio.setItemVisible(item.id, false);
+    if (context.mounted) await showSourceProperties(context, item.id, creating: true);
+    return;
+  }
+
+  if (picked is _GuestCameraChoice) {
+    final name = await promptText(context, title: 'Create new Guest Camera', initial: studio.uniqueSourceName('Guest'));
+    if (name == null || !context.mounted) return;
+    final item = studio.addNewSource(SourceType.browser,
+        name: name, settings: GuestCamera.sourceSettings(GuestCamera.newRoom()));
     studio.setItemVisible(item.id, false);
     if (context.mounted) await showSourceProperties(context, item.id, creating: true);
     return;
@@ -185,3 +198,8 @@ class _PluginFile {
 }
 
 bool _isVideo(String path) => RegExp(r'\.(webm|mp4|mov|m4v)$', caseSensitive: false).hasMatch(path);
+
+/// The "Guest Camera (link)" tile: a Browser source set up for VDO.Ninja.
+class _GuestCameraChoice {
+  const _GuestCameraChoice();
+}

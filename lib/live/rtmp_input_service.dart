@@ -126,6 +126,7 @@ class RtmpInputService extends ChangeNotifier {
 
   final Map<String, RtmpInputFeed> _feeds = {};
   bool _listening = false;
+  bool _disposed = false;
   String? serverError;
   List<String> addresses = const [];
   Timer? _rate;
@@ -151,7 +152,7 @@ class RtmpInputService extends ChangeNotifier {
       final f = RtmpInputFeed(e.value);
       _feeds[e.key] = f;
       _decoder.open(e.key).then((tid) {
-        if (_feeds[e.key] != f) {
+        if (_disposed || _feeds[e.key] != f) {
           if (tid != null) _decoder.close(e.key);
           return;
         }
@@ -167,7 +168,9 @@ class RtmpInputService extends ChangeNotifier {
   }
 
   Future<void> refreshAddresses() async {
-    addresses = await _listener.localAddresses();
+    final list = await _listener.localAddresses();
+    if (_disposed) return;
+    addresses = list;
     notifyListeners();
   }
 
@@ -177,8 +180,13 @@ class RtmpInputService extends ChangeNotifier {
     unawaited(refreshAddresses());
     try {
       await _listener.start(port, _onConnection);
+      if (_disposed || !_listening) {
+        await _listener.stop();
+        return;
+      }
       _rate ??= Timer.periodic(const Duration(seconds: 1), (_) => _tick());
     } catch (e) {
+      if (_disposed) return;
       _listening = false;
       serverError = 'Could not open port $port: $e';
     }
@@ -291,6 +299,8 @@ class RtmpInputService extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
+    _listening = false;
     for (final id in _feeds.keys.toList()) {
       _remove(id);
     }

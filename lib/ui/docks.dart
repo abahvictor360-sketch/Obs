@@ -746,7 +746,17 @@ class _InputDeviceRow extends StatelessWidget {
       key: ValueKey('input-device-${source.id}'),
       tooltip: 'Input device',
       initialValue: auto ? 'default' : setting,
-      onSelected: (v) => scope.studio.updateSourceSettings(source.id, {'device': v}),
+      onSelected: (v) {
+        scope.studio.updateSourceSettings(source.id, {'device': v});
+        if (devices.audioInputs.any((i) => i.id == v && i.type == 'bluetooth')) {
+          ScaffoldMessenger.maybeOf(context)?.showSnackBar(const SnackBar(
+            duration: Duration(seconds: 8),
+            content: Text('Bluetooth mics send call-quality sound (16 kHz) and arrive a little late. For a '
+                'wireless mic with full quality, use a USB receiver (DJI Mic, Rode Wireless GO). If the sound '
+                'is ahead of a camera, set the Audio sync offset.'),
+          ));
+        }
+      },
       itemBuilder: (context) => [
         const PopupMenuItem(value: 'default', child: Text('Automatic (USB sound card when plugged in)')),
         for (final i in devices.audioInputs)
@@ -755,7 +765,10 @@ class _InputDeviceRow extends StatelessWidget {
             child: Row(children: [
               Icon(icon(i.type), size: 18),
               const SizedBox(width: 8),
-              Flexible(child: Text(i.name, overflow: TextOverflow.ellipsis)),
+              Flexible(
+                child: Text(i.type == 'bluetooth' ? '${i.name} (Bluetooth, call quality)' : i.name,
+                    overflow: TextOverflow.ellipsis),
+              ),
             ]),
           ),
       ],

@@ -368,9 +368,52 @@ object AudioRouting {
     @Volatile private var preferred: AudioDeviceInfo? = null
     private val records = java.util.Collections.newSetFromMap(java.util.WeakHashMap<AudioRecord, Boolean>())
 
+    private var scoActive = false
+
     fun setPreferred(am: AudioManager, id: String?) {
         preferred = am.getDevices(AudioManager.GET_DEVICES_INPUTS).firstOrNull { it.id.toString() == id }
+        // A Bluetooth headset's mic only works over the call link (SCO): open
+        // it while that mic is chosen, close it when switching back.
+        val bt = preferred?.let {
+            it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO || it.type == AudioDeviceInfo.TYPE_BLE_HEADSET
+        } ?: false
+        try {
+            if (bt) startBluetooth(am, preferred!!) else if (scoActive) stopBluetooth(am)
+        } catch (_: Exception) {
+        }
         synchronized(records) { records.forEach { it.preferredDevice = preferred } }
+    }
+
+    private fun startBluetooth(am: AudioManager, device: AudioDeviceInfo) {
+        if (android.os.Build.VERSION.SDK_INT >= 31) {
+            // The communication device is chosen among output devices.
+            val out = am.availableCommunicationDevices.firstOrNull {
+                it.type == device.type && it.productName == device.productName
+            } ?: am.availableCommunicationDevices.firstOrNull {
+                it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO || it.type == AudioDeviceInfo.TYPE_BLE_HEADSET
+            }
+            if (out != null) am.setCommunicationDevice(out)
+        } else {
+            am.mode = AudioManager.MODE_IN_COMMUNICATION
+            @Suppress("DEPRECATION")
+            am.startBluetoothSco()
+            @Suppress("DEPRECATION")
+            am.isBluetoothScoOn = true
+        }
+        scoActive = true
+    }
+
+    private fun stopBluetooth(am: AudioManager) {
+        if (android.os.Build.VERSION.SDK_INT >= 31) {
+            am.clearCommunicationDevice()
+        } else {
+            @Suppress("DEPRECATION")
+            am.isBluetoothScoOn = false
+            @Suppress("DEPRECATION")
+            am.stopBluetoothSco()
+            am.mode = AudioManager.MODE_NORMAL
+        }
+        scoActive = false
     }
 
     fun attach(record: AudioRecord) {

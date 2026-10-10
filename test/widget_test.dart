@@ -15,6 +15,7 @@ import 'package:obs_tablet/plugins/plugin_manager.dart';
 import 'package:obs_tablet/render/media_services.dart';
 import 'package:obs_tablet/core/update_service.dart';
 import 'package:obs_tablet/ui/exit.dart';
+import 'package:obs_tablet/ui/source_properties.dart';
 
 class FakeEncoder implements EncoderBackend {
   FakeEncoder({this.supported = false});
@@ -360,6 +361,40 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(ValueKey('dock-${d.dockId}')), findsNothing);
     expect(tester.takeException(), isNull);
+    await tester.pump(const Duration(seconds: 3));
+  });
+
+  testWidgets('audio sync offset from the mixer; Phone / Encoder (RTMP) properties show the address', (tester) async {
+    final enc = FakeEncoder(supported: true);
+    final (studio, _) = await _pump(tester, const Size(1366, 1024), backend: enc);
+    final mic = studio.sources.firstWhere((s) => s.type == SourceType.audioInput);
+    int delayOf() => (((enc.micProcessing.last['inputs'] as List).first as Map)['delayMs'] as num).toInt();
+
+    await tester.tap(find.byKey(ValueKey('sync-offset-${mic.id}')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('sync-offset-dialog')), findsOneWidget);
+    for (var i = 0; i < 3; i++) {
+      await tester.tap(find.byIcon(Icons.add).last);
+      await tester.pump();
+    }
+    expect(find.text('30 ms'), findsWidgets);
+    expect(delayOf(), 30);
+    await tester.tap(find.text('Reset'));
+    await tester.pump();
+    expect(delayOf(), 0);
+    await tester.tap(find.text('Done'));
+    await tester.pumpAndSettle();
+
+    // A phone streaming to the tablet: its properties show where to send it.
+    final item = studio.addNewSource(SourceType.rtmpInput, name: 'Phone', settings: {'streamKey': 'cam1'});
+    final ctx = tester.element(find.byType(Scaffold).first);
+    unawaited(showSourceProperties(ctx, item.id));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('rtmp-in-server')), findsOneWidget);
+    expect(find.textContaining(':1935/live/cam1'), findsWidgets);
+    expect(find.byKey(const ValueKey('rtmp-in-qr')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 3));
   });
 
