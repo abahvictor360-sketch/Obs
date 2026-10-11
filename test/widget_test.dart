@@ -16,6 +16,7 @@ import 'package:obs_tablet/render/media_services.dart';
 import 'package:obs_tablet/core/update_service.dart';
 import 'package:obs_tablet/ui/exit.dart';
 import 'package:obs_tablet/ui/source_properties.dart';
+import 'package:obs_tablet/ui/video_call.dart';
 
 class FakeEncoder implements EncoderBackend {
   FakeEncoder({this.supported = false});
@@ -684,5 +685,45 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
     await tester.runAsync(output.debugCaptureFrame);
     expect(enc.frames, hasLength(1));
+  });
+
+  testWidgets('Send to a Video Call: steps per app, Telegram streaming, and a clean Call Feed', (tester) async {
+    final (studio, _) = await _pump(tester, const Size(1366, 1024));
+    await tester.tap(find.text('Tools'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('menu-video-call')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('video-call-sheet')), findsOneWidget);
+    expect(find.textContaining('Share › Screen'), findsOneWidget); // Zoom
+    expect(find.byKey(const ValueKey('video-call-telegram-stream')), findsNothing);
+
+    await tester.tap(find.text('WhatsApp'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('WhatsApp video call'), findsOneWidget);
+    await tester.tap(find.text('Telegram'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('video-call-telegram-stream')), findsOneWidget);
+
+    // The Call Feed: only the Program, with scenes on tap.
+    await tester.ensureVisible(find.byKey(const ValueKey('open-call-feed')));
+    await tester.tap(find.byKey(const ValueKey('open-call-feed')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('call-feed')), findsOneWidget);
+    expect(find.byKey(const ValueKey('call-feed-controls')), findsOneWidget);
+    final brb = studio.scenes.firstWhere((s) => s.name == 'Be Right Back');
+    await tester.tap(find.byKey(ValueKey('call-feed-scene-${brb.id}')));
+    await tester.pump(const Duration(seconds: 1));
+    expect(studio.programScene.name, 'Be Right Back');
+    // Controls slide away so callers see only the Program.
+    await tester.pump(CallFeedScreen.controlsTimeout + const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+    final bar = tester.getRect(find.byKey(const ValueKey('call-feed-controls')));
+    expect(bar.top, greaterThanOrEqualTo(1024));
+    await tester.tapAt(const Offset(683, 400));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('call-feed-close')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('call-feed')), findsNothing);
+    expect(tester.takeException(), isNull);
   });
 }

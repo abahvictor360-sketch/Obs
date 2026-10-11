@@ -9,6 +9,7 @@ import '../devices/device_service.dart';
 import '../render/multiview.dart';
 import '../render/program_view.dart';
 import 'theme.dart';
+import 'video_call.dart';
 
 /// Long-press on the Program: choose where to send it, like OBS's
 /// "Fullscreen Projector (Program)" menu. Every connected screen is listed
@@ -86,6 +87,9 @@ Future<void> showProjectorMenu(BuildContext context, Offset globalPosition) asyn
         ],
       ],
       const PopupMenuDivider(),
+      entry('Video call…', () => showVideoCallSheet(context),
+          icon: Icons.video_call_outlined, key: const ValueKey('projector-video-call'),
+          subtitle: 'Zoom, Google Meet, WhatsApp, Telegram'),
       entry('Cast to a wireless screen…', () => startScreenCast(context, 'program'),
           icon: Icons.cast, key: const ValueKey('projector-cast'),
           subtitle: 'Smart TV, Miracast, Smart View or AirPlay'),

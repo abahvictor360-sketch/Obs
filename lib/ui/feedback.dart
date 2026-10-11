@@ -41,6 +41,9 @@ Future<void> openVideoInputsGuide() => _openGuide(kVideoInputsGuideUrl);
 /// Help › Guides: the full guide for new users, with screenshots.
 Future<void> openGuides() => _openGuide(kGuidesUrl);
 
+/// Send to a Video Call › Step-by-step guide.
+Future<void> openVideoCallGuide() => _openGuide('$kGuidesUrl#video-calls');
+
 Future<void> _openGuide(String url) =>
     launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication).then((_) {}, onError: (_) {});
 

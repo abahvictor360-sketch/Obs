@@ -20,6 +20,7 @@ import 'stats_window.dart';
 import 'filters_panel.dart';
 import 'projector_menu.dart';
 import 'update_prompt.dart';
+import 'video_call.dart';
 import 'item_menu.dart';
 import 'plugins_screen.dart';
 import 'settings_screen.dart';
@@ -213,6 +214,8 @@ class ObsMenuBar extends StatelessWidget {
           menuChildren: [
             item('Plugins', () => openPlugins(context), icon: Icons.extension_outlined),
             item('Docking Station & Screen', () => showDockSheet(context), icon: Icons.desktop_windows_outlined),
+            item('Send to a Video Call…', () => showVideoCallSheet(context),
+                icon: Icons.video_call_outlined, key: const ValueKey('menu-video-call')),
           ],
           child: const Text('Tools'),
         ),
