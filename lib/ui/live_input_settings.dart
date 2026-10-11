@@ -69,8 +69,9 @@ class _RtmpInputSettingsState extends State<RtmpInputSettings> {
       listenable: service,
       builder: (context, _) {
         final key = (widget.source.settings['streamKey'] as String? ?? '').trim();
+        final srt = widget.source.settings['protocol'] == 'srt';
         final server = service.serverUrl;
-        final full = '$server/$key';
+        final full = srt ? service.srtUrl(key) : '$server/$key';
         final feed = service.feed(widget.source.id);
         final (status, color) = switch (feed?.state) {
           null => ('Shown on Program or Preview to start receiving', ObsColors.textDim),
@@ -87,8 +88,27 @@ class _RtmpInputSettingsState extends State<RtmpInputSettings> {
         };
         return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Text(status, key: const ValueKey('rtmp-in-status'), style: TextStyle(color: color)),
-          if (service.serverError != null)
-            Text(service.serverError!, style: const TextStyle(color: ObsColors.live)),
+          if ((srt ? service.srtError : service.serverError) != null)
+            Text((srt ? service.srtError : service.serverError)!, style: const TextStyle(color: ObsColors.live)),
+          const SizedBox(height: 12),
+          SegmentedButton<String>(
+            key: const ValueKey('rtmp-in-protocol'),
+            segments: const [
+              ButtonSegment(value: 'rtmp', label: Text('RTMP')),
+              ButtonSegment(value: 'srt', label: Text('SRT')),
+            ],
+            selected: {srt ? 'srt' : 'rtmp'},
+            onSelectionChanged: (v) => scope.studio.updateSourceSettings(widget.source.id, {'protocol': v.first}),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              srt
+                  ? 'SRT copes better with weak Wi-Fi and the internet: lost pieces are sent again.'
+                  : 'RTMP works with almost every app and encoder.',
+              style: const TextStyle(color: ObsColors.textDim, fontSize: 12),
+            ),
+          ),
           const SizedBox(height: 12),
           TextField(
             key: const ValueKey('rtmp-in-key'),
@@ -101,8 +121,15 @@ class _RtmpInputSettingsState extends State<RtmpInputSettings> {
                 widget.source.id, {'streamKey': v.trim().replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '')}),
           ),
           const SizedBox(height: 12),
-          _copyRow(context, 'Server', server, key: const ValueKey('rtmp-in-server')),
-          _copyRow(context, 'Full address', full),
+          if (srt) ...[
+            _copyRow(context, 'SRT address', full, key: const ValueKey('srt-in-url')),
+            _copyRow(context, 'Host and port', '${service.addresses.isEmpty ? '<tablet IP>' : service.addresses.first}'
+                ':${service.srtPort}'),
+            _copyRow(context, 'Stream ID', key),
+          ] else ...[
+            _copyRow(context, 'Server', server, key: const ValueKey('rtmp-in-server')),
+            _copyRow(context, 'Full address', full),
+          ],
           if (service.addresses.length > 1)
             Text('Other addresses of this tablet: ${service.addresses.skip(1).join(', ')}',
                 style: const TextStyle(color: ObsColors.textDim, fontSize: 12)),
@@ -118,14 +145,20 @@ class _RtmpInputSettingsState extends State<RtmpInputSettings> {
               ),
             ),
             const SizedBox(width: 12),
-            const Expanded(
+            Expanded(
               child: Text(
-                'Scan with the phone\'s camera to add this connection to Larix Broadcaster (free, Android and '
-                'iPhone). Then tap the record button in Larix.\n\n'
-                'Prism Live, OBS, vMix, GoPro, ATEM Mini or another OBSpad: use Custom RTMP with the Server and '
-                'Stream key above.\n\n'
-                'Set video to H.264 and audio to AAC. Both devices must be on the same Wi-Fi or network.',
-                style: TextStyle(fontSize: 13),
+                srt
+                    ? 'Scan with the phone\'s camera to add this SRT connection to Larix Broadcaster (free, Android '
+                        'and iPhone). Then tap the record button in Larix.\n\n'
+                        'OBS: Settings › Stream › Custom, Server = the SRT address, Stream key empty. vMix, '
+                        'Haivision, Teradek and other encoders: SRT in caller mode with the host, port and Stream ID.\n\n'
+                        'Leave the passphrase (encryption) off. Use H.264 video and AAC audio.'
+                    : 'Scan with the phone\'s camera to add this connection to Larix Broadcaster (free, Android and '
+                        'iPhone). Then tap the record button in Larix.\n\n'
+                        'Prism Live, OBS, vMix, GoPro, ATEM Mini or another OBSpad: use Custom RTMP with the Server '
+                        'and Stream key above.\n\n'
+                        'Set video to H.264 and audio to AAC. Both devices must be on the same Wi-Fi or network.',
+                style: const TextStyle(fontSize: 13),
               ),
             ),
           ]),

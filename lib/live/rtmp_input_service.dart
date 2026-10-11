@@ -3,8 +3,11 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+import 'mpegts.dart';
 import 'rtmp_ingest.dart';
 import 'rtmp_listener.dart';
+import 'srt.dart';
+import 'udp_endpoint.dart';
 
 /// Native H.264 / AAC decoders for RTMP input (StreamInPlugin.kt/.swift).
 abstract class StreamInDecoder {
@@ -72,9 +75,12 @@ enum RtmpInputState { waiting, live, error }
 
 /// Live state of one "Phone / Encoder (RTMP)" source.
 class RtmpInputFeed extends ChangeNotifier {
-  RtmpInputFeed(this.key);
+  RtmpInputFeed(this.key, {this.protocol = 'rtmp'});
 
   final String key;
+
+  /// 'rtmp' or 'srt'.
+  final String protocol;
   int? textureId;
   RtmpInputState state = RtmpInputState.waiting;
   String? message;
@@ -88,19 +94,27 @@ class RtmpInputFeed extends ChangeNotifier {
 
   RtmpIngestSession? _session;
   RtmpConnection? _connection;
+  SrtConnection? _srt;
   int _bytes = 0;
   DateTime _since = DateTime.now();
 
   void _changed() => notifyListeners();
 }
 
-/// Runs the RTMP server for the "Phone / Encoder (RTMP)" sources on Program
-/// or Preview: `rtmp://<tablet>:1935/live/<stream key>`. Video is decoded
-/// natively onto a texture; sound goes straight into the stream mix.
+/// Runs the servers for the "Phone / Encoder" sources on Program or
+/// Preview: RTMP (`rtmp://<tablet>:1935/live/<stream key>`) and SRT
+/// (`srt://<tablet>:9000?streamid=<stream key>`). Video is decoded natively
+/// onto a texture; sound goes straight into the stream mix.
 class RtmpInputService extends ChangeNotifier {
-  RtmpInputService({StreamInDecoder? decoder, RtmpListener? listener, this.port = defaultPort})
-      : _decoder = decoder ?? MethodChannelStreamIn(),
-        _listener = listener ?? createRtmpListener() {
+  RtmpInputService({
+    StreamInDecoder? decoder,
+    RtmpListener? listener,
+    UdpEndpoint? udp,
+    this.port = defaultPort,
+    this.srtPort = defaultSrtPort,
+  })  : _decoder = decoder ?? MethodChannelStreamIn(),
+        _listener = listener ?? createRtmpListener(),
+        _udp = udp ?? createUdpEndpoint() {
     _decoder.onSize = (id, w, h) {
       final f = _feeds[id];
       if (f == null) return;
@@ -118,11 +132,18 @@ class RtmpInputService extends ChangeNotifier {
   }
 
   static const defaultPort = 1935;
+  static const defaultSrtPort = 9000;
   static const app = 'live';
 
   final StreamInDecoder _decoder;
   final RtmpListener _listener;
+  final UdpEndpoint _udp;
   final int port;
+  final int srtPort;
+  SrtListener? _srt;
+  Timer? _srtTimer;
+  bool _srtStarting = false;
+  String? srtError;
 
   final Map<String, RtmpInputFeed> _feeds = {};
   bool _listening = false;
@@ -138,18 +159,28 @@ class RtmpInputService extends ChangeNotifier {
   /// The address to type into the phone app, e.g. rtmp://192.168.1.20:1935/live
   String get serverUrl => 'rtmp://${addresses.isEmpty ? '<tablet IP>' : addresses.first}:$port/$app';
 
-  /// Keeps exactly [wanted] (sourceId -> stream key) receiving.
-  void sync(Map<String, String> wanted) {
+  /// The SRT address for stream [key], e.g. srt://192.168.1.20:9000?streamid=cam1
+  String srtUrl(String key) =>
+      'srt://${addresses.isEmpty ? '<tablet IP>' : addresses.first}:$srtPort?streamid=${Uri.encodeQueryComponent(key)}';
+
+  /// Keeps exactly [wanted] (sourceId -> stream key) receiving over RTMP,
+  /// and [srt] (sourceId -> stream key) over SRT.
+  void sync(Map<String, String> wanted, {Map<String, String> srt = const {}}) {
+    final all = <String, (String, String)>{
+      for (final e in wanted.entries) e.key: ('rtmp', e.value),
+      for (final e in srt.entries) e.key: ('srt', e.value),
+    };
     var changed = false;
     for (final id in _feeds.keys.toList()) {
-      if (wanted[id] != _feeds[id]!.key) {
+      final f = _feeds[id]!;
+      if (all[id] != (f.protocol, f.key)) {
         _remove(id);
         changed = true;
       }
     }
-    for (final e in wanted.entries) {
-      if (_feeds.containsKey(e.key) || e.value.isEmpty) continue;
-      final f = RtmpInputFeed(e.value);
+    for (final e in all.entries) {
+      if (_feeds.containsKey(e.key) || e.value.$2.isEmpty) continue;
+      final f = RtmpInputFeed(e.value.$2, protocol: e.value.$1);
       _feeds[e.key] = f;
       _decoder.open(e.key).then((tid) {
         if (_disposed || _feeds[e.key] != f) {
@@ -162,9 +193,102 @@ class RtmpInputService extends ChangeNotifier {
       });
       changed = true;
     }
-    if (_feeds.isNotEmpty && !_listening) _startServer();
-    if (_feeds.isEmpty && _listening) _stopServer();
+    final rtmpWanted = _feeds.values.any((f) => f.protocol == 'rtmp');
+    final srtWanted = _feeds.values.any((f) => f.protocol == 'srt');
+    if (rtmpWanted && !_listening) _startServer();
+    if (!rtmpWanted && _listening) _stopServer();
+    if (srtWanted && _srt == null && !_srtStarting) _startSrt();
+    if (!srtWanted && _srt != null) _stopSrt();
     if (changed) notifyListeners();
+  }
+
+  Future<void> _startSrt() async {
+    _srtStarting = true;
+    srtError = null;
+    unawaited(refreshAddresses());
+    final listener = SrtListener(send: _udp.send, onConnect: _onSrtConnect, latencyMs: 200);
+    try {
+      await _udp.bind(srtPort, listener.onDatagram);
+      _srtStarting = false;
+      if (_disposed || !_feeds.values.any((f) => f.protocol == 'srt')) {
+        _udp.close();
+        return;
+      }
+      _srt = listener;
+      _srtTimer = Timer.periodic(const Duration(milliseconds: 10), (_) => listener.tick());
+      _rate ??= Timer.periodic(const Duration(seconds: 1), (_) => _tick());
+    } catch (e) {
+      _srtStarting = false;
+      if (_disposed) return;
+      srtError = 'Could not open SRT port $srtPort: $e';
+    }
+    notifyListeners();
+  }
+
+  void _stopSrt() {
+    _srtTimer?.cancel();
+    _srtTimer = null;
+    _srt?.closeAll();
+    _srt = null;
+    _udp.close();
+  }
+
+  /// A phone or encoder connected over SRT: route it by its stream id.
+  int? _onSrtConnect(SrtConnection c) {
+    final srtFeeds = _feeds.entries.where((e) => e.value.protocol == 'srt').toList();
+    var match = srtFeeds.where((e) => e.value.key == c.streamId).firstOrNull;
+    // Apps that can't set a stream id: the only SRT source takes it.
+    if (match == null && c.streamId.isEmpty && srtFeeds.length == 1) match = srtFeeds.single;
+    if (match == null) return SrtHandshake.rejectNotFound;
+    if (match.value._srt != null && !match.value._srt!.closed) return SrtHandshake.rejectNotFound;
+    final id = match.key;
+    final f = match.value
+      .._srt = c
+      ..from = c.address
+      ..state = RtmpInputState.live
+      ..message = null
+      ..hasVideo = false
+      ..hasAudio = false;
+    final demux = TsDemuxer(
+      onVideoConfig: (avcc) => _decoder.videoConfig(id, avcc),
+      onVideo: (data, key) {
+        if (!f.hasVideo) {
+          f.hasVideo = true;
+          f._changed();
+        }
+        _decoder.video(id, data, keyframe: key);
+      },
+      onAudioConfig: (asc) => _decoder.audioConfig(id, asc),
+      onAudio: (frame) {
+        if (!f.hasAudio) {
+          f.hasAudio = true;
+          f._changed();
+        }
+        _decoder.audio(id, frame);
+      },
+      onUnsupported: (message) {
+        f.message = message;
+        f._changed();
+      },
+    );
+    c.onData = (payload) {
+      if (_feeds[id] != f || f._srt != c) return;
+      f._bytes += payload.length;
+      demux.add(payload);
+    };
+    c.onClose = (reason) {
+      if (f._srt != c) return;
+      f
+        .._srt = null
+        ..state = RtmpInputState.waiting
+        ..message = reason
+        ..kbps = 0;
+      f._changed();
+      notifyListeners();
+    };
+    f._changed();
+    notifyListeners();
+    return null;
   }
 
   Future<void> refreshAddresses() async {
@@ -294,6 +418,7 @@ class RtmpInputService extends ChangeNotifier {
     if (f == null) return;
     f._session?.end();
     f._connection?.close();
+    f._srt?.close('Removed');
     if (f.textureId != null) _decoder.close(id);
   }
 
@@ -306,6 +431,7 @@ class RtmpInputService extends ChangeNotifier {
     }
     _rate?.cancel();
     _listener.stop();
+    _stopSrt();
     super.dispose();
   }
 }

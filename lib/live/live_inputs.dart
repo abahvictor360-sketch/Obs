@@ -54,17 +54,23 @@ class LiveInputsTracker {
   void _sync() {
     final ndi = <String, (String, bool)>{};
     final rtmp = <String, String>{};
+    final srt = <String, String>{};
     for (final s in studio.activeSources) {
       if (s.type == SourceType.ndiInput) {
         final name = s.settings['ndiName'] as String? ?? '';
         if (name.isNotEmpty) ndi[s.id] = (name, s.settings['lowBandwidth'] as bool? ?? false);
       } else if (s.type == SourceType.rtmpInput) {
         final key = (s.settings['streamKey'] as String? ?? '').trim();
-        if (key.isNotEmpty) rtmp[s.id] = key;
+        if (key.isEmpty) continue;
+        if (s.settings['protocol'] == 'srt') {
+          srt[s.id] = key;
+        } else {
+          rtmp[s.id] = key;
+        }
       }
     }
     inputs.ndi.sync(ndi);
-    inputs.rtmp.sync(rtmp);
+    inputs.rtmp.sync(rtmp, srt: srt);
 
     final out = output;
     if (out == null || !out.encoderSupported) return;

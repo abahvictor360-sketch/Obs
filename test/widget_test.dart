@@ -393,6 +393,13 @@ void main() {
     expect(find.byKey(const ValueKey('rtmp-in-server')), findsOneWidget);
     expect(find.textContaining(':1935/live/cam1'), findsWidgets);
     expect(find.byKey(const ValueKey('rtmp-in-qr')), findsOneWidget);
+
+    // Switch the same source to SRT: the address changes.
+    await tester.tap(find.text('SRT'));
+    await tester.pumpAndSettle();
+    expect(studio.sourceById(item.sourceId)!.settings['protocol'], 'srt');
+    expect(find.byKey(const ValueKey('srt-in-url')), findsOneWidget);
+    expect(find.textContaining(':9000?streamid=cam1'), findsWidgets);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 3));

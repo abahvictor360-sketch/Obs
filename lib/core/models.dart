@@ -43,7 +43,7 @@ enum SourceType {
 
   /// A phone app or encoder streaming RTMP to this tablet (Larix, Prism,
   /// OBS, GoPro, another OBSpad), with its sound.
-  rtmpInput('Phone / Encoder (RTMP)'),
+  rtmpInput('Phone / Encoder (RTMP / SRT)'),
   image('Image'),
 
   /// Several images shown one after another with a transition.
@@ -204,7 +204,8 @@ class SourceDefaults {
         };
       case SourceType.rtmpInput:
         return {
-          // rtmp://<tablet>:1935/live/<streamKey>
+          // rtmp://<tablet>:1935/live/<streamKey> or srt://<tablet>:9000?streamid=<streamKey>
+          'protocol': 'rtmp', // rtmp | srt
           'streamKey': 'phone${1 + DateTime.now().microsecondsSinceEpoch % 900}',
         };
       case SourceType.image:
