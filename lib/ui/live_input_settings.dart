@@ -7,6 +7,7 @@ import '../core/models.dart';
 import '../live/guest_camera.dart';
 import '../live/rtmp_input_service.dart';
 import '../ndi/ndi_input.dart';
+import 'feedback.dart';
 import 'theme.dart';
 
 /// Larix Broadcaster's "Grove" link: scanning it adds the connection in
@@ -157,11 +158,22 @@ class _RtmpInputSettingsState extends State<RtmpInputSettings> {
                         'iPhone). Then tap the record button in Larix.\n\n'
                         'Prism Live, OBS, vMix, GoPro, ATEM Mini or another OBSpad: use Custom RTMP with the Server '
                         'and Stream key above.\n\n'
-                        'Set video to H.264 and audio to AAC. Both devices must be on the same Wi-Fi or network.',
+                        'Set video to H.264 and audio to AAC. Both devices must be on the same Wi-Fi or network.\n\n'
+                        'Zoom meeting: in Zoom on a computer, More › Live on Custom Live Streaming Service, with the '
+                        'Full address above (needs a paid plan with custom live streaming turned on).',
                 style: const TextStyle(fontSize: 13),
               ),
             ),
           ]),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              key: const ValueKey('rtmp-in-guide'),
+              onPressed: openVideoInputsGuide,
+              icon: const Icon(Icons.menu_book_outlined, size: 18),
+              label: const Text('Step-by-step guide'),
+            ),
+          ),
         ]);
       },
     );

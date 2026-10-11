@@ -31,6 +31,13 @@ String? _system() {
   }
 }
 
+const kVideoInputsGuideUrl = 'https://obspad.vercel.app/video-inputs.html';
+
+/// Help › Video Inputs Guide: step-by-step setup for every way to bring
+/// video and sound in, opened in the browser.
+Future<void> openVideoInputsGuide() =>
+    launchUrl(Uri.parse(kVideoInputsGuideUrl), mode: LaunchMode.externalApplication).then((_) {}, onError: (_) {});
+
 /// Help › Send Feedback: report a problem or suggest a feature on GitHub.
 Future<void> showFeedback(BuildContext context) async {
   final template = await showDialog<String>(

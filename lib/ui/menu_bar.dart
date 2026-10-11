@@ -221,6 +221,8 @@ class ObsMenuBar extends StatelessWidget {
             item('Check for Updates…', () => checkForUpdates(context),
                 icon: Icons.system_update_outlined, key: const ValueKey('menu-check-updates')),
             item('Keyboard Shortcuts', () => showShortcutsHelp(context), icon: Icons.keyboard_outlined),
+            item('Video Inputs Guide', openVideoInputsGuide,
+                icon: Icons.menu_book_outlined, key: const ValueKey('menu-video-inputs-guide')),
             item('Send Feedback…', () => showFeedback(context),
                 icon: Icons.feedback_outlined, key: const ValueKey('menu-feedback')),
             item('About OBSpad', () => _about(context), icon: Icons.info_outline),

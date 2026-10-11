@@ -447,7 +447,8 @@ footer .credit { color: var(--ink); font-weight: 600; }
         <li>Front and back cameras up to 4K, with zoom, torch and exposure</li>
         <li><b>Screen capture</b> of games and apps, with their sound</li>
         <li>HDMI <b>capture cards</b> and USB webcams</li>
-        <li><b>Phones with sound</b> over RTMP: Larix, Prism, OBS, GoPro, another OBSpad</li>
+        <li><b>Phones with sound</b> over RTMP or SRT: Larix, Prism, OBS, GoPro, another OBSpad</li>
+        <li><b>Zoom and Teams meetings</b> via custom live stream or NDI (<a href="video-inputs.html#meetings">how</a>)</li>
         <li><b>NDI&reg; sources</b>: vMix, OBS, PTZ cameras, NDI HX Camera</li>
         <li><b>Guest cameras</b> that join by QR code, no app needed</li>
         <li>Phones as webcams: DroidCam, IP Webcam, IP cameras</li>
@@ -552,6 +553,7 @@ footer .credit { color: var(--ink); font-weight: 600; }
       <span class="pill solid">Guides</span>
       <h2>How to do it in OBSpad</h2>
       <p>Short steps for the things people ask about most. They work the same on Android tablets and iPad unless noted.</p>
+      <p><a class="btn btn-brand" href="video-inputs.html">Full guide: every video input, step by step &rsaquo;</a></p>
     </div>
     <div class="guides">
       <details open>
@@ -578,7 +580,7 @@ footer .credit { color: var(--ink); font-weight: 600; }
       </details>
       <details>
         <summary><span>Use a phone as a camera, with its sound<small>Larix Broadcaster over Wi-Fi</small></span></summary>
-        <ol><li>In OBSpad, Add Source &rsaquo; <b>Phone / Encoder (RTMP)</b>. Its properties show this tablet&rsquo;s address, a stream key and a QR code.</li><li>On the phone, install <b>Larix Broadcaster</b> (free) and scan the QR code with the phone&rsquo;s camera to add the connection, or type the Server and Stream key in.</li><li>Tap record in Larix. Picture and sound appear in OBSpad. Prism Live, OBS, GoPro or another OBSpad work the same way with Custom RTMP. Use H.264 video and AAC audio.</li></ol>
+        <ol><li>In OBSpad, Add Source &rsaquo; <b>Phone / Encoder (RTMP / SRT)</b>. Its properties show this tablet&rsquo;s address, a stream key and a QR code.</li><li>On the phone, install <b>Larix Broadcaster</b> (free) and scan the QR code with the phone&rsquo;s camera to add the connection, or type the Server and Stream key in.</li><li>Tap record in Larix. Picture and sound appear in OBSpad. Prism Live, OBS, GoPro or another OBSpad work the same way with Custom RTMP. Use H.264 video and AAC audio.</li><li>Weak Wi-Fi or a phone on mobile data? Switch the source to <b>SRT</b>: it re-sends lost packets so the picture doesn&rsquo;t break up. <a href="video-inputs.html#srt">SRT setup</a></li></ol>
       </details>
       <details>
         <summary><span>Bring in an NDI&reg; source<small>vMix, OBS, PTZ cameras</small></span></summary>
@@ -586,7 +588,7 @@ footer .credit { color: var(--ink); font-weight: 600; }
       </details>
       <details>
         <summary><span>Invite a guest camera by QR code<small>No app for the guest</small></span></summary>
-        <ol><li>Add Source &rsaquo; <b>Guest Camera (link)</b>.</li><li>The guest scans the QR code in its properties with their phone (or opens the link), allows the camera and taps Start.</li><li>Their picture appears in OBSpad a few seconds later, over the internet. Their sound isn&rsquo;t included; for a phone with sound, use Phone / Encoder (RTMP).</li></ol>
+        <ol><li>Add Source &rsaquo; <b>Guest Camera (link)</b>.</li><li>The guest scans the QR code in its properties with their phone (or opens the link), allows the camera and taps Start.</li><li>Their picture appears in OBSpad a few seconds later, over the internet. Their sound isn&rsquo;t included; for a phone with sound, use Phone / Encoder (RTMP / SRT).</li></ol>
       </details>
       <details>
         <summary><span>Fix sound that&rsquo;s out of sync<small>Audio sync offset</small></span></summary>
