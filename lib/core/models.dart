@@ -735,8 +735,9 @@ class OutputSettings {
   bool studioMode;
 
   /// A known service (Facebook Live, Twitch, YouTube, Kick): the server is
-  /// built in, so only the stream key is needed.
-  bool get usesPresetServer => service != 'Custom' && kStreamingServices.containsKey(service);
+  /// built in, so only the stream key is needed. Telegram and Instagram give
+  /// each account its own server, so those still ask for it.
+  bool get usesPresetServer => kStreamingServices[service]?.isNotEmpty ?? false;
 
   String get effectiveServer => usesPresetServer ? kStreamingServices[service]! : server.trim();
 
@@ -875,4 +876,7 @@ const Map<String, String> kStreamingServices = {
   'YouTube (RTMP)': 'rtmp://a.rtmp.youtube.com/live2',
   'Facebook Live': 'rtmps://live-api-s.facebook.com:443/rtmp',
   'Kick': 'rtmps://fa723fc1b171.global-contribute.live-video.net:443/app',
+  // The server differs per account and per live: both are pasted in.
+  'Telegram': '',
+  'Instagram Live': '',
 };

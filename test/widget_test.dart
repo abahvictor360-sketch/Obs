@@ -611,6 +611,16 @@ void main() {
     await tester.pump();
     expect(studio.settings.streamKey, 'FB-42-x');
     expect(studio.settings.publishUrl, 'rtmps://live-api-s.facebook.com:443/rtmp/FB-42-x');
+
+    // Telegram gives each account its own server: the Server field returns,
+    // emptied of Facebook's, with instructions.
+    await tester.tap(find.text('Facebook Live').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Telegram').last);
+    await tester.pumpAndSettle();
+    expect(studio.settings.server, '');
+    expect(find.widgetWithText(TextField, 'Server'), findsOneWidget);
+    expect(find.byKey(const ValueKey('service-help')), findsOneWidget);
     unawaited(studio.save());
   });
 

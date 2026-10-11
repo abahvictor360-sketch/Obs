@@ -175,11 +175,22 @@ class _StreamPage extends StatelessWidget {
               if (v == null) return;
               studio.updateSettings((s) {
                 s.service = v;
-                if (v != 'Custom') s.server = kStreamingServices[v]!;
+                final preset = kStreamingServices[v]!;
+                if (preset.isNotEmpty) {
+                  s.server = preset;
+                } else if (kStreamingServices.values.contains(s.server)) {
+                  s.server = ''; // another service's built-in server
+                }
               });
             },
           ),
         ),
+        if (_serviceHelp(s.service) case final help?)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 4),
+            child: Text(help, key: const ValueKey('service-help'),
+                style: const TextStyle(color: ObsColors.textDim, fontSize: 13)),
+          ),
         if (s.usesPresetServer)
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 4, 20, 4),
@@ -194,7 +205,11 @@ class _StreamPage extends StatelessWidget {
             key: ValueKey('server-${s.service}'),
             label: 'Server',
             value: s.server,
-            hint: 'rtmp://… or rtmps://…',
+            hint: switch (s.service) {
+              'Telegram' => 'Server URL, e.g. rtmps://dc4-1.rtmp.t.me/s/',
+              'Instagram Live' => 'Stream URL, e.g. rtmps://edgetee-upload-….fbcdn.net:443/rtmp/',
+              _ => 'rtmp://… or rtmps://…',
+            },
             onChanged: (v) => studio.updateSettings((s) => s.server = v.trim()),
           ),
         _Field(
@@ -207,6 +222,8 @@ class _StreamPage extends StatelessWidget {
             'Twitch' => 'Twitch: Creator Dashboard › Settings › Stream › Primary stream key',
             'YouTube (RTMPS)' || 'YouTube (RTMP)' => 'YouTube Studio: Go live › Stream key',
             'Kick' => 'Kick: Creator Dashboard › Settings › Stream URL & Key',
+            'Telegram' => 'Telegram: Live stream › Stream with… › Stream key',
+            'Instagram Live' => 'instagram.com: Create › Live video › Stream key (new each live)',
             _ => 'From your streaming service',
           },
           onChanged: (v) => studio.updateSettings((s) => s.streamKey = s.keyFromPasted(v)),
@@ -230,6 +247,19 @@ class _StreamPage extends StatelessWidget {
     );
   }
 }
+
+/// How to get the server and key for services that give each account its
+/// own server.
+String? _serviceHelp(String service) => switch (service) {
+      'Telegram' => 'In Telegram, open your channel or group › Live stream (Video chat in groups) › '
+          'Stream with… Copy the Server URL and the Stream key here, start streaming in OBSpad, then '
+          'tap Start streaming in Telegram.',
+      'Instagram Live' => 'On a computer (or a browser in desktop mode) go to instagram.com › Create › '
+          'Live video. Copy the Stream URL and Stream key here; they change for every live. Start '
+          'streaming in OBSpad, then click Go live on instagram.com. Instagram may ask for a '
+          'professional (creator or business) account.',
+      _ => null,
+    };
 
 class _OutputPage extends StatelessWidget {
   const _OutputPage();

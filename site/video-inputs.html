@@ -286,6 +286,9 @@ table.grid td b { color: var(--ink); }
 .tablewrap { overflow-x: auto; }
 .page-hero { padding-block: 24px 8px; display: grid; gap: 12px; }
 .page-hero h1 { font-size: clamp(2.2rem, 5vw, 3.4rem); font-weight: 800; }
+.figshot { margin: 16px 0 0; }
+.figshot img { display: block; width: 100%; max-width: 460px; height: auto; border-radius: 12px; border: 1px solid var(--line); background: var(--device); }
+.figshot figcaption { color: var(--muted); font-size: .85rem; margin-top: 6px; }
 @media (max-width: 900px) { .doc { grid-template-columns: minmax(0, 1fr); } .toc { position: static; } }
 </style>
 </head>
@@ -295,7 +298,8 @@ table.grid td b { color: var(--ink); }
     <a class="logo" href="./"><img src="img/wordmark.png" alt="OBSpad" width="153" height="34"></a>
     <ul>
       <li><a href="./#features">Features</a></li>
-      <li><a href="./#guides">Guides</a></li>
+      <li><a href="guides.html">Guides</a></li>
+      <li><a href="video-inputs.html">Video inputs</a></li>
       <li><a href="./#install">Install</a></li>
       <li><a href="./#faq">FAQ</a></li>
     </ul>
@@ -381,6 +385,7 @@ table.grid td b { color: var(--ink); }
 <li>In Larix&rsquo;s video settings choose <b>H.264</b> (not HEVC), 1080p or 720p, 30 fps, 4&ndash;6 Mbps; audio <b>AAC</b>.</li>
 <li>Tap the record button in Larix. Within a second or two OBSpad shows &ldquo;Receiving&rdquo;, the picture, and the phone&rsquo;s sound in the Audio Mixer.</li>
 </ol>
+<figure class="figshot"><img src="img/guide/phone-rtmp.jpg" alt="Phone / Encoder source properties showing the server, stream key and QR code" loading="lazy"><figcaption>The Phone / Encoder source: scan the QR code with Larix, or copy the Server and Stream key.</figcaption></figure>
 <h3>Other apps and encoders</h3>
 <ul class="plain">
 <li><b>Prism Live, Streamlabs mobile, CameraFi Live:</b> Custom RTMP with the Server and Stream key.</li>
@@ -403,6 +408,7 @@ table.grid td b { color: var(--ink); }
 <li><b>vMix, Haivision, Teradek, Magewell and other encoders:</b> SRT <b>caller</b> mode, the tablet&rsquo;s IP and port <b>9000</b>, Stream ID = the key, latency 120&ndash;500 ms.</li>
 <li>Leave the <b>passphrase / encryption off</b>; encrypted callers are refused. Use H.264 video and AAC audio.</li>
 </ol>
+<figure class="figshot"><img src="img/guide/phone-srt.jpg" alt="Phone / Encoder source set to SRT with the SRT address" loading="lazy"><figcaption>Switched to SRT: the SRT address, host and port, and Stream ID.</figcaption></figure>
 <div class="tip"><p>Over the internet the phone must reach the tablet: forward UDP port 9000 on the router to the tablet, or use a VPN like Tailscale or ZeroTier on both devices and use the tablet&rsquo;s VPN address.</p></div>
 
 </section>
@@ -419,6 +425,7 @@ table.grid td b { color: var(--ink); }
 <li><b>Stream URL:</b> HLS (<code>.m3u8</code>) or an HTTP video stream.</li>
 </ul></li>
 </ol>
+<figure class="figshot"><img src="img/guide/network-video.jpg" alt="Network Video source properties" loading="lazy"><figcaption>Network Video: choose DroidCam, IP Webcam, an MJPEG URL or a stream URL.</figcaption></figure>
 <div class="tip"><p>These carry video only and are lighter on quality. For a phone camera with sound, use <a href="#phone">Phone / Encoder</a> instead.</p></div>
 
 </section>
@@ -444,6 +451,7 @@ table.grid td b { color: var(--ink); }
 <li>Send the link (WhatsApp, email) or let the guest scan the QR code. They allow the camera and tap <b>Start</b>.</li>
 <li>Their picture appears a few seconds later. <b>New link</b> makes a fresh one; the old one stops working.</li>
 </ol>
+<figure class="figshot"><img src="img/guide/guest-camera.jpg" alt="Guest Camera properties with QR code and guest link" loading="lazy"><figcaption>Guest Camera: the guest scans the QR code or opens the link.</figcaption></figure>
 <div class="tip warn"><p>The guest&rsquo;s sound isn&rsquo;t included (a web page&rsquo;s sound can&rsquo;t be mixed into the stream). For a remote guest with sound, ask them to stream with Larix to <a href="#srt">SRT</a>, or use a Zoom/Teams recipe below.</p></div>
 
 </section>

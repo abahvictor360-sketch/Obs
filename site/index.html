@@ -277,7 +277,7 @@ footer .credit { color: var(--ink); font-weight: 600; }
       <li><a href="#features">Features</a></li>
       <li><a href="#how">How it works</a></li>
       <li><a href="#install">Install</a></li>
-      <li><a href="#guides">Guides</a></li>
+      <li><a href="guides.html">Guides</a></li>
       <li><a href="#feedback">Feedback</a></li>
       <li><a href="#about">About</a></li>
       <li><a href="#faq">FAQ</a></li>
@@ -477,6 +477,7 @@ footer .credit { color: var(--ink); font-weight: 600; }
       </ul></div>
       <div class="card"><h3><i></i>Output</h3><ul>
         <li>Stream to <b>Facebook Live</b>, YouTube, Twitch and Kick</li>
+        <li>Facebook, YouTube, Twitch, Kick, <b>Telegram</b> and <b>Instagram Live</b> built in (<a href="guides.html#golive">how</a>)</li>
         <li>Any RTMP or RTMPS server, with auto-reconnect</li>
         <li>Record to MP4 or FLV while streaming, up to <b>2K</b></li>
         <li>Stream delay and <b>replay buffer</b></li>
@@ -552,96 +553,12 @@ footer .credit { color: var(--ink); font-weight: 600; }
     <div class="head">
       <span class="pill solid">Guides</span>
       <h2>How to do it in OBSpad</h2>
-      <p>Short steps for the things people ask about most. They work the same on Android tablets and iPad unless noted.</p>
-      <p><a class="btn btn-brand" href="video-inputs.html">Full guide: every video input, step by step &rsaquo;</a></p>
-    </div>
-    <div class="guides">
-      <details open>
-        <summary><span>Show the program on a TV or monitor<small>Cable, USB-C or docking station</small></span></summary>
-        <ol><li>Plug the monitor into the tablet with a USB-C to HDMI adapter, or into your docking station.</li><li>OBSpad shows the <b>Program</b> on it full screen. To choose, long-press Program, or use <b>View &rsaquo; Fullscreen Projector</b> or <b>View &rsaquo; Multiview</b>.</li><li>Nothing shows up? Open <b>Tools &rsaquo; Docking Station &amp; Screen</b>: it lists what the tablet detects and why a screen may be missing.</li></ol>
-      </details>
-      <details>
-        <summary><span>Use the Multiview<small>Preview, Program and up to 16 scenes</small></span></summary>
-        <ol><li>Open <b>View &rsaquo; Multiview (Fullscreen)</b> and pick <b>This tablet</b>, or a connected screen or TV.</li><li>On the tablet, tap a scene to put it in Preview, or double-tap it (or hold it for a second) to send it straight to Program with your transition.</li><li>Choose 4, 6, 8 or 16 scenes with the layout button at the top. Close it with the &times; button or the back gesture. Program shows a red border, Preview a green one.</li></ol>
-      </details>
-      <details>
-        <summary><span>Multiview touch controls<small>Tap, double-tap and hold</small></span></summary>
-        <dl class="gestures">
-          <dt>Tap a scene</dt><dd>Puts it in <b>Preview</b> (green border). With Studio Mode off, it goes live straight away.</dd>
-          <dt>Double-tap a scene</dt><dd>Sends it to <b>Program</b> (red border) with your transition. The scene that was live moves to Preview.</dd>
-          <dt>Hold a scene for 1 second</dt><dd>The same as a double-tap: the scene goes live. A shorter hold does nothing.</dd>
-          <dt>Layout button (top right)</dt><dd>Shows 4, 6, 8 or 16 scenes below Preview and Program.</dd>
-          <dt>Back to OBSpad, &times;, back gesture or Esc</dt><dd>Closes the Multiview and returns to the studio.</dd>
-        </dl>
-      </details>
-      <details>
-        <summary><span>Cast to a smart TV<small>Smart View, Miracast or AirPlay</small></span></summary>
-        <ol><li>Long-press Program and tap <b>Cast to a wireless screen&hellip;</b>.</li><li>Android: pick your TV in the Cast or Smart View screen that opens. iPad: open Control Center, tap <b>Screen Mirroring</b> and pick your Apple TV.</li><li>When it connects, the TV shows the Program while you keep working on the tablet. Chromecast mirrors the whole tablet instead.</li></ol>
-      </details>
-      <details>
-        <summary><span>Use a phone as a camera, with its sound<small>Larix Broadcaster over Wi-Fi</small></span></summary>
-        <ol><li>In OBSpad, Add Source &rsaquo; <b>Phone / Encoder (RTMP / SRT)</b>. Its properties show this tablet&rsquo;s address, a stream key and a QR code.</li><li>On the phone, install <b>Larix Broadcaster</b> (free) and scan the QR code with the phone&rsquo;s camera to add the connection, or type the Server and Stream key in.</li><li>Tap record in Larix. Picture and sound appear in OBSpad. Prism Live, OBS, GoPro or another OBSpad work the same way with Custom RTMP. Use H.264 video and AAC audio.</li><li>Weak Wi-Fi or a phone on mobile data? Switch the source to <b>SRT</b>: it re-sends lost packets so the picture doesn&rsquo;t break up. <a href="video-inputs.html#srt">SRT setup</a></li></ol>
-      </details>
-      <details>
-        <summary><span>Bring in an NDI&reg; source<small>vMix, OBS, PTZ cameras</small></span></summary>
-        <ol><li>Add Source &rsaquo; <b>NDI&reg; Source</b>. OBSpad lists the NDI senders on your network.</li><li>Pick one. Its picture and sound arrive over the network; turn on <b>Low bandwidth</b> on busy Wi-Fi.</li><li>Needs the NDI runtime in the build (the same as NDI output); see <a href="https://ndi.video">ndi.video</a>.</li></ol>
-      </details>
-      <details>
-        <summary><span>Invite a guest camera by QR code<small>No app for the guest</small></span></summary>
-        <ol><li>Add Source &rsaquo; <b>Guest Camera (link)</b>.</li><li>The guest scans the QR code in its properties with their phone (or opens the link), allows the camera and taps Start.</li><li>Their picture appears in OBSpad a few seconds later, over the internet. Their sound isn&rsquo;t included; for a phone with sound, use Phone / Encoder (RTMP / SRT).</li></ol>
-      </details>
-      <details>
-        <summary><span>Fix sound that&rsquo;s out of sync<small>Audio sync offset</small></span></summary>
-        <ol><li>Phone and network cameras often show the picture later than the mic hears it.</li><li>In the Audio Mixer, tap the <b>timer</b> button on the mic (or video, NDI or phone source).</li><li>Clap once on camera, then raise the offset until the clap sound and picture match. Up to 2 seconds.</li></ol>
-      </details>
-      <details>
-        <summary><span>Add a video from Google Drive or Dropbox<small>From a link</small></span></summary>
-        <ol><li>Share the file with &ldquo;Anyone with the link&rdquo; and copy the link.</li><li>In a Media Source or Image&rsquo;s properties, tap <b>From a link&hellip;</b> and paste it.</li><li>OBSpad downloads it to the tablet, so it plays even without internet later. YouTube and Facebook links can&rsquo;t be downloaded.</li></ol>
-      </details>
-      <details>
-        <summary><span>Use a Bluetooth or wireless mic<small>Headsets and USB receivers</small></span></summary>
-        <ol><li>Wireless kits with a USB receiver (DJI Mic, Rode Wireless GO) work as USB sound cards, in full quality.</li><li>Bluetooth headsets: pair them, then pick them in the mic&rsquo;s input menu in the Audio Mixer.</li><li>Bluetooth mics send call-quality sound with a short delay: fine for a backup, and the Audio sync offset can line them up.</li></ol>
-      </details>
-      <details>
-        <summary><span>Use two microphones on one USB interface<small>Each input as its own mic</small></span></summary>
-        <ol><li>Plug in the audio interface. OBSpad switches to it automatically.</li><li>Add an <b>Audio Input Capture</b> source for each mic.</li><li>In the Audio Mixer, set each mic to <b>Input 1 (L)</b> or <b>Input 2 (R)</b>. Each gets its own fader, meter and filters.</li></ol>
-      </details>
-      <details>
-        <summary><span>Clean up your voice<small>Noise Suppression, Gate, Compressor</small></span></summary>
-        <ol><li>In the Audio Mixer, tap the mic&rsquo;s <b>Mic adjustments</b> button for one-tap noise suppression and levelling.</li><li>For finer control, open the mic&rsquo;s <b>Filters</b> and add Noise Suppression, Noise Gate, Compressor or Limiter.</li><li>Watch the meter: speech should peak in the yellow, never in the red.</li></ol>
-      </details>
-      <details>
-        <summary><span>Play a video with its sound<small>Media Source and audio monitoring</small></span></summary>
-        <ol><li>Add a <b>Media Source</b> and pick the video. Its sound goes into the stream and recording.</li><li>Under <b>Audio Monitoring</b>, choose <b>Stream + tablet</b> to hear it on the tablet too.</li><li>Use the play, pause and restart buttons in the bar under the canvas.</li></ol>
-      </details>
-      <details>
-        <summary><span>Colour-grade with a LUT<small>Apply LUT filter</small></span></summary>
-        <ol><li>Select a camera or video source and tap <b>Filters</b> in the bar under the canvas.</li><li>Add <b>Apply LUT</b> and browse for a <span class="key">.cube</span> file (or a LUT from a plugin).</li><li>Lower <b>Amount</b> to blend the look with the original picture.</li></ol>
-      </details>
-      <details>
-        <summary><span>Save an instant replay<small>Replay buffer</small></span></summary>
-        <ol><li>Set how many seconds to keep in <b>Settings &rsaquo; Output &rsaquo; Replay buffer</b>.</li><li>Tap <b>Start Replay Buffer</b> in the Controls dock.</li><li>After a great moment, tap <b>Save Replay</b>. The last seconds are saved as a file.</li></ol>
-      </details>
-      <details>
-        <summary><span>Add a stream delay<small>Viewers see it seconds later</small></span></summary>
-        <ol><li>Open <b>Settings &rsaquo; Output</b> and set <b>Stream delay</b>.</li><li>Start streaming: viewers see everything that many seconds late, so you have time to cut away.</li><li>Recordings aren&rsquo;t delayed.</li></ol>
-      </details>
-      <details>
-        <summary><span>Stream or record in 2K<small>2560&times;1440</small></span></summary>
-        <ol><li>In <b>Settings &rsaquo; Video</b>, set the Output resolution to <b>2560x1440 (2K)</b> at 30 FPS.</li><li>In <b>Settings &rsaquo; Output</b>, use 9000&ndash;18000 kbps and a wired or strong Wi-Fi connection.</li><li>YouTube accepts 1440p; Facebook Live and Twitch scale it down, so 1080p is better there.</li></ol>
-      </details>
-      <details>
-        <summary><span>Send video to vMix or OBS over NDI&reg;<small>Same network, no cables</small></span></summary>
-        <ol><li>Open <b>Tools &rsaquo; Plugins</b> and turn on <b>NDI Output</b>.</li><li>Give it a name. It appears as an NDI source in vMix, OBS (DistroAV) or NDI Studio Monitor on the same network.</li><li>The NDI runtime has to be included in the build; see <a href="https://ndi.video">ndi.video</a>.</li></ol>
-      </details>
-      <details>
-        <summary><span>Install an overlay or plugin<small>From GitHub or a .zip</small></span></summary>
-        <ol><li>Open <b>Tools &rsaquo; Plugins &rsaquo; Get plugins</b>.</li><li>Paste a GitHub link (owner/repo works), or tap <b>Install from .zip&hellip;</b>. Repos without an OBSpad manifest are converted.</li><li>Web overlays then appear in <b>Add Source &rsaquo; From plugins</b>, LUTs in Apply LUT, and docks on the Plugins screen. Desktop-only OBS plugins (.dll, C/C++, Lua) can&rsquo;t run on a tablet.</li></ol>
-      </details>
-      <details>
-        <summary><span>Work faster with a keyboard<small>Shortcuts and undo</small></span></summary>
-        <ol><li>Connect a Bluetooth or USB keyboard.</li><li>See every shortcut in <b>Help &rsaquo; Keyboard Shortcuts</b>: switch scenes, transition, start and stop streaming and recording.</li><li><b>Edit &rsaquo; Undo</b> and <b>Redo</b> (Ctrl+Z / Ctrl+Y) take back changes to scenes and sources.</li></ol>
-      </details>
+      <p>Step-by-step guides with screenshots: going live on Facebook, YouTube, Telegram and Instagram, projectors and Multiview, phones and guest cameras, sound and production tools.</p>
+      <div class="testing-actions" style="justify-content:center">
+        <a class="btn btn-brand" href="guides.html">Open the guides &rsaquo;</a>
+        <a class="btn btn-ghost" href="video-inputs.html">Video inputs guide</a>
+        <a class="btn btn-ghost" href="guides.html#golive">Go live on social apps</a>
+      </div>
     </div>
   </section>
 

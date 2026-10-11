@@ -25,4 +25,12 @@ void main() {
     s.streamKey = '';
     expect(s.publishUrl, 'rtmp://192.168.1.5/live');
   });
+
+  test('Telegram and Instagram ask for their own server and key', () {
+    for (final service in ['Telegram', 'Instagram Live']) {
+      final s = OutputSettings(service: service, server: 'rtmps://dc4-1.rtmp.t.me/s/', streamKey: '123:abc');
+      expect(s.usesPresetServer, isFalse);
+      expect(s.publishUrl, 'rtmps://dc4-1.rtmp.t.me/s/123:abc');
+    }
+  });
 }
