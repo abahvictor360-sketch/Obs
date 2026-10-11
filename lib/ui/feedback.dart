@@ -32,13 +32,13 @@ String? _system() {
 }
 
 const kGuidesUrl = 'https://obspad.vercel.app/guides.html';
-const kVideoInputsGuideUrl = 'https://obspad.vercel.app/video-inputs.html';
+const kVideoInputsGuideUrl = 'https://obspad.vercel.app/guides.html#inputs';
 
 /// Help › Video Inputs Guide: step-by-step setup for every way to bring
 /// video and sound in, opened in the browser.
 Future<void> openVideoInputsGuide() => _openGuide(kVideoInputsGuideUrl);
 
-/// Help › Guides: going live, projectors, sound and more, with screenshots.
+/// Help › Guides: the full guide for new users, with screenshots.
 Future<void> openGuides() => _openGuide(kGuidesUrl);
 
 Future<void> _openGuide(String url) =>
