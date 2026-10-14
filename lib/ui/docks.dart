@@ -474,13 +474,46 @@ class _MixerChannel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(children: [
-            Expanded(child: Text(source.name, overflow: TextOverflow.ellipsis)),
-            Text(
-              source.volume <= 0.001 ? '-inf dB' : '${db.toStringAsFixed(1)} dB',
-              style: const TextStyle(color: ObsColors.textDim, fontSize: 12, fontFeatures: [FontFeature.tabularFigures()]),
+          // Name, level and the channel's buttons on top; the fader gets the
+          // full width at the bottom.
+          IconButtonTheme(
+            data: IconButtonThemeData(
+              style: IconButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.all(6),
+                minimumSize: const Size(36, 36),
+              ),
             ),
-          ]),
+            child: Row(children: [
+              Expanded(child: Text(source.name, overflow: TextOverflow.ellipsis)),
+              Text(
+                source.volume <= 0.001 ? '-inf dB' : '${db.toStringAsFixed(1)} dB',
+                style: const TextStyle(
+                    color: ObsColors.textDim, fontSize: 12, fontFeatures: [FontFeature.tabularFigures()]),
+              ),
+              const SizedBox(width: 4),
+              if (isMic) _MicAdjustButton(source: source),
+              if (source.type.hasSyncOffset) _SyncOffsetButton(source: source),
+              IconButton(
+                icon: Icon(
+                  Icons.auto_awesome_outlined,
+                  size: 20,
+                  color: source.filters.any((f) => f.enabled) ? ObsColors.accent : ObsColors.textDim,
+                ),
+                tooltip: 'Filters',
+                onPressed: () => switch (studio.itemsOf(source.id).firstOrNull) {
+                  final it? => showSourceFilters(context, it.id),
+                  null => showFiltersWindow(context, sourceId: source.id),
+                },
+              ),
+              IconButton(
+                icon: Icon(source.muted ? Icons.volume_off : Icons.volume_up, size: 22),
+                color: source.muted ? ObsColors.live : ObsColors.text,
+                tooltip: source.muted ? 'Unmute' : 'Mute',
+                onPressed: () => studio.setMuted(source.id, !source.muted),
+              ),
+            ]),
+          ),
           if (source.type == SourceType.audioInput)
             Row(children: [
               Expanded(
@@ -497,35 +530,10 @@ class _MixerChannel extends StatelessWidget {
             const Text('Desktop audio (other apps)', style: TextStyle(color: ObsColors.textDim, fontSize: 12)),
           const SizedBox(height: 4),
           _LevelMeter(rms: level?.rms ?? 0, peak: level?.peak ?? 0, muted: source.muted),
-          Row(
-            children: [
-              Expanded(
-                child: Slider(
-                  value: gainToFader(source.volume),
-                  onChanged: (f) => studio.setVolume(source.id, faderToGain(f)),
-                ),
-              ),
-              if (isMic) _MicAdjustButton(source: source),
-              if (source.type.hasSyncOffset) _SyncOffsetButton(source: source),
-              IconButton(
-                icon: Icon(
-                  Icons.auto_awesome_outlined,
-                  size: 20,
-                  color: source.filters.any((f) => f.enabled) ? ObsColors.accent : ObsColors.textDim,
-                ),
-                tooltip: 'Filters',
-                onPressed: () => switch (studio.itemsOf(source.id).firstOrNull) {
-                  final it? => showSourceFilters(context, it.id),
-                  null => showFiltersWindow(context, sourceId: source.id),
-                },
-              ),
-              IconButton(
-                icon: Icon(source.muted ? Icons.volume_off : Icons.volume_up),
-                color: source.muted ? ObsColors.live : ObsColors.text,
-                tooltip: source.muted ? 'Unmute' : 'Mute',
-                onPressed: () => studio.setMuted(source.id, !source.muted),
-              ),
-            ],
+          Slider(
+            key: ValueKey('mixer-fader-${source.id}'),
+            value: gainToFader(source.volume),
+            onChanged: (f) => studio.setVolume(source.id, faderToGain(f)),
           ),
         ],
       ),
