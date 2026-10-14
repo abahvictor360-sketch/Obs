@@ -33,4 +33,13 @@ void main() {
       expect(s.publishUrl, 'rtmps://dc4-1.rtmp.t.me/s/123:abc');
     }
   });
+
+  test('automatic recording bitrate follows the output size and never drops below the stream', () {
+    expect(OutputSettings(outputHeight: 720, fps: 30).effectiveRecordingKbps, 8000);
+    expect(OutputSettings(outputWidth: 1920, outputHeight: 1080, fps: 60).effectiveRecordingKbps, 22500);
+    expect(OutputSettings(videoBitrateKbps: 12000).effectiveRecordingKbps, 12000);
+    expect(OutputSettings(recordingBitrateKbps: 25000).effectiveRecordingKbps, 25000);
+    expect(OutputSettings(recordingBitrateKbps: -1, videoBitrateKbps: 3000).effectiveRecordingKbps, 3000);
+    expect(OutputSettings.fromJson(OutputSettings(recordingBitrateKbps: 15000).toJson()).recordingBitrateKbps, 15000);
+  });
 }

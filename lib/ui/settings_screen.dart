@@ -354,6 +354,30 @@ class _OutputPage extends StatelessWidget {
               onChanged: (v) => v == null ? null : studio.updateSettings((s) => s.keyframeIntervalSec = v),
             ),
           ),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: DropdownButtonFormField<int>(
+              key: const ValueKey('recording-quality'),
+              initialValue: OutputSettings.recordingBitrates.contains(s.recordingBitrateKbps) ? s.recordingBitrateKbps : 0,
+              decoration: const InputDecoration(
+                labelText: 'Recording quality',
+                helperText: 'Recordings made without streaming. While streaming, the recording uses the stream quality.',
+                helperMaxLines: 2,
+              ),
+              items: [
+                for (final v in OutputSettings.recordingBitrates)
+                  DropdownMenuItem(
+                    value: v,
+                    child: Text(switch (v) {
+                      0 => 'High (automatic, ${(OutputSettings(outputHeight: s.outputHeight, fps: s.fps, videoBitrateKbps: s.videoBitrateKbps).effectiveRecordingKbps / 1000).toStringAsFixed(0)} Mbps)',
+                      -1 => 'Same as the stream (${s.videoBitrateKbps} kbps)',
+                      _ => '${v ~/ 1000} Mbps',
+                    }),
+                  ),
+              ],
+              onChanged: (v) => v == null ? null : studio.updateSettings((s) => s.recordingBitrateKbps = v),
+            ),
+          ),
           const SizedBox(height: 8),
           const Text('Recording format', style: TextStyle(color: ObsColors.textDim)),
           const SizedBox(height: 8),

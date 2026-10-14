@@ -123,6 +123,11 @@ class ObsEncoderPlugin(private val activity: Activity, messenger: BinaryMessenge
                     video?.requestKeyframe()
                     result.success(null)
                 }
+                "setVideoBitrate" -> {
+                    val bps = call.argument<Int>("bitrate") ?: 0
+                    if (bps > 0) video?.setBitrate(bps)
+                    result.success(null)
+                }
                 "setMicGain" -> {
                     micGain = (call.argument<Double>("gain") ?: 1.0).toFloat()
                     audio?.gain = micGain

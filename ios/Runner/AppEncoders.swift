@@ -45,6 +45,8 @@ final class AppVideoEncoder {
 
     func requestKeyframe() { encoder.requestKeyframe() }
 
+    func setBitrate(_ bps: Int) { encoder.setBitrate(bps) }
+
     /// While the extension encodes the screen, this encoder produces nothing.
     func setSuspended(_ value: Bool) {
         queue.async {

@@ -116,6 +116,9 @@ final class ObsEncoderPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
                 video?.requestKeyframe()
             }
             result(nil)
+        case "setVideoBitrate":
+            if let bps = args["bitrate"] as? Int, bps > 0 { video?.setBitrate(bps) }
+            result(nil)
         case "setMicGain":
             micGain = Float(args["gain"] as? Double ?? 1)
             audio?.gain = micGain

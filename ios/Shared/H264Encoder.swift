@@ -22,7 +22,7 @@ final class H264Encoder {
     let width: Int32
     let height: Int32
     private let fps: Int32
-    private let bitrate: Int32
+    private var bitrate: Int32
     private let keyframeIntervalSec: Int32
 
     private var session: VTCompressionSession?
@@ -72,7 +72,8 @@ final class H264Encoder {
             VTSessionSetProperty(session, key: key, value: value)
         }
         set(kVTCompressionPropertyKey_RealTime, kCFBooleanTrue)
-        set(kVTCompressionPropertyKey_ProfileLevel, kVTProfileLevel_H264_Main_AutoLevel)
+        // High profile: noticeably sharper than Main at the same bitrate.
+        set(kVTCompressionPropertyKey_ProfileLevel, kVTProfileLevel_H264_High_AutoLevel)
         set(kVTCompressionPropertyKey_AllowFrameReordering, kCFBooleanFalse) // no B-frames
         set(kVTCompressionPropertyKey_AverageBitRate, NSNumber(value: bitrate))
         // Cap bursts at 1.5x the target per second, like CBR-ish streaming.
@@ -98,6 +99,20 @@ final class H264Encoder {
             VTCompressionSessionCompleteFrames(s, untilPresentationTimeStamp: .invalid)
             VTCompressionSessionInvalidate(s)
         }
+    }
+
+    /// Changes the target bitrate of the running session (recording vs
+    /// streaming), without restarting it.
+    func setBitrate(_ bps: Int) {
+        lock.lock()
+        bitrate = Int32(bps)
+        let s = session
+        lock.unlock()
+        guard let session = s else { return }
+        VTSessionSetProperty(session, key: kVTCompressionPropertyKey_AverageBitRate, value: NSNumber(value: bps))
+        let bytesPerSecond = Double(bps) / 8 * 1.5
+        VTSessionSetProperty(session, key: kVTCompressionPropertyKey_DataRateLimits,
+                             value: [NSNumber(value: bytesPerSecond), NSNumber(value: 1)] as CFArray)
     }
 
     func requestKeyframe() {

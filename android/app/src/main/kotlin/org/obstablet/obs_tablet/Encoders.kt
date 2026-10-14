@@ -10,6 +10,7 @@ import android.media.MediaCodec
 import android.media.MediaCodecInfo
 import android.media.MediaFormat
 import android.media.MediaRecorder
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.HandlerThread
@@ -73,14 +74,6 @@ class VideoEncoder(
     }
 
     fun start() {
-        val format = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, width, height).apply {
-            setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface)
-            setInteger(MediaFormat.KEY_BIT_RATE, bitrate)
-            setInteger(MediaFormat.KEY_FRAME_RATE, fps)
-            setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, keyframeIntervalSec)
-            // Repeat the last frame if Dart stalls, so the stream never freezes.
-            setLong(MediaFormat.KEY_REPEAT_PREVIOUS_FRAME_AFTER, 1_000_000L / fps * 3)
-        }
         codec = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC)
         val video = codec.codecInfo.getCapabilitiesForType(MediaFormat.MIMETYPE_VIDEO_AVC).videoCapabilities
         if (video != null && !video.areSizeAndRateSupported(width, height, fps.toDouble())) {
@@ -91,11 +84,18 @@ class VideoEncoder(
             )
         }
         val caps = codec.codecInfo.getCapabilitiesForType(MediaFormat.MIMETYPE_VIDEO_AVC).encoderCapabilities
-        if (caps.isBitrateModeSupported(MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR)) {
+        val cbr = caps.isBitrateModeSupported(MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR)
+        fun makeFormat() = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, width, height).apply {
+            setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface)
+            setInteger(MediaFormat.KEY_BIT_RATE, bitrate)
+            setInteger(MediaFormat.KEY_FRAME_RATE, fps)
+            setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, keyframeIntervalSec)
+            // Repeat the last frame if Dart stalls, so the stream never freezes.
+            setLong(MediaFormat.KEY_REPEAT_PREVIOUS_FRAME_AFTER, 1_000_000L / fps * 3)
             // CBR is what streaming services expect (same default as OBS).
-            format.setInteger(MediaFormat.KEY_BITRATE_MODE, MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR)
+            if (cbr) setInteger(MediaFormat.KEY_BITRATE_MODE, MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR)
         }
-        codec.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
+        configureWithBestProfile(::makeFormat)
         surface = codec.createInputSurface()
         codec.start()
         running = true
@@ -229,6 +229,44 @@ class VideoEncoder(
         canvas.clipRect(box)
         canvas.drawBitmap(screen, Rect(0, 0, sw, sh), dest, paint)
         canvas.restore()
+    }
+
+    /**
+     * Configures the encoder with H.264 High profile when the tablet supports
+     * it (much sharper than the Baseline profile many encoders pick by
+     * default), else Main, else the encoder's own default. No B-frames: the
+     * FLV/RTMP packaging expects frames in display order.
+     */
+    private fun configureWithBestProfile(makeFormat: () -> MediaFormat) {
+        val levels = codec.codecInfo.getCapabilitiesForType(MediaFormat.MIMETYPE_VIDEO_AVC).profileLevels
+        val profiles = buildList {
+            if (Build.VERSION.SDK_INT >= 29) add(MediaCodecInfo.CodecProfileLevel.AVCProfileHigh)
+            add(MediaCodecInfo.CodecProfileLevel.AVCProfileMain)
+        }
+        for (profile in profiles) {
+            val level = levels.filter { it.profile == profile }.maxOfOrNull { it.level } ?: continue
+            val f = makeFormat().apply {
+                setInteger(MediaFormat.KEY_PROFILE, profile)
+                setInteger(MediaFormat.KEY_LEVEL, level)
+                if (Build.VERSION.SDK_INT >= 29) setInteger(MediaFormat.KEY_MAX_B_FRAMES, 0)
+            }
+            try {
+                codec.configure(f, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
+                return
+            } catch (_: Exception) {
+                codec.reset()
+            }
+        }
+        codec.configure(makeFormat(), null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
+    }
+
+    /** Changes the target bitrate while running (recording vs streaming). */
+    fun setBitrate(bps: Int) {
+        if (!running) return
+        try {
+            codec.setParameters(Bundle().apply { putInt(MediaCodec.PARAMETER_KEY_VIDEO_BITRATE, bps) })
+        } catch (_: Exception) {
+        }
     }
 
     fun requestKeyframe() {

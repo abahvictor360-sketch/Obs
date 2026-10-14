@@ -126,6 +126,10 @@ abstract class EncoderBackend {
   Future<void> stop();
   Future<void> pushFrame(Uint8List rgba, int width, int height);
   Future<void> requestKeyframe();
+
+  /// Changes the video bitrate of the running encoder (recording alone is
+  /// made at a higher bitrate than a stream).
+  Future<void> setVideoBitrate(int kbps);
   Future<void> setMicGain(double gain);
 
   /// Reports microphone [levels] while no output runs, for the mixer meter.
@@ -298,6 +302,9 @@ class MethodChannelEncoder implements EncoderBackend {
 
   @override
   Future<void> requestKeyframe() => _method.invokeMethod('requestKeyframe');
+
+  @override
+  Future<void> setVideoBitrate(int kbps) => _method.invokeMethod('setVideoBitrate', {'bitrate': kbps * 1000});
 
   @override
   Future<void> setMicGain(double gain) => _method.invokeMethod('setMicGain', {'gain': gain});

@@ -653,6 +653,7 @@ class OutputSettings {
     this.streamDelaySec = 0,
     this.audioChannels = 2,
     this.replaySeconds = 30,
+    this.recordingBitrateKbps = 0,
     this.multiviewScenes = 8,
     this.confirmStartStop = true,
     this.preferWired = true,
@@ -694,6 +695,26 @@ class OutputSettings {
 
   /// Replay Buffer length in seconds.
   int replaySeconds;
+
+  /// Video bitrate for recordings made without streaming: 0 = automatic
+  /// (high quality for the output size), -1 = same as the stream.
+  int recordingBitrateKbps;
+  static const recordingBitrates = [0, -1, 6000, 10000, 15000, 25000, 40000];
+
+  /// The bitrate a recording without a stream is made at.
+  int get effectiveRecordingKbps {
+    if (recordingBitrateKbps == -1) return videoBitrateKbps;
+    if (recordingBitrateKbps > 0) return recordingBitrateKbps;
+    final base = switch (outputHeight) {
+      <= 480 => 4000,
+      <= 720 => 8000,
+      <= 1080 => 15000,
+      _ => 25000,
+    };
+    final auto = fps > 30 ? base * 3 ~/ 2 : base;
+    // Never below what the stream uses.
+    return auto < videoBitrateKbps ? videoBitrateKbps : auto;
+  }
 
   /// Scenes shown in the Multiview below Preview and Program: 4, 6, 8 or 16.
   int multiviewScenes;
@@ -783,6 +804,7 @@ class OutputSettings {
         'streamDelaySec': streamDelaySec,
         'audioChannels': audioChannels,
         'replaySeconds': replaySeconds,
+        'recordingBitrateKbps': recordingBitrateKbps,
         'multiviewScenes': multiviewScenes,
         'confirmStartStop': confirmStartStop,
         'preferWired': preferWired,
@@ -817,6 +839,7 @@ class OutputSettings {
       streamDelaySec: i('streamDelaySec', d.streamDelaySec).clamp(0, 600),
       audioChannels: i('audioChannels', d.audioChannels) == 1 ? 1 : 2,
       replaySeconds: i('replaySeconds', d.replaySeconds).clamp(5, 300),
+      recordingBitrateKbps: i('recordingBitrateKbps', d.recordingBitrateKbps).clamp(-1, 100000),
       multiviewScenes: OutputSettings.multiviewLayouts.contains(j['multiviewScenes'])
           ? j['multiviewScenes'] as int
           : d.multiviewScenes,

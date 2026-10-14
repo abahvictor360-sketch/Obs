@@ -27,6 +27,10 @@ class FakeEncoder implements EncoderBackend {
   final screen = StreamController<ScreenCaptureState>.broadcast();
   int screenStarts = 0;
 
+  final bitrates = <int>[];
+
+  @override
+  Future<void> setVideoBitrate(int kbps) async => bitrates.add(kbps);
   @override
   Future<bool> isSupported() async => supported;
   @override
@@ -67,8 +71,11 @@ class FakeEncoder implements EncoderBackend {
   Stream<AudioLevel> get outputLevels => outputCtl.stream;
   @override
   Stream<String> get errors => const Stream.empty();
+  final configs = <EncoderConfig>[];
+  String? mp4Path;
+
   @override
-  Future<void> start(EncoderConfig config) async {}
+  Future<void> start(EncoderConfig config) async => configs.add(config);
   @override
   Future<void> stop() async {}
   @override
@@ -84,7 +91,7 @@ class FakeEncoder implements EncoderBackend {
   @override
   Stream<PcmChunk> get pcm => const Stream.empty();
   @override
-  Future<String?> startMp4Recording() async => null;
+  Future<String?> startMp4Recording() async => mp4Path;
   @override
   Future<String?> stopMp4Recording() async => null;
   @override
@@ -725,5 +732,22 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('call-feed')), findsNothing);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('recording alone uses the high recording bitrate, not the stream bitrate', (tester) async {
+    final enc = FakeEncoder(supported: true)..mp4Path = '/sdcard/Movies/test.mp4';
+    final (studio, output) = await _pump(tester, const Size(1366, 1024), backend: enc);
+    expect(studio.settings.videoBitrateKbps, 2500);
+    await tester.runAsync(output.startRecording);
+    expect(output.isRecording, isTrue);
+    expect(enc.configs.single.videoBitrateKbps, 8000); // 720p30, automatic
+    await tester.runAsync(output.stopRecording);
+
+    studio.updateSettings((s) => s.recordingBitrateKbps = -1);
+    await tester.runAsync(output.startRecording);
+    expect(enc.configs.last.videoBitrateKbps, 2500);
+    await tester.runAsync(output.stopRecording);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 3));
   });
 }

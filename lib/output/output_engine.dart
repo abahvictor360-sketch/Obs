@@ -263,6 +263,7 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
     try {
       await _ensureEncoder();
+      await _syncVideoBitrate();
       if (gen != _streamGen) return; // stopped while starting
       if (!await _openStreamSink(url, gen)) return;
       streamStatus = OutputStatus.active;
@@ -373,6 +374,7 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
     streamKbps = 0;
     if (_autoRecording && isRecording) await stopRecording();
     _autoRecording = false;
+    await _syncVideoBitrate();
     await _maybeStopEncoder();
     _updateWakelock();
     notifyListeners();
@@ -530,6 +532,35 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
   Future<void>? _encoderStarting;
   Timer? _reconfigureTimer;
 
+  /// A stream (starting or live) sets the bitrate; without one, recordings
+  /// and the replay buffer get the higher recording bitrate.
+  int _wantedVideoKbps() {
+    final s = studio.settings;
+    return streamStatus != OutputStatus.idle ? s.videoBitrateKbps : s.effectiveRecordingKbps;
+  }
+
+  /// Moves the running encoder to the bitrate the outputs now need (a stream
+  /// starts or stops while recording).
+  Future<void> _syncVideoBitrate() async {
+    final c = _config;
+    if (!_encoderRunning || c == null) return;
+    final kbps = _wantedVideoKbps();
+    if (kbps == c.videoBitrateKbps) return;
+    _config = EncoderConfig(
+      width: c.width,
+      height: c.height,
+      fps: c.fps,
+      videoBitrateKbps: kbps,
+      audioBitrateKbps: c.audioBitrateKbps,
+      keyframeIntervalSec: c.keyframeIntervalSec,
+      sampleRate: c.sampleRate,
+      channels: c.channels,
+    );
+    try {
+      await backend.setVideoBitrate(kbps);
+    } catch (_) {}
+  }
+
   EncoderConfig _wantedConfig() {
     final s = studio.settings;
     // Hardware encoders want even dimensions.
@@ -537,7 +568,7 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
       width: s.outputWidth & ~1,
       height: s.outputHeight & ~1,
       fps: s.fps,
-      videoBitrateKbps: s.videoBitrateKbps,
+      videoBitrateKbps: _wantedVideoKbps(),
       audioBitrateKbps: s.audioBitrateKbps,
       channels: s.audioChannels,
       keyframeIntervalSec: s.keyframeIntervalSec,
