@@ -51,6 +51,13 @@ class EncoderConfig {
       };
 }
 
+/// A program frame as JPEG.
+class JpegFrame {
+  const JpegFrame(this.data, this.width, this.height);
+  final Uint8List data;
+  final int width, height;
+}
+
 /// Mixed PCM (mic + app audio after mixer gain), for NDI audio.
 class PcmChunk {
   const PcmChunk(this.samples, this.sampleRate, this.channels);
@@ -171,6 +178,14 @@ abstract class EncoderBackend {
   Future<void> setPcmTap(bool enabled);
   Stream<PcmChunk> get pcm;
 
+  /// Delivers a JPEG of every encoded frame (at most as fast as they can be
+  /// compressed) at [quality] 1-100; 0 turns it off. For Teleport.
+  Future<void> setJpegTap(int quality);
+  Stream<JpegFrame> get jpeg;
+
+  /// Keeps the Wi-Fi multicast lock (Android) for network discovery.
+  Future<void> setMulticast(bool enabled);
+
   /// Starts writing an MP4 natively. Returns the file path/uri.
   Future<String?> startMp4Recording();
   Future<String?> stopMp4Recording();
@@ -213,6 +228,7 @@ class MethodChannelEncoder implements EncoderBackend {
   final _errors = StreamController<String>.broadcast();
   final _screen = StreamController<ScreenCaptureState>.broadcast();
   final _pcm = StreamController<PcmChunk>.broadcast(sync: true);
+  final _jpeg = StreamController<JpegFrame>.broadcast(sync: true);
 
   bool? _supported;
 
@@ -226,6 +242,8 @@ class MethodChannelEncoder implements EncoderBackend {
   Stream<ScreenCaptureState> get screenStates => _screen.stream;
   @override
   Stream<PcmChunk> get pcm => _pcm.stream;
+  @override
+  Stream<JpegFrame> get jpeg => _jpeg.stream;
 
   void _onEvent(dynamic e) {
     if (e is! Map) return;
@@ -252,6 +270,8 @@ class MethodChannelEncoder implements EncoderBackend {
         }
       case 'error':
         _errors.add('${e['message']}');
+      case 'jpeg':
+        _jpeg.add(JpegFrame(e['data'] as Uint8List, (e['width'] as num).toInt(), (e['height'] as num).toInt()));
       case 'pcm':
         final raw = e['data'] as Uint8List;
         // Copy to an aligned buffer before viewing it as floats.
@@ -341,6 +361,12 @@ class MethodChannelEncoder implements EncoderBackend {
 
   @override
   Future<void> setPcmTap(bool enabled) => _method.invokeMethod('setPcmTap', {'enabled': enabled});
+
+  @override
+  Future<void> setJpegTap(int quality) => _method.invokeMethod('setJpegTap', {'quality': quality});
+
+  @override
+  Future<void> setMulticast(bool enabled) => _method.invokeMethod('setMulticast', {'enabled': enabled});
 
   @override
   Future<void> setScreenAudioGain(double gain) => _method.invokeMethod('setScreenAudioGain', {'gain': gain});

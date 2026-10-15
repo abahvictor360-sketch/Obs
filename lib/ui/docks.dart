@@ -464,7 +464,7 @@ class _MixerChannel extends StatelessWidget {
       SourceType.media => scope.output.mediaLevels[source.id] ??
           (scope.media.controllerFor(source.id)?.value.isPlaying ?? false ? scope.output.outputLevel : null),
       SourceType.audioOutput => scope.output.outputLevel,
-      SourceType.ndiInput || SourceType.rtmpInput => scope.output.mediaLevels[source.id],
+      SourceType.ndiInput || SourceType.rtmpInput || SourceType.teleportInput => scope.output.mediaLevels[source.id],
       SourceType.screen => scope.output.screenState.active ? scope.output.outputLevel : null,
       _ => null,
     };
@@ -977,7 +977,7 @@ class ControlsDock extends StatelessWidget {
           _BigButton(
             label: 'Plugins',
             icon: Icons.extension_outlined,
-            active: out.ndiActive,
+            active: out.ndiActive || out.teleportActive,
             activeColor: ObsColors.accentDim,
             onPressed: () => openPlugins(context),
           ),

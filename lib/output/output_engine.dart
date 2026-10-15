@@ -9,6 +9,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
+import '../teleport/teleport_output.dart';
 import '../core/models.dart';
 import '../core/studio_controller.dart';
 import 'av_packager.dart';
@@ -26,9 +27,10 @@ enum OutputStatus { idle, starting, active, reconnecting, stopping }
 /// One encoder is shared by the stream and the recording; each has its own
 /// [AvPackager] so they can start/stop independently.
 class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
-  OutputEngine({required this.studio, EncoderBackend? backend, NdiOutputSink? ndi})
+  OutputEngine({required this.studio, EncoderBackend? backend, NdiOutputSink? ndi, TeleportOutput? teleport})
       : backend = backend ?? MethodChannelEncoder() {
     this.ndi = ndi ?? createNdiOutput(onChanged: notifyListeners);
+    this.teleport = teleport ?? TeleportOutput();
     studio.addListener(_onStudioChanged);
   }
 
@@ -42,6 +44,13 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
   String? ndiName;
   String? ndiGroups;
   StreamSubscription<PcmChunk>? _pcmSub;
+
+  /// Teleport program output (built-in "Teleport Output" plugin).
+  late final TeleportOutput teleport;
+  bool get teleportActive => teleport.active;
+  String? teleportError;
+  int _teleportQuality = 85;
+  StreamSubscription<JpegFrame>? _jpegSub;
 
   /// Wraps the program canvas; frames are captured from it.
   final GlobalKey programKey = GlobalKey(debugLabel: 'program');
@@ -402,10 +411,7 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
       ndiGroups = groups;
       if (encoderSupported) {
         await _ensureEncoder();
-        await backend.setPcmTap(true);
-        _pcmSub ??= backend.pcm.listen((c) {
-          if (ndiActive) ndi.sendAudio(c.samples, c.sampleRate, c.channels);
-        });
+        await _updatePcmTap();
       }
     } catch (e) {
       ndiActive = false;
@@ -419,12 +425,74 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
     if (!ndiActive) return;
     ndiActive = false;
     ndiName = null;
-    await _pcmSub?.cancel();
-    _pcmSub = null;
-    try {
-      await backend.setPcmTap(false);
-    } catch (_) {}
+    await _updatePcmTap();
     await ndi.stop();
+    await _maybeStopEncoder();
+    _updateWakelock();
+    notifyListeners();
+  }
+
+  /// The mixed sound goes to NDI and Teleport while either is on.
+  Future<void> _updatePcmTap() async {
+    final want = ndiActive || teleportActive;
+    if (want) {
+      _pcmSub ??= backend.pcm.listen((c) {
+        if (ndiActive) ndi.sendAudio(c.samples, c.sampleRate, c.channels);
+        teleport.sendAudio(c.samples, c.sampleRate, c.channels);
+      });
+    } else {
+      await _pcmSub?.cancel();
+      _pcmSub = null;
+    }
+    try {
+      await backend.setPcmTap(want);
+    } catch (_) {}
+  }
+
+  // ---------------------------------------------------------------------------
+  // Teleport output
+
+  /// Starts sending the program with Teleport (receivers: OBS with the
+  /// obs-teleport plugin, or a Teleport source in another OBSpad).
+  Future<void> startTeleport({required String name, int quality = 85, int port = 0}) async {
+    if (teleportActive && name == teleport.name && quality == _teleportQuality && (port == 0 || port == teleport.port)) {
+      return;
+    }
+    if (teleportActive) await stopTeleport();
+    teleportError = null;
+    if (!encoderSupported || !teleport.supported) {
+      teleportError = 'Teleport needs the Android or iPad app.';
+      notifyListeners();
+      return;
+    }
+    _teleportQuality = quality.clamp(10, 100);
+    try {
+      teleport.onReceivers = (n) {
+        // Only compress frames while someone is watching.
+        backend.setJpegTap(n > 0 ? _teleportQuality : 0).catchError((_) {});
+        if (n > 0) backend.requestKeyframe().catchError((_) {});
+      };
+      await teleport.start(name: name, port: port);
+      _jpegSub ??= backend.jpeg.listen((f) => teleport.sendJpeg(f.data));
+      await _ensureEncoder();
+      await _updatePcmTap();
+    } catch (e) {
+      teleportError = 'Teleport output failed: $e';
+      await teleport.stop();
+    }
+    _updateWakelock();
+    notifyListeners();
+  }
+
+  Future<void> stopTeleport() async {
+    if (!teleportActive) return;
+    await teleport.stop();
+    await _jpegSub?.cancel();
+    _jpegSub = null;
+    try {
+      await backend.setJpegTap(0);
+    } catch (_) {}
+    await _updatePcmTap();
     await _maybeStopEncoder();
     _updateWakelock();
     notifyListeners();
@@ -598,7 +666,8 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
       await _stopEncoderNow();
       try {
         await _ensureEncoder();
-        if (ndiActive) await backend.setPcmTap(true);
+        if (ndiActive || teleportActive) await backend.setPcmTap(true);
+        if (teleport.receivers > 0) await backend.setJpegTap(_teleportQuality);
       } catch (e) {
         _error('Could not apply the new video settings: $e');
       }
@@ -646,7 +715,7 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> _maybeStopEncoder() async {
-    if (!_encoderRunning || isStreaming || isRecording || ndiActive || replayActive) return;
+    if (!_encoderRunning || isStreaming || isRecording || ndiActive || teleportActive || replayActive) return;
     await _stopEncoderNow();
   }
 
@@ -971,6 +1040,7 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
       if (isStreaming) 'Streaming',
       if (isRecording) 'Recording',
       if (ndiActive) 'NDI',
+      if (teleportActive) 'Teleport',
       if (replayActive) 'Replay buffer',
     ];
     final text = parts.isEmpty ? null : parts.join(' · ');
@@ -978,7 +1048,7 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
       _liveText = text;
       backend.setLiveOutput(text).catchError((_) {});
     }
-    final on = (isStreaming || isRecording || ndiActive || replayActive || _externalPresenting) &&
+    final on = (isStreaming || isRecording || ndiActive || teleportActive || replayActive || _externalPresenting) &&
         studio.settings.keepScreenOn;
     WakelockPlus.toggle(enable: on).catchError((_) {});
   }
@@ -1008,7 +1078,9 @@ class OutputEngine extends ChangeNotifier with WidgetsBindingObserver {
     _errorSub?.cancel();
     _screenSub?.cancel();
     _pcmSub?.cancel();
+    _jpegSub?.cancel();
     if (ndiActive) ndi.stop();
+    teleport.stop();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }

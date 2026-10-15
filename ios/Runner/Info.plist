@@ -11,7 +11,7 @@
 		<true/>
 	</dict>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>OBSpad receives video from phones and IP cameras (DroidCam, IP Webcam) and sends your program to NDI receivers on your network.</string>
+	<string>OBSpad receives video from phones and IP cameras (DroidCam, IP Webcam) sends your program to NDI and Teleport receivers on your network, and receives Teleport video from OBS.</string>
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_ndi._tcp</string>

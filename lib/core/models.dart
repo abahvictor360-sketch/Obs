@@ -44,6 +44,7 @@ enum SourceType {
   /// A phone app or encoder streaming RTMP to this tablet (Larix, Prism,
   /// OBS, GoPro, another OBSpad), with its sound.
   rtmpInput('Phone / Encoder (RTMP / SRT)'),
+  teleportInput('Teleport (OBS / OBSpad)'),
   image('Image'),
 
   /// Several images shown one after another with a transition.
@@ -81,14 +82,20 @@ enum SourceType {
       this == SourceType.media ||
       this == SourceType.screen ||
       this == SourceType.ndiInput ||
-      this == SourceType.rtmpInput;
+      this == SourceType.rtmpInput ||
+      this == SourceType.teleportInput;
 
   /// Sound that can be delayed with an audio sync offset.
   bool get hasSyncOffset =>
       this == SourceType.audioInput ||
       this == SourceType.media ||
       this == SourceType.ndiInput ||
-      this == SourceType.rtmpInput;
+      this == SourceType.rtmpInput ||
+      this == SourceType.teleportInput;
+
+  /// Sources that arrive over the network with their own sound.
+  bool get isLiveInput =>
+      this == SourceType.ndiInput || this == SourceType.rtmpInput || this == SourceType.teleportInput;
 
   static SourceType fromName(String name) =>
       SourceType.values.firstWhere((t) => t.name == name, orElse: () => SourceType.color);
@@ -201,6 +208,11 @@ class SourceDefaults {
         return {
           'ndiName': '', // "MACHINE (Source)" as NDI lists it
           'lowBandwidth': false, // NDI's preview stream: less Wi-Fi and CPU
+        };
+      case SourceType.teleportInput:
+        return {
+          // "Name:Address" of a sender found on the network, or "host:port".
+          'teleport': '',
         };
       case SourceType.rtmpInput:
         return {

@@ -61,6 +61,17 @@ final class ObsEncoderPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
         return nil
     }
 
+    private var jpegQuality = 0
+
+    private func applyJpegTap() {
+        guard let v = video else { return }
+        let q = jpegQuality
+        v.jpegTap = q > 0 ? { [weak self] data, w, h in
+            self?.emit(["type": "jpeg", "data": FlutterStandardTypedData(bytes: data), "width": w, "height": h])
+        } : nil
+        v.jpegQuality = q
+    }
+
     private func emit(_ event: [String: Any]) {
         DispatchQueue.main.async { self.sink?(event) }
     }
@@ -154,6 +165,13 @@ final class ObsEncoderPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
         case "setPcmTap":
             pcmTap = args["enabled"] as? Bool ?? false
             result(nil)
+        case "setJpegTap":
+            jpegQuality = args["quality"] as? Int ?? 0
+            applyJpegTap()
+            result(nil)
+        case "setMulticast":
+            // iOS needs no lock for multicast (the Local Network permission covers it).
+            result(nil)
         case "setScreenAudioGain":
             appGain = Float(args["gain"] as? Double ?? 1)
             audio?.appGain = appGain
@@ -214,6 +232,7 @@ final class ObsEncoderPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
             onOutput: { [weak self] v in self?.onVideo(v.annexB, ptsUs: v.ptsUs, isKey: v.isKeyframe, config: v.config) },
             onError: { [weak self] m in self?.emitError(m) }
         )
+        applyJpegTap()
 
         // The audio session must allow mixing so games keep their sound, and
         // must stay active so iOS keeps the app running in the background.

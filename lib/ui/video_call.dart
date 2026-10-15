@@ -149,8 +149,9 @@ class _VideoCallSheetState extends State<VideoCallSheet> {
                 steps: [
                   'HDMI: connect the tablet\'s HDMI out (USB-C to HDMI) to a USB HDMI capture card plugged into the '
                       'laptop. In the call, choose the capture card as the camera and the microphone.',
-                  'Wi-Fi: turn on NDI Output in Tools › Plugins. On the laptop, NDI Tools\' Virtual Input (or OBS '
-                      'with DistroAV and Virtual Camera) turns it into a webcam for the ${_app.label} app.',
+                  'Wi-Fi: turn on Teleport Output in Tools › Plugins. On the laptop, add a Teleport source in OBS '
+                      '(free obs-teleport plugin) and start Virtual Camera, then pick OBS Virtual Camera in the '
+                      '${_app.label} app.',
                 ],
                 action: TextButton.icon(
                   icon: const Icon(Icons.menu_book_outlined),

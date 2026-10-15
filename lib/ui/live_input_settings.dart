@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
+import '../teleport/teleport_input.dart';
 import '../app_scope.dart';
 import '../core/models.dart';
 import '../live/guest_camera.dart';
@@ -279,6 +280,108 @@ class _NdiInputSettingsState extends State<NdiInputSettings> {
           const Text(
             'Senders on the same network: vMix, OBS with DistroAV, PTZ cameras, NDI HX Camera on a phone, '
             'or another OBSpad with NDI output on.',
+            style: TextStyle(color: ObsColors.textDim, fontSize: 13),
+          ),
+        ]);
+      },
+    );
+  }
+}
+
+/// Properties of a Teleport source: the senders found on the network, or
+/// an address typed in.
+class TeleportInputSettings extends StatefulWidget {
+  const TeleportInputSettings({super.key, required this.source});
+
+  final Source source;
+
+  @override
+  State<TeleportInputSettings> createState() => _TeleportInputSettingsState();
+}
+
+class _TeleportInputSettingsState extends State<TeleportInputSettings> {
+  TeleportInputService? _service;
+  final _address = TextEditingController();
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_service == null) {
+      _service = AppScope.of(context).liveInputs.teleport..watch();
+      final t = widget.source.settings['teleport'] as String? ?? '';
+      if (RegExp(r'^[^:\s]+:\d{1,5}$').hasMatch(t)) _address.text = t;
+    }
+  }
+
+  @override
+  void dispose() {
+    _service?.unwatch();
+    _address.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scope = AppScope.of(context);
+    final service = _service!;
+    void set(String v) => scope.studio.updateSourceSettings(widget.source.id, {'teleport': v.trim()});
+
+    if (!service.supported) {
+      return const Text('Teleport works in the Android and iPad apps.',
+          key: ValueKey('teleport-in-unavailable'), style: TextStyle(color: ObsColors.warn));
+    }
+    return ListenableBuilder(
+      listenable: service,
+      builder: (context, _) {
+        final current = widget.source.settings['teleport'] as String? ?? '';
+        final senders = service.senders;
+        final keys = {for (final a in senders) a.key, if (current.isNotEmpty) current}.toList();
+        final feed = service.feed(widget.source.id);
+        final name = teleportDisplayName(current);
+        final status = switch (feed?.state) {
+          null => current.isEmpty ? 'Pick a sender' : 'Shown on Program or Preview to start receiving',
+          TeleportInputState.searching => 'Looking for $name…',
+          TeleportInputState.connecting => 'Connecting to $name…',
+          TeleportInputState.connected =>
+            'Receiving${feed!.width > 0 ? ' · ${feed.width}x${feed.height} · ${feed.fps.toStringAsFixed(0)} fps' : ''}',
+          TeleportInputState.lost => feed!.message ?? 'The sender stopped',
+        };
+        return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Text(status,
+              key: const ValueKey('teleport-in-status'),
+              style: TextStyle(
+                  color: feed?.state == TeleportInputState.connected ? ObsColors.ok : ObsColors.textDim)),
+          if (service.discoveryError != null)
+            Text(service.discoveryError!, style: const TextStyle(color: ObsColors.warn, fontSize: 12)),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<String>(
+            key: ValueKey('teleport-in-sender-${keys.length}'),
+            initialValue: current.isEmpty ? null : current,
+            isExpanded: true,
+            decoration: const InputDecoration(labelText: 'Teleport sender'),
+            hint: const Text('Searching the network…'),
+            items: [
+              for (final k in keys)
+                DropdownMenuItem(value: k, child: Text(teleportDisplayName(k), overflow: TextOverflow.ellipsis)),
+            ],
+            onChanged: (v) => v == null ? null : set(v),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            key: const ValueKey('teleport-in-address'),
+            controller: _address,
+            decoration: const InputDecoration(
+              labelText: 'Or an address (host:port)',
+              hintText: '192.168.1.30:43210',
+              helperText: 'When the sender isn\'t found automatically (different network or VPN)',
+            ),
+            onSubmitted: set,
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'Senders on the same network: OBS with the Teleport plugin (obs-teleport) and its Teleport output '
+            'turned on, or another OBSpad with Teleport Output on in Tools › Plugins. Picture and sound both '
+            'come through.',
             style: TextStyle(color: ObsColors.textDim, fontSize: 13),
           ),
         ]);

@@ -56,6 +56,12 @@ class VideoEncoder(
         private set
 
     private var bitmap: Bitmap? = null
+
+    /** JPEG copies of the frames for Teleport: quality 1-100, 0 = off. */
+    @Volatile var jpegQuality = 0
+    @Volatile var jpegTap: ((ByteArray, Int, Int) -> Unit)? = null
+    @Volatile private var jpegBusy = false
+    private val jpegThread = java.util.concurrent.Executors.newSingleThreadExecutor()
     private val paint = Paint(Paint.FILTER_BITMAP_FLAG)
     private val dst = Rect()
 
@@ -132,6 +138,7 @@ class VideoEncoder(
                     } finally {
                         surface.unlockCanvasAndPost(canvas)
                     }
+                    jpeg(bmp)
                 }
             } catch (e: Exception) {
                 listener.onError("Video frame error: ${e.message}")
@@ -260,6 +267,26 @@ class VideoEncoder(
         codec.configure(makeFormat(), null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
     }
 
+    /** Compresses a copy of [bmp] for Teleport, skipping frames while busy. */
+    private fun jpeg(bmp: Bitmap) {
+        val q = jpegQuality
+        val tap = jpegTap
+        if (q <= 0 || tap == null || jpegBusy) return
+        jpegBusy = true
+        val copy = bmp.copy(Bitmap.Config.ARGB_8888, false)
+        jpegThread.execute {
+            try {
+                val out = java.io.ByteArrayOutputStream(copy.width * copy.height / 4)
+                copy.compress(Bitmap.CompressFormat.JPEG, q, out)
+                tap(out.toByteArray(), copy.width, copy.height)
+            } catch (_: Exception) {
+            } finally {
+                copy.recycle()
+                jpegBusy = false
+            }
+        }
+    }
+
     /** Changes the target bitrate while running (recording vs streaming). */
     fun setBitrate(bps: Int) {
         if (!running) return
@@ -317,6 +344,8 @@ class VideoEncoder(
         if (!running) return
         running = false
         compositing = false
+        jpegTap = null
+        jpegThread.shutdown()
         drainThread?.join(1000)
         frameThread.quitSafely()
         frameThread.join(1000)

@@ -543,6 +543,7 @@ class StudioController extends ChangeNotifier {
       case SourceType.networkVideo:
       case SourceType.ndiInput:
       case SourceType.rtmpInput:
+      case SourceType.teleportInput:
         return ItemTransform(width: cw, height: ch, fit: FitMode.contain);
       case SourceType.image:
         final w = cw / 2, h = ch / 2;

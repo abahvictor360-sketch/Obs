@@ -5,21 +5,25 @@ import '../core/models.dart';
 import '../core/studio_controller.dart';
 import '../ndi/ndi_input_service.dart';
 import '../output/output_engine.dart';
+import '../teleport/teleport_input.dart';
 import 'rtmp_input_service.dart';
 
 /// Video and sound arriving over the network: NDI® Sources and phones or
 /// encoders streaming RTMP to the tablet.
 class LiveInputs {
-  LiveInputs({NdiInputService? ndi, RtmpInputService? rtmp})
+  LiveInputs({NdiInputService? ndi, RtmpInputService? rtmp, TeleportInputService? teleport})
       : ndi = ndi ?? NdiInputService(),
-        rtmp = rtmp ?? RtmpInputService();
+        rtmp = rtmp ?? RtmpInputService(),
+        teleport = teleport ?? TeleportInputService();
 
   final NdiInputService ndi;
   final RtmpInputService rtmp;
+  final TeleportInputService teleport;
 
   void dispose() {
     ndi.dispose();
     rtmp.dispose();
+    teleport.dispose();
   }
 }
 
@@ -29,6 +33,8 @@ class LiveInputs {
 class LiveInputsTracker {
   LiveInputsTracker(this.studio, this.inputs, {this.output}) {
     inputs.ndi.onAudio = _onNdiAudio;
+    inputs.teleport.onAudio = _onNdiAudio;
+    inputs.teleport.onDiscovery = (on) => output?.backend.setMulticast(on).catchError((_) {});
     studio.addListener(_sync);
     _sync();
   }
@@ -45,7 +51,7 @@ class LiveInputsTracker {
     for (final item in studio.programScene.items) {
       if (!item.visible || !seen.add(item.sourceId)) continue;
       final s = studio.sourceById(item.sourceId);
-      if (s == null || (s.type != SourceType.ndiInput && s.type != SourceType.rtmpInput)) continue;
+      if (s == null || !s.type.isLiveInput) continue;
       out.add({'id': s.id, 'gain': s.muted ? 0.0 : s.volume * s.filterGain, 'delayMs': s.syncOffsetMs});
     }
     return out;
@@ -55,10 +61,14 @@ class LiveInputsTracker {
     final ndi = <String, (String, bool)>{};
     final rtmp = <String, String>{};
     final srt = <String, String>{};
+    final teleport = <String, String>{};
     for (final s in studio.activeSources) {
       if (s.type == SourceType.ndiInput) {
         final name = s.settings['ndiName'] as String? ?? '';
         if (name.isNotEmpty) ndi[s.id] = (name, s.settings['lowBandwidth'] as bool? ?? false);
+      } else if (s.type == SourceType.teleportInput) {
+        final t = (s.settings['teleport'] as String? ?? '').trim();
+        if (t.isNotEmpty) teleport[s.id] = t;
       } else if (s.type == SourceType.rtmpInput) {
         final key = (s.settings['streamKey'] as String? ?? '').trim();
         if (key.isEmpty) continue;
@@ -71,6 +81,7 @@ class LiveInputsTracker {
     }
     inputs.ndi.sync(ndi);
     inputs.rtmp.sync(rtmp, srt: srt);
+    inputs.teleport.sync(teleport);
 
     final out = output;
     if (out == null || !out.encoderSupported) return;
@@ -91,5 +102,7 @@ class LiveInputsTracker {
   void dispose() {
     studio.removeListener(_sync);
     inputs.ndi.onAudio = null;
+    inputs.teleport.onAudio = null;
+    inputs.teleport.onDiscovery = null;
   }
 }

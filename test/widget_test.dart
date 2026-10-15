@@ -28,6 +28,16 @@ class FakeEncoder implements EncoderBackend {
   int screenStarts = 0;
 
   final bitrates = <int>[];
+  final jpegQualities = <int>[];
+  final jpegCtl = StreamController<JpegFrame>.broadcast(sync: true);
+  final multicast = <bool>[];
+
+  @override
+  Future<void> setJpegTap(int quality) async => jpegQualities.add(quality);
+  @override
+  Stream<JpegFrame> get jpeg => jpegCtl.stream;
+  @override
+  Future<void> setMulticast(bool enabled) async => multicast.add(enabled);
 
   @override
   Future<void> setVideoBitrate(int kbps) async => bitrates.add(kbps);
@@ -747,6 +757,23 @@ void main() {
     await tester.runAsync(output.startRecording);
     expect(enc.configs.last.videoBitrateKbps, 2500);
     await tester.runAsync(output.stopRecording);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 3));
+  });
+
+  testWidgets('Teleport: source properties list senders; the plugin shows its settings', (tester) async {
+    final (studio, _) = await _pump(tester, const Size(1366, 1024));
+    final item = studio.addNewSource(SourceType.teleportInput, name: 'OBS PC');
+    final ctx = tester.element(find.byType(Scaffold).first);
+    unawaited(showSourceProperties(ctx, item.id));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.byKey(const ValueKey('teleport-in-address')), findsOneWidget);
+    await tester.enterText(find.byKey(const ValueKey('teleport-in-address')), '192.168.1.30:43210');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pump();
+    expect(studio.sourceById(item.sourceId)!.settings['teleport'], '192.168.1.30:43210');
+    expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 3));
   });

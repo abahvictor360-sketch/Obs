@@ -46,6 +46,12 @@ class ObsEncoderPlugin(private val activity: Activity, messenger: BinaryMessenge
 
     @Volatile private var appAudioGain = 1.0f
     @Volatile private var pcmTapEnabled = false
+    @Volatile private var jpegQuality = 0
+    private var teleportNetworking = false
+
+    private val jpegTap: (ByteArray, Int, Int) -> Unit = { data, w, h ->
+        emit(mapOf("type" to "jpeg", "data" to data, "width" to w, "height" to h))
+    }
     private var multicastLock: android.net.wifi.WifiManager.MulticastLock? = null
 
     private val pcmTap: (FloatArray, Int, Int) -> Unit = { samples, rate, channels ->
@@ -177,7 +183,18 @@ class ObsEncoderPlugin(private val activity: Activity, messenger: BinaryMessenge
                 "setPcmTap" -> {
                     pcmTapEnabled = call.argument<Boolean>("enabled") ?: false
                     audio?.pcmTap = if (pcmTapEnabled) pcmTap else null
-                    setNdiNetworking(pcmTapEnabled)
+                    setNdiNetworking(pcmTapEnabled || teleportNetworking)
+                    result.success(null)
+                }
+                "setJpegTap" -> {
+                    jpegQuality = call.argument<Int>("quality") ?: 0
+                    video?.jpegQuality = jpegQuality
+                    video?.jpegTap = if (jpegQuality > 0) jpegTap else null
+                    result.success(null)
+                }
+                "setMulticast" -> {
+                    teleportNetworking = call.argument<Boolean>("enabled") ?: false
+                    setNdiNetworking(pcmTapEnabled || teleportNetworking)
                     result.success(null)
                 }
                 "isScreenCaptureSupported" -> result.success(Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
@@ -244,7 +261,11 @@ class ObsEncoderPlugin(private val activity: Activity, messenger: BinaryMessenge
                 recorder?.write(isVideo, sample)
             }
             override fun onError(message: String) = emitError(message)
-        }).also { it.start() }
+        }).also {
+            it.jpegQuality = jpegQuality
+            if (jpegQuality > 0) it.jpegTap = jpegTap
+            it.start()
+        }
 
         val startAudio = {
             audio = AudioEncoder(sampleRate, channels, aBitrate, object : EncoderListener {

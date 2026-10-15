@@ -11,6 +11,7 @@ import '../plugins/plugin_manifest.dart';
 import '../plugins/plugin_runtime_js.dart';
 import 'dialogs.dart';
 import 'ndi_settings.dart';
+import 'teleport_settings.dart';
 import 'theme.dart';
 
 void openPlugins(BuildContext context) {
@@ -56,13 +57,14 @@ class _InstalledTab extends StatelessWidget {
             child: Column(
               children: [
                 SwitchListTile(
-                  secondary: const Icon(Icons.settings_input_antenna),
+                  secondary: Icon(b.id == teleportBuiltin.id ? Icons.wifi_tethering : Icons.settings_input_antenna),
                   title: Text(b.name),
                   subtitle: Text(b.description),
                   value: plugins.isEnabled(b.id),
                   onChanged: (v) => plugins.setEnabled(b.id, v),
                 ),
                 if (b.id == ndiBuiltin.id && plugins.isEnabled(b.id)) const NdiSettingsPanel(),
+                if (b.id == teleportBuiltin.id && plugins.isEnabled(b.id)) const TeleportSettingsPanel(),
               ],
             ),
           ),

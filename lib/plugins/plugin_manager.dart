@@ -111,7 +111,14 @@ const ndiBuiltin = BuiltinPlugin(
       'Receive it in vMix, OBS with DistroAV, NDI Studio Monitor, TriCaster and more.',
 );
 
-const kBuiltinPlugins = [ndiBuiltin];
+const teleportBuiltin = BuiltinPlugin(
+  id: 'builtin.teleport-output',
+  name: 'Teleport Output (obs-teleport)',
+  description: 'Sends the program and its sound over Wi-Fi to OBS on a computer with the free Teleport plugin, '
+      'or to another OBSpad. They find each other automatically; no NDI runtime needed.',
+);
+
+const kBuiltinPlugins = [ndiBuiltin, teleportBuiltin];
 
 /// Browser source URLs of plugin pages: `obspad-plugin://<plugin id>/<page>`.
 const kPluginUrlScheme = 'obspad-plugin://';

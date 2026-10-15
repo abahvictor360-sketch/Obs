@@ -16,7 +16,7 @@ Future<void> Function()? debugExitOverride;
 Future<void> exitApp(BuildContext context) async {
   final scope = AppScope.of(context);
   final out = scope.output;
-  final busy = out.isStreaming || out.isRecording || out.ndiActive;
+  final busy = out.isStreaming || out.isRecording || out.ndiActive || out.teleportActive;
   final ok = await confirm(
     context,
     title: 'Exit OBSpad?',
@@ -25,7 +25,8 @@ Future<void> exitApp(BuildContext context) async {
             if (out.isStreaming) 'streaming',
             if (out.isRecording) 'recording',
             if (out.ndiActive) 'sending NDI',
-          ].join(' and ')}. Exiting stops ${out.isStreaming || out.isRecording ? 'it' : 'NDI'}'
+            if (out.teleportActive) 'sending Teleport',
+          ].join(' and ')}. Exiting stops ${out.isStreaming || out.isRecording ? 'it' : 'sending'}'
             '${out.isRecording ? ' and saves the recording' : ''}. Your scenes and settings are saved.'
         : 'Your scenes and settings are saved.',
     ok: 'Exit',
@@ -41,6 +42,7 @@ Future<void> exitApp(BuildContext context) async {
   if (out.isStreaming) await safely(out.stopStreaming);
   if (out.isRecording) await safely(out.stopRecording);
   if (out.ndiActive) await safely(out.stopNdi);
+  if (out.teleportActive) await safely(out.stopTeleport);
   await safely(scope.studio.save);
   if (debugExitOverride != null) return debugExitOverride!();
   if (kIsWeb) return;

@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
+import '../teleport/teleport_input.dart';
 import '../app_scope.dart';
 import '../browser/browser_source.dart';
 import '../core/models.dart';
@@ -179,6 +180,8 @@ class SourceRenderer extends StatelessWidget {
         return _NdiInputSource(source: source, fit: _boxFit(fit), showPlaceholder: showPlaceholder);
       case SourceType.rtmpInput:
         return _RtmpInputSource(source: source, fit: _boxFit(fit), showPlaceholder: showPlaceholder);
+      case SourceType.teleportInput:
+        return _TeleportInputSource(source: source, fit: _boxFit(fit), showPlaceholder: showPlaceholder);
       case SourceType.screen:
         return showPlaceholder ? ScreenSourceCard(source: source) : const ColoredBox(color: Colors.black);
       case SourceType.audioInput:
@@ -609,6 +612,57 @@ class _NdiInputSource extends StatelessWidget {
             };
           }
           return SourcePlaceholder(icon: Icons.settings_input_antenna, label: source.name, hint: hint);
+        }
+
+        if (feed == null) return placeholder();
+        return ListenableBuilder(
+          listenable: feed,
+          builder: (context, _) {
+            final img = feed.image;
+            if (img == null) return placeholder();
+            return RawImage(image: img, fit: fit, filterQuality: FilterQuality.medium);
+          },
+        );
+      },
+    );
+  }
+}
+
+/// A Teleport sender on the network (OBS with obs-teleport, or OBSpad).
+class _TeleportInputSource extends StatelessWidget {
+  const _TeleportInputSource({required this.source, required this.fit, required this.showPlaceholder});
+
+  final Source source;
+  final BoxFit fit;
+  final bool showPlaceholder;
+
+  @override
+  Widget build(BuildContext context) {
+    final service = AppScope.of(context).liveInputs.teleport;
+    return ListenableBuilder(
+      listenable: service,
+      builder: (context, _) {
+        final feed = service.feed(source.id);
+        Widget placeholder() {
+          if (!showPlaceholder) return const ColoredBox(color: Colors.black);
+          final target = source.settings['teleport'] as String? ?? '';
+          final name = teleportDisplayName(target);
+          final String hint;
+          if (!service.supported) {
+            hint = 'Teleport works in the Android and iPad apps';
+          } else if (target.isEmpty) {
+            hint = 'Tap ⚙ and pick a Teleport sender';
+          } else if (feed == null) {
+            hint = name;
+          } else {
+            hint = switch (feed.state) {
+              TeleportInputState.searching => 'Looking for $name…',
+              TeleportInputState.connecting => 'Connecting to $name…',
+              TeleportInputState.connected => 'Receiving from $name…',
+              TeleportInputState.lost => feed.message ?? '$name stopped sending',
+            };
+          }
+          return SourcePlaceholder(icon: Icons.wifi_tethering, label: source.name, hint: hint);
         }
 
         if (feed == null) return placeholder();

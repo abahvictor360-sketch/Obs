@@ -8,6 +8,7 @@ import 'core/studio_controller.dart';
 import 'core/update_service.dart';
 import 'devices/device_service.dart';
 import 'live/live_inputs.dart';
+import 'teleport/teleport_controller.dart';
 import 'ndi/ndi_controller.dart';
 import 'network_video/network_video_service.dart';
 import 'output/external_display_output.dart';
@@ -38,6 +39,7 @@ Future<void> main() async {
   BrowserSourceService.urlResolver = plugins.resolveUrl;
   PluginBridge(studio, output, plugins);
   NdiController(plugins, output);
+  TeleportController(plugins, output);
   final devices = DeviceService();
   await devices.init();
   DeviceActivityTracker(studio, devices);

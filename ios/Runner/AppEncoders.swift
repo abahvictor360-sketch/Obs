@@ -1,5 +1,6 @@
 import AVFoundation
 import CoreImage
+import ImageIO
 import Foundation
 
 /// Video encoder used while the app is in the foreground: plain frames from
@@ -21,6 +22,13 @@ final class AppVideoEncoder {
     private var placement: ScreenPlacement?
     private var timer: DispatchSourceTimer?
     private var suspended = false
+
+    /// JPEG copies of the frames for Teleport: quality 1-100, 0 = off.
+    var jpegQuality = 0
+    var jpegTap: ((Data, Int, Int) -> Void)?
+    private var jpegBusy = false
+    private let jpegQueue = DispatchQueue(label: "org.obstablet.teleport-jpeg", qos: .userInitiated)
+    private lazy var jpegContext = CIContext(options: [.useSoftwareRenderer: false])
 
     init(width: Int, height: Int, fps: Int, bitrate: Int, keyframeIntervalSec: Int,
          onOutput: @escaping (EncodedVideo) -> Void, onError: @escaping (String) -> Void) {
@@ -67,6 +75,22 @@ final class AppVideoEncoder {
                   let pb = self.encoder.makePixelBuffer() else { return }
             self.compositor.render(to: pb, under: img, screen: nil, placement: nil, over: nil)
             self.encoder.encode(pb, ptsUs: hostNowUs())
+            self.jpeg(img, width: w, height: h)
+        }
+    }
+
+    /// Compresses [img] for Teleport on another queue, skipping frames while busy. On `queue`.
+    private func jpeg(_ img: CIImage, width: Int, height: Int) {
+        let q = jpegQuality
+        guard q > 0, let tap = jpegTap, !jpegBusy else { return }
+        jpegBusy = true
+        jpegQueue.async {
+            let space = CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB()
+            let opts = [CIImageRepresentationOption(rawValue: kCGImageDestinationLossyCompressionQuality as String): Double(q) / 100]
+            if let data = self.jpegContext.jpegRepresentation(of: img, colorSpace: space, options: opts) {
+                tap(data, width, height)
+            }
+            self.queue.async { self.jpegBusy = false }
         }
     }
 
